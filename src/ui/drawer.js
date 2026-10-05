@@ -73,14 +73,18 @@ export function createDrawer({ app, toggle, hud, tabs, ctx, onOpenChange }) {
     bar.append(b);
   }
 
-  function render() {
+  // keepScroll:同じタブの中身を作り直すとき(装着や分解のあと)は、スクロールの位置を保つ。
+  function render(keepScroll = false) {
+    const scroll = body.scrollTop;
     for (const [id, b] of tabButtons) b.classList.toggle("active", id === current);
     body.replaceChildren();
-    body.scrollTop = 0;
     const tab = tabs.find((t) => t.id === current);
     if (tab.view) renderListView(body, tab.view(ctx));
     else tab.mount(body, ctx);
+    body.scrollTop = keepScroll ? scroll : 0;
   }
+  // タブの部品から、作り直しを頼めるようにする。
+  ctx.rerender = () => render(true);
 
   function setOpen(value) {
     if (open === value) return;

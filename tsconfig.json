@@ -16,5 +16,5 @@
     "noImplicitReturns": true,
     "skipLibCheck": true
   },
-  "files": ["src/core/gear.js", "src/core/gear_save.js"]
+  "files": ["src/core/gear.js", "src/core/gear_save.js", "src/ui/gear_view.js", "src/ui/gear_tabs.js", "src/ui/gacha_fx.js"]
 }

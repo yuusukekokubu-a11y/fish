@@ -6,16 +6,19 @@ import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { craftGameRod, createGame } from "../src/core/fishing.js";
+import { emptyGear } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
 import { hasObtainedScale, materialsView, MENU_TABS, STATUS_ITEMS, statusView } from "../src/ui/menu_tabs.js";
 import { progressAt } from "./helpers.js";
 
 const rowsOf = (view) => view.sections.flatMap((s) => s.rows);
 
-test("タブは表で定義され、素材・ステータス・設定の 3 つ。どれも中身を作る部品を 1 つ持つ", () => {
+test("タブは表で定義され、クレート・装備・素材・ステータス・設定の 5 つ。どれも中身を作る部品を 1 つ持つ", () => {
   assert.deepEqual(
     MENU_TABS.map((t) => [t.id, t.name]),
     [
+      ["crates", "クレート"],
+      ["equipment", "装備"],
       ["materials", "素材"],
       ["status", "ステータス"],
       ["settings", "設定"],
@@ -80,6 +83,7 @@ test("ステータスタブ:竿の名前と段階、戦闘の数値の表から�
     ["ジャストの倍率", "1.5 倍"],
     ["外したときの回復", "10"],
     ["制限時間の増減", "+0 秒"],
+    ["外したあとの次の当たり", "+0"],
     ["合わせの成功帯(強い魚)", "0.4 秒"],
     ["ジャスト帯(強い魚)", "0.14 秒"],
   ]);
@@ -98,12 +102,32 @@ test("ステータスタブ:戦闘の数値の表を書き換えると、表示�
   };
   const game = createGame(1, { combat });
   const rows = rowsOf(statusView({ game }));
-  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.5 倍", "2 倍", "4", "+1.5 秒", "0.5 秒", "0.2 秒"]);
-  assert.deepEqual(rows[0].detail, [
-    ["今の値", "13"],
-    ["基本の値", "10"],
-  ]);
+  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.5 倍", "2 倍", "4", "+1.5 秒", "+0", "0.5 秒", "0.2 秒"]);
   // マイナスの増減。
   const minus = createGame(1, { combat: { ...DEFAULT_CONFIG.combat, timeLimitBonusMs: -2000 } });
   assert.equal(rowsOf(statusView({ game: minus }))[5].value, "−2 秒");
+});
+
+test("ステータスタブ:装備を反映した今の値と、装備なしの基本の値の両方が出る", () => {
+  const gear = {
+    ...emptyGear(),
+    items: [
+      { id: 1, kind: "reel", rarity: "legend", grade: 5, value: 15, skills: [] },
+      { id: 2, kind: "line", rarity: "normal", grade: 1, value: 700, skills: [] },
+      { id: 3, kind: "lure", rarity: "rare", grade: 1, value: 4, skills: [] },
+    ],
+    equipped: { reel: 1, line: 2, lure: 3 },
+    nextId: 4,
+  };
+  const game = createGame(1, { progress: progressAt(5, ROD_STEPS.NONE, { gear }) });
+  const rows = rowsOf(statusView({ game }));
+  const byLabel = Object.fromEntries(rows.map((r) => [r.label, r]));
+  assert.equal(byLabel["通常ダメージ"].value, "25");
+  assert.deepEqual(byLabel["通常ダメージ"].detail, [
+    ["今の値(装備込み)", "25"],
+    ["基本の値", "10"],
+  ]);
+  assert.equal(byLabel["制限時間の増減"].value, "+0.7 秒");
+  assert.equal(byLabel["外したあとの次の当たり"].value, "+4");
+  assert.equal(byLabel["クリティカルの確率"].value, "10%", "装備のない項目はそのまま");
 });

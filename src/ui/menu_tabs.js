@@ -8,6 +8,7 @@ import { normalizeCombat } from "../core/combat.js";
 import { DEFAULT_CONTENT, FISH_KINDS, scaleName } from "../core/fish.js";
 import { rodName, scaleCount, stageRodNames } from "../core/rod.js";
 import { formatCount } from "./format.js";
+import { mountCrates, mountEquipment } from "./gear_tabs.js";
 import { mountSettings } from "./settings.js";
 
 const KIND_NAMES = Object.freeze({
@@ -69,21 +70,23 @@ export const STATUS_ITEMS = Object.freeze([
   { label: "ジャストの倍率", value: (c) => c.hook.justMultiplier, format: times },
   { label: "外したときの回復", value: (c) => c.missHeal, format: String },
   { label: "制限時間の増減", value: (c) => c.timeLimitBonusMs, format: signedSeconds },
+  { label: "外したあとの次の当たり", value: (c) => c.missBonusDamage, format: (n) => `+${n}` },
   { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
   { label: "ジャスト帯(強い魚)", value: (c) => c.hook.strong.justMs, format: seconds },
 ]);
 
 export const STATUS_SECTIONS = Object.freeze([{ title: "戦闘", items: STATUS_ITEMS }]);
 
-/** 装備なしの基本の表(点検・丸め済み)。詳細で「基本の値」として並べる。 */
-function baseCombat(config = DEFAULT_CONFIG) {
-  return normalizeCombat(config.combat, config.combat, config.combatLimits);
+/** 装備なしの表(点検・丸め済み)。詳細で「基本の値」として並べる(D-151)。 */
+function baseCombat(game) {
+  const config = game.config ?? DEFAULT_CONFIG;
+  return normalizeCombat(game.baseCombat ?? config.combat, config.combat, config.combatLimits);
 }
 
-/** ステータスタブ:上に竿の名前と段階、下に戦闘の数値(今の値は game.combat から作る)。 */
+/** ステータスタブ:上に竿の名前と段階、下に戦闘の数値(今の値は装備を反映した game.combat から作る)。 */
 export function statusView({ game }) {
   const content = game.content ?? DEFAULT_CONTENT;
-  const base = baseCombat(game.config);
+  const base = baseCombat(game);
   return {
     header: `${rodName(game.progress, content)}(段階 ${game.progress.rodStage})`,
     sections: STATUS_SECTIONS.map(({ title, items }) => ({
@@ -92,7 +95,7 @@ export function statusView({ game }) {
         label: item.label,
         value: item.format(item.value(game.combat)),
         detail: [
-          ["今の値", item.format(item.value(game.combat))],
+          ["今の値(装備込み)", item.format(item.value(game.combat))],
           ["基本の値", item.format(item.value(base))],
         ],
       })),
@@ -106,6 +109,8 @@ export function statusView({ game }) {
  * - mount:自由な中身のタブ。(container, ctx) で中身を作る(設定タブ)。
  */
 export const MENU_TABS = Object.freeze([
+  { id: "crates", name: "クレート", mount: mountCrates },
+  { id: "equipment", name: "装備", mount: mountEquipment },
   { id: "materials", name: "素材", view: materialsView },
   { id: "status", name: "ステータス", view: statusView },
   { id: "settings", name: "設定", mount: mountSettings },
