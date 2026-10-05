@@ -20,6 +20,7 @@
       }
       /* 上(数)・真ん中(釣りの絵)・下(竿の強化)の 3 段(D-051)。 */
       #app {
+        position: relative;
         display: flex;
         flex-direction: column;
         max-width: 480px;
@@ -103,6 +104,72 @@
         color: #ff8fa3;
         opacity: 1;
       }
+      #sub button.link {
+        border: 0;
+        padding: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-decoration: underline;
+      }
+      /* セーブコードの小さな窓(D-066)。 */
+      #code-panel {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border-radius: 12px;
+        background: rgba(4, 30, 46, 0.96);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      }
+      #code-panel[hidden] {
+        display: none;
+      }
+      #code-text {
+        width: 100%;
+        box-sizing: border-box;
+        height: 72px;
+        resize: none;
+        border: 1px solid #44555f;
+        border-radius: 8px;
+        background: #0b3954;
+        color: #fff;
+        font: 12px ui-monospace, monospace;
+        word-break: break-all;
+        -webkit-user-select: text;
+        user-select: text;
+      }
+      #code-buttons {
+        display: flex;
+        gap: 6px;
+      }
+      #code-buttons button {
+        flex: 1;
+        min-height: 40px;
+        border: 0;
+        border-radius: 8px;
+        background: #ffd166;
+        color: #3d2c00;
+        font: inherit;
+        font-size: 14px;
+        font-weight: bold;
+      }
+      #code-buttons button.plain {
+        background: #44555f;
+        color: #fff;
+      }
+      #code-status {
+        min-height: 1em;
+        font-size: 13px;
+        text-align: center;
+      }
+      #code-status.error {
+        color: #ff8fa3;
+      }
     </style>
   </head>
   <body>
@@ -119,7 +186,18 @@
         <button id="upgrade" type="button"></button>
         <div id="sub">
           <button id="reset" type="button">データを消す</button>
+          <button id="code-open" class="link" type="button">セーブコード</button>
           <span id="seed"></span>
+        </div>
+      </div>
+      <div id="code-panel" hidden>
+        <textarea id="code-text" spellcheck="false" autocomplete="off" aria-label="セーブコード"></textarea>
+        <div id="code-status" role="status"></div>
+        <div id="code-buttons">
+          <button id="code-export" type="button">書き出し</button>
+          <button id="code-copy" type="button">コピー</button>
+          <button id="code-import" type="button">読み込み</button>
+          <button id="code-close" class="plain" type="button">閉じる</button>
         </div>
       </div>
     </div>

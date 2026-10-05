@@ -14,9 +14,14 @@ export function isHit(position, zone) {
   return zone.start <= position && position <= zone.end;
 }
 
-/** 当たり範囲を乱数で決める。ゲージの端から margin 以上はなす。 */
-export function drawZone(rng, { zoneWidth, zoneMargin }) {
+/** 0 以上 1 未満の数 v から当たり範囲を作る。ゲージの端から margin 以上はなす。 */
+export function zoneAt(v, { zoneWidth, zoneMargin }) {
   const room = Math.max(0, 1 - 2 * zoneMargin - zoneWidth);
-  const start = zoneMargin + rng() * room;
+  const start = zoneMargin + v * room;
   return { start, end: start + zoneWidth };
+}
+
+/** 当たり範囲を乱数で決める。 */
+export function drawZone(rng, options) {
+  return zoneAt(rng(), options);
 }

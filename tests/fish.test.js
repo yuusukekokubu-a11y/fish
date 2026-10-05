@@ -28,7 +28,9 @@ test("段階 1 の魚は Issue #4 と同じ設定", () => {
   const [normal, strong] = [availableFish(1, FISH_KINDS.NORMAL), availableFish(1, FISH_KINDS.STRONG)];
   assert.equal(normal.length, 1);
   assert.equal(strong.length, 1);
-  assert.deepEqual(strong[0].minigame, { sweepMs: 900, zoneWidth: 0.22 });
+  // 印の速さと当たり範囲の幅は Issue #4 のまま。体力と制限時間は体力制で足した(D-063)。
+  assert.equal(strong[0].minigame.sweepMs, 900);
+  assert.equal(strong[0].minigame.zoneWidth, 0.22);
   assert.equal(strong[0].color, "#f4a261");
   assert.equal(normal[0].color, "#a8dadc");
 });
@@ -44,17 +46,19 @@ test("段階が上の強い魚ほど、印が速く、当たり範囲が狭い",
 test("全部の強い魚が、限界(幅 10% 以上・端から端 0.45 秒以上)の中にある", () => {
   for (const f of availableFish(5, FISH_KINDS.STRONG)) {
     const m = effectiveMinigame(f, LIMITS);
-    assert.deepEqual(m, f.minigame, `${f.name} は限界で直されずにそのまま使われる`);
+    assert.deepEqual(m, { ...f.minigame }, `${f.name} は限界で直されずにそのまま使われる`);
     assert.ok(m.zoneWidth >= LIMITS.minZoneWidth && m.sweepMs >= LIMITS.minSweepMs);
   }
 });
 
 test("限界の境界:ちょうどの値はそのまま、こえた値は限界に直す", () => {
-  const make = (sweepMs, zoneWidth) => ({ minigame: { sweepMs, zoneWidth } });
-  assert.deepEqual(effectiveMinigame(make(450, 0.1), LIMITS), { sweepMs: 450, zoneWidth: 0.1 });
-  assert.deepEqual(effectiveMinigame(make(449, 0.0999), LIMITS), { sweepMs: 450, zoneWidth: 0.1 });
-  assert.deepEqual(effectiveMinigame(make(100, 0), LIMITS), { sweepMs: 450, zoneWidth: 0.1 });
-  assert.deepEqual(effectiveMinigame(make(451, 0.1001), LIMITS), { sweepMs: 451, zoneWidth: 0.1001 });
+  const make = (sweepMs, zoneWidth) => ({ minigame: { sweepMs, zoneWidth, hp: 3, timeLimitMs: 9000 } });
+  const pick = (m) => ({ sweepMs: m.sweepMs, zoneWidth: m.zoneWidth });
+  assert.deepEqual(pick(effectiveMinigame(make(450, 0.1), LIMITS)), { sweepMs: 450, zoneWidth: 0.1 });
+  assert.deepEqual(pick(effectiveMinigame(make(449, 0.0999), LIMITS)), { sweepMs: 450, zoneWidth: 0.1 });
+  assert.deepEqual(pick(effectiveMinigame(make(100, 0), LIMITS)), { sweepMs: 450, zoneWidth: 0.1 });
+  assert.deepEqual(pick(effectiveMinigame(make(451, 0.1001), LIMITS)), { sweepMs: 451, zoneWidth: 0.1001 });
+  assert.equal(effectiveMinigame(make(100, 0), LIMITS).hp, 3, "体力と制限時間はそのまま");
   assert.equal(effectiveMinigame({ minigame: null }, LIMITS), null);
 });
 
@@ -68,10 +72,13 @@ test("強い魚ごとの設定が、当たり範囲の幅と印の動きに反�
   }
   // マグロ(0.52 秒)のミニゲームで、0.52 秒たつと印は反対側の対称の位置に来る。
   const game = createGame(1, { progress: { coins: 0, material: 0, rodStage: 5, seen: [] } });
-  while (!(game.phase === PHASES.MINIGAME && game.cast.fish.id === "maguro")) {
+  // マグロが掛かったときだけ合わせる。ほかは逃がし、休みになったら再開する。
+  for (let i = 0; i < 1000000 && !(game.phase === PHASES.MINIGAME && game.cast.fish.id === "maguro"); i++) {
     update(game, 10);
-    if (game.phase === PHASES.MINIGAME && game.cast.fish.id !== "maguro") tap(game);
+    if (game.phase === PHASES.BITE && game.cast.fish.id === "maguro") tap(game);
+    if (game.phase === PHASES.RESTING) tap(game);
   }
+  assert.equal(game.cast.fish.id, "maguro");
   const before = currentMarker(game);
   assert.ok(before < 0.1, `始まった直後の位置 ${before}`);
   update(game, 520);
