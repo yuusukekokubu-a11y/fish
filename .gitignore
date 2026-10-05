@@ -1,16 +1,6 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-build/
-dist/
-.venv/
-venv/
-
-# テストの道具
-.pytest_cache/
-.coverage
-htmlcov/
+# Node.js
+node_modules/
+npm-debug.log*
 
 # 秘密の情報(D-008)
 .env
