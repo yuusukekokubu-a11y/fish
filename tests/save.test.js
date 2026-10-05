@@ -1,4 +1,4 @@
-// 保存の形式のテスト(受け入れ条件 11:版 1・版 2 → 版 3 の読み替え、壊れたデータ)。
+// 保存の形式のテスト(版 1〜3 → 版 4 の読み替え、壊れたデータ:②-3c の受け入れ条件 11・②-4a の受け入れ条件 11)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -15,15 +15,16 @@ const SAMPLE = progressAt(3, ROD_STEPS.CRAFTED, {
   seen: ["aji", "saba"],
 });
 
-test("保存の形は版 3:鱗は魚の id をキーにした表、竿は段階と工程", () => {
-  assert.equal(SAVE_VERSION, 3);
+test("保存の形は版 4:鱗は魚の id をキーにした表、竿は段階と工程、装備とガチャのまとまり", () => {
+  assert.equal(SAVE_VERSION, 4);
   assert.deepEqual(toSaveData(SAMPLE), {
-    version: 3,
+    version: 4,
     progress: {
       coins: 123,
       scales: { kurodai: 2, buri: 1, "nushi-kurodai": 1 },
       rod: { stage: 3, step: "crafted" },
       seen: ["aji", "saba"],
+      gear: { items: [], equipped: {}, draws: 0, seed: null, nextId: 1 },
     },
   });
 });
@@ -46,11 +47,11 @@ test("版 2 から読むと、ウロコインと竿の段階はそのまま(段�
   assert.equal(parseSave(JSON.stringify(big)).coins, COUNT_MAX);
 });
 
-test("版 1 から読むと、版 2 を経て版 3 になる", () => {
+test("版 1 から読むと、版 2・版 3 を経て版 4 になる", () => {
   const v1 = { version: 1, coins: 50, material: 7, rodStage: 2, seen: ["aji"] };
-  assert.deepEqual(migrate(v1).version, 3);
+  assert.deepEqual(migrate(v1).version, 4);
   assert.deepEqual(readSaveData(v1), { ok: true, progress: progressAt(2, ROD_STEPS.NONE, { coins: 57, seen: ["aji"] }) });
-  assert.deepEqual(Object.keys(MIGRATIONS), ["1", "2"], "版ごとの小さな関数");
+  assert.deepEqual(Object.keys(MIGRATIONS), ["1", "2", "3"], "版ごとの小さな関数");
 });
 
 test("保存したものからゲームを作ると、続きから遊べる(読んだものは書き換えない)", () => {
@@ -72,7 +73,7 @@ test("表にない魚の鱗や id が残っていても、エラーにならず�
 
 test("壊れた・形のちがう・範囲外の保存データは、エラーにせず初めの状態にする", () => {
   const good = toSaveData(SAMPLE);
-  const v3 = (over) => JSON.stringify({ version: 3, progress: { ...good.progress, ...over } });
+  const v3 = (over) => JSON.stringify({ version: 4, progress: { ...good.progress, ...over } });
   const broken = [
     null,
     undefined,
@@ -81,9 +82,10 @@ test("壊れた・形のちがう・範囲外の保存データは、エラー�
     "null",
     "[]",
     "42",
-    JSON.stringify({ version: 4, progress: good.progress }),
+    JSON.stringify({ version: 5, progress: good.progress }),
     JSON.stringify({ progress: good.progress }),
-    JSON.stringify({ version: 3 }),
+    JSON.stringify({ version: 4 }),
+    JSON.stringify({ version: 4, progress: [] }),
     JSON.stringify({ version: 3, progress: [] }),
     JSON.stringify({ version: 2, progress: { coins: -1, material: 0, rodStage: 1, seen: [] } }),
     JSON.stringify({ version: 2, progress: { coins: 1, material: 0, rodStage: 9, seen: [] } }),
@@ -111,5 +113,6 @@ test("壊れた・形のちがう・範囲外の保存データは、エラー�
 test("鱗の種類が多すぎるデータは拒否する(1000 種類まで)", () => {
   const scales = Object.fromEntries(Array.from({ length: 1001 }, (_, i) => [`f${i}`, 1]));
   const text = JSON.stringify({ version: 3, progress: { coins: 0, scales, rod: { stage: 1, step: "none" }, seen: [] } });
+  assert.deepEqual(parseSave(text), initialProgress());
   assert.deepEqual(parseSave(text), initialProgress());
 });

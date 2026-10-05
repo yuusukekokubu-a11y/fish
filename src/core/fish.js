@@ -4,6 +4,8 @@
 //   強い魚とヌシはミニゲームの設定(印の速さ・当たり範囲の幅・体力・制限時間)。
 // - 段階:製作に使う鱗(その段階の強い魚の鱗)と数、ヌシ、進化に使う鱗(ヌシの鱗)と数。
 
+import { EQUIP_KIND_ROWS } from "./gear.js";
+
 export const FISH_KINDS = Object.freeze({ WEAK: "weak", STRONG: "strong", BOSS: "boss" });
 
 /**
@@ -109,8 +111,11 @@ export const STAGE_ROWS = Object.freeze([
 export const FISH_LIST = Object.freeze(FISH_ROWS.map(defineFish));
 export const STAGE_LIST = Object.freeze(STAGE_ROWS.map(defineStage));
 
-/** 設定表 1 組(魚と段階)。テストや将来の追加では、別の組を作って渡せる。 */
-export function makeContent(fish = FISH_LIST, stages = STAGE_LIST) {
+/**
+ * 設定表 1 組(魚と段階と装備の種類)。テストや将来の追加では、別の組を作って渡せる。
+ * クレートは段階の表から作る(gear.js の makeCrates)。
+ */
+export function makeContent(fish = FISH_LIST, stages = STAGE_LIST, equipKinds = EQUIP_KIND_ROWS) {
   const byId = new Map(fish.map((f) => [f.id, f]));
   const sortedStages = [...stages].sort((a, b) => a.stage - b.stage);
   return Object.freeze({
@@ -119,6 +124,7 @@ export function makeContent(fish = FISH_LIST, stages = STAGE_LIST) {
     byId,
     stageByNumber: new Map(sortedStages.map((s) => [s.stage, s])),
     maxStage: sortedStages.length > 0 ? sortedStages[sortedStages.length - 1].stage : 1,
+    equipKinds,
   });
 }
 

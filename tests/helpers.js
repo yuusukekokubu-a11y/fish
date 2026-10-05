@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { emptyGear } from "../src/core/gear.js";
+
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export function readText(relativePath) {
@@ -70,5 +72,5 @@ export function makeAimCenter(currentMarker) {
 
 /** 竿の段階 rodStage・工程 rodStep の、鱗もウロコインもない進み具合(テスト用)。 */
 export function progressAt(rodStage, rodStep = "none", extra = {}) {
-  return { coins: 0, scales: {}, rodStage, rodStep, seen: [], ...extra };
+  return { coins: 0, scales: {}, rodStage, rodStep, seen: [], gear: emptyGear(), ...extra };
 }

@@ -27,5 +27,7 @@ export function playRecorded(seed, stage, way) {
       rows.push([t, x.fishId, x.outcome, x.reason, x.hook ?? "", x.hits ?? 0, x.misses ?? 0, x.crits ?? 0]);
     }
   }
-  return { progress: g.progress, results: rows };
+  // 記録(hookring_plays.json)は ②-4a の前に作った。装備の欄(gear)は記録にないので、前と同じ項目で比べる。
+  const { coins, scales, rodStage, rodStep, seen } = g.progress;
+  return { progress: { coins, scales, rodStage, rodStep, seen }, results: rows };
 }
