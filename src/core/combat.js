@@ -122,10 +122,29 @@ export function isCritical(context, rules = DEFAULT_CRIT_RULES) {
   return rules.some((rule) => rule(context));
 }
 
-/** 当たり 1 回のダメージ。クリティカルは「通常ダメージ × 倍率」を四捨五入(通常ダメージより小さくしない)。 */
-export function hitDamage(stats, critical) {
-  if (!critical) return stats.damage;
-  return Math.max(stats.damage, Math.round(stats.damage * stats.critMultiplier));
+/**
+ * クリティカルの段数(D-169)。会心率 c の整数部分は必ず起きる段数、小数部分は、もう 1 段増える確率。
+ * 乱数 roll は当たりのたびに 1 回だけ引いたもの。c が 1 以下なら、前と同じ(0 段か 1 段)。
+ * 規則の一覧(腕前型など)のどれかに当てはまれば、少なくとも 1 段。段数は安全上限で止める。
+ */
+export function critStages(context, rules = DEFAULT_CRIT_RULES, maxStages = Infinity) {
+  const c = context.stats.critChance;
+  const whole = Math.floor(c);
+  let stages = whole + (context.roll < c - whole ? 1 : 0);
+  if (stages === 0 && rules.some((rule) => rule(context))) stages = 1;
+  return Math.min(stages, maxStages);
+}
+
+/**
+ * 当たり 1 回のダメージ。クリティカルは「通常ダメージ × 倍率の段数乗」を四捨五入(通常ダメージより小さくしない)。
+ * critical は段数(数)か、前の形の true/false(true は 1 段)。総倍率とダメージは安全上限で止める。
+ */
+export function hitDamage(stats, critical, limits = null) {
+  const stages = critical === true ? 1 : critical === false ? 0 : critical;
+  if (!stages) return stats.damage;
+  const multiplier = Math.min(limits?.maxCritTotalMultiplier ?? Infinity, stats.critMultiplier ** stages);
+  const damage = Math.max(stats.damage, Math.round(stats.damage * multiplier));
+  return Math.min(limits?.maxHitDamage ?? Infinity, damage);
 }
 
 /** ミニゲームの種から、クリティカル専用の小さな系統の種を作る(D-079)。 */

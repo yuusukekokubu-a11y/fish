@@ -38,9 +38,13 @@ export const DEFAULT_CONFIG = Object.freeze({
   // 戦闘の数値の表の上限と下限。装備で上げるときも、ここをこえない。
   combatLimits: Object.freeze({
     minDamage: 1,
-    maxCritChance: 1,
+    // クリティカルの確率と倍率は、計算が壊れない範囲の安全上限だけ(D-169)。確率 20 は 2000%(必ず 20 段)。
+    maxCritChance: 20,
+    maxCritStages: 20,
+    maxCritTotalMultiplier: 1000000,
+    maxHitDamage: 1000000000,
     minCritMultiplier: 1,
-    maxCritMultiplier: 10,
+    maxCritMultiplier: 100,
     minMissHeal: 0,
     minTimeLimitMs: 1000,
     // 計算が壊れないための安全上限だけ(ゲームデザイン上の上限ではない:D-145)。
@@ -54,6 +58,17 @@ export const DEFAULT_CONFIG = Object.freeze({
     minHookJustMs: 100,
     minHookEarlyMs: 300,
     maxJustMultiplier: 5,
+  }),
+  // スキル(D-166〜D-168・D-174)。表は skills.js にある。
+  skills: Object.freeze({
+    pointsPerLevel: 4, // 1 レベルに要るポイント
+    growthMaxBase: 2, // 成長型の最大レベル = 2 + 竿の段階
+    growthMaxPerStage: 1,
+    cappedMax: 3, // 頭打ち型の最大レベル
+    pointsBase: Object.freeze({ min: 2, max: 4 }), // グレード 1・レアのポイントの範囲
+    pointsGradeGrowth: 0.35, // グレードが 1 上がるごとに増える割合(基本効果と同じ)
+    pointsRarityMultiplier: Object.freeze({ normal: 1, rare: 1, epic: 1.25, legend: 1.5 }),
+    minWaitMs: 1000, // 俊敏で短くしても、待ち時間は 1 秒より短くしない
   }),
   // クレートガチャ(D-140・D-146・D-147・D-149)。
   gacha: Object.freeze({
