@@ -242,7 +242,7 @@ function main() {
     toggle: el.menu,
     hud: el.hud,
     screens: SCREENS,
-    onSelect: (id) => shell.navigate(id),
+    onSelect: (id, replace) => shell.navigate(id, { replace }),
     onOpenChange: (open) => applyNav(setDrawer(nav, open)),
   });
   // ?debug を付けたときだけ、ブラウザの自動操作の確認用に状態を見せる(読むだけ。結果には関係しない)。

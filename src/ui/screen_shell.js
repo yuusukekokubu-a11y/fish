@@ -69,11 +69,16 @@ export function createScreenShell({ app, screens, ctx, onChange }) {
     if (changed) onChange(current);
   }
 
-  /** 画面に移る(履歴を 1 つ足す)。 @param {string} id */
-  function navigate(id) {
+  /**
+   * 画面に移る(履歴を 1 つ足す)。replace なら、今の履歴(目次を開いたときのもの)を置き換える(D-173)。
+   * @param {string} id @param {{ replace?: boolean }} [options]
+   */
+  function navigate(id, options = {}) {
     if (!screens.some((s) => s.id === id)) return;
     const depth = (currentMark()?.depth ?? 0) + 1;
-    history.pushState({ screen: id, depth }, "", `${baseUrl()}${hashFor(id)}`);
+    const url = `${baseUrl()}${hashFor(id)}`;
+    if (options.replace) history.replaceState({ screen: id, depth }, "", url);
+    else history.pushState({ screen: id, depth }, "", url);
     render(id);
   }
 
@@ -87,7 +92,7 @@ export function createScreenShell({ app, screens, ctx, onChange }) {
     }
   }
 
-  ctx.navigate = navigate;
+  ctx.navigate = (/** @type {string} */ id) => navigate(id);
   ctx.rerender = () => render(current, true);
   back.addEventListener("click", backToMain);
   window.addEventListener("popstate", () => render(screenFromHash(location.hash, screens)));

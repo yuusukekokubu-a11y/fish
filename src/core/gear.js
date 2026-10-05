@@ -83,6 +83,7 @@ import { pointsRange, SKILL_ROWS } from "./skills.js";
  * @property {Map<string, { name: string }>} byId
  * @property {number} maxStage
  * @property {EquipKind[]} equipKinds
+ * @property {readonly import("./skills.js").SkillRow[]} [skills] スキルの表
  */
 
 /**

@@ -98,10 +98,21 @@ test("持ち物の空き(「あと n 個」)と、種類での絞り込み、ま
   assert.equal(inventorySpaceLabel(full), "持ち物がいっぱいです");
 });
 
-test("スキルの欄は最大 3 行(②-4b から入る。今は空)", () => {
-  const game = gameWith(1, 0, [{ ...item(1, "reel", "normal", 1, 2), skills: ["a", "b", "c", "d"] }, item(2, "reel", "normal", 1, 1)]);
+test("スキルの欄は最大 3 行(名前とポイント)。スキルなしは空", () => {
+  const skills = [
+    { id: "power", points: 3 },
+    { id: "crit-rate", points: 4 },
+    { id: "insight", points: 5 },
+  ];
+  const game = gameWith(1, 0, [{ ...item(1, "reel", "legend", 1, 2), skills }, item(2, "reel", "normal", 1, 1)]);
   const crates = makeCrates(game.content, game.config);
   const views = inventoryRows(game, crates, "new");
-  assert.deepEqual(views.find((v) => v.id === 1).skills, ["a", "b", "c"]);
+  assert.deepEqual(views.find((v) => v.id === 1).skills.map((s) => s.text), ["強打 +3", "会心率 +4", "見極め +5"]);
   assert.deepEqual(views.find((v) => v.id === 2).skills, []);
+});
+
+test("クレートの排出率に、レア度ごとのスキルの数を出す", () => {
+  const game = gameWith(1, 0);
+  const cards = crateCards(game, makeCrates(game.content, game.config));
+  assert.deepEqual(cards[0].rates.map((r) => r.skillsText), ["スキルなし", "スキル 1 つ", "スキル 2 つ", "スキル 3 つ"]);
 });

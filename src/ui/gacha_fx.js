@@ -34,6 +34,7 @@ function card(v, big) {
   top.append(el("span", "fx-rarity", `${v.stars} ${v.rarity}`));
   if (v.better) top.append(el("span", "fx-better", "▲"));
   c.append(top, el("div", "fx-name", v.name), el("div", "fx-effect", v.effect));
+  if (v.skills.length > 0) c.append(el("div", "fx-skills", v.skills.map((x) => x.text).join("・")));
   return c;
 }
 

@@ -17,6 +17,7 @@ import {
   refundFor,
 } from "../core/gear.js";
 import { formatCount } from "./format.js";
+import { itemSkillLines, skillLevelChanges } from "./skill_view.js";
 
 /** @typedef {import("../core/gear.js").Item} Item */
 /** @typedef {import("../core/gear.js").Crate} Crate */
@@ -29,7 +30,7 @@ import { formatCount } from "./format.js";
  * @typedef {object} GameLike
  * @property {{ coins: number, rodStage: number, gear: Gear }} progress
  * @property {ContentLike} content
- * @property {{ gacha: GachaConfig }} config
+ * @property {{ gacha: GachaConfig, skills?: import("../core/skills.js").SkillConfig }} config
  */
 
 /**
@@ -78,6 +79,9 @@ export function crateCards(game, crates) {
         stars: rarityStars(r.id),
         color: r.color,
         rate: formatRate(r.rate),
+        // そのレア度に付くスキルの数(D-177)。
+        skills: r.skillCount ?? 0,
+        skillsText: (r.skillCount ?? 0) === 0 ? "スキルなし" : `スキル ${r.skillCount} つ`,
       })),
       kinds: content.equipKinds.map((k) => {
         const low = effectRange(k, crate.rarities[0], crate.grade, config.gacha.gradeGrowth);
@@ -117,6 +121,7 @@ export function formatDiff(kind, diff) {
 
 /**
  * 装備 1 個の見せ方。better は、いま付けている同じ種類の装備より基本効果が高いとき(▲)。
+ * skillChanges は、付けた(装着中なら外した)ときのスキルレベルの変化(例:「会心率 Lv2→Lv3」)。
  * @param {GameLike} game @param {Item} item @param {Crate[]} crates
  */
 export function itemView(game, item, crates) {
@@ -141,8 +146,9 @@ export function itemView(game, item, crates) {
     diff: kind ? formatDiff(kind, diff) : String(diff),
     diffSign: Math.sign(diff),
     refund: refundFor(item, crates),
-    // スキルの欄(②-4b から。1 個に最大 3 行)。今は空なので、画面には何も出ない。
-    skills: item.skills.slice(0, 3),
+    // スキルの欄(1 個に最大 3 行。名前とポイント:D-179)。
+    skills: itemSkillLines(item, content.skills),
+    skillChanges: skillLevelChanges(game, item),
   };
 }
 

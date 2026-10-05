@@ -12,6 +12,7 @@ import { mountEquipment } from "./equip_screen.js";
 import { mountList } from "./list_view.js";
 import { materialsView, statusView } from "./screen_views.js";
 import { mountSettings } from "./settings.js";
+import { mountSkills } from "./skill_screen.js";
 
 /**
  * 画面 1 つ。mount は、中身を container に作る。ctx は main.js が渡す(ゲームの状態や保存の窓口)。
@@ -24,6 +25,7 @@ import { mountSettings } from "./settings.js";
 /** @type {readonly Screen[]} */
 export const SCREENS = Object.freeze([
   { id: "equipment", title: "装備", mount: mountEquipment },
+  { id: "skills", title: "スキル", mount: mountSkills },
   { id: "crates", title: "クレート", mount: mountCrates },
   { id: "materials", title: "素材", mount: mountList(materialsView) },
   { id: "status", title: "ステータス", mount: mountList(statusView) },

@@ -204,11 +204,23 @@
 #code-status.error {
   color: #ff8fa3;
 }
-/* 装備の画面(D-155・D-162)。枠は 2 列のグリッド(7 枠でも 4 段)。持ち物は 1 列のカード。 */
+/* 装備の画面(D-155・D-162・D-179)。枠は小さめの 3 列のグリッドで上に固定(7 枠でも 3 段)。持ち物は 1 列のカード。 */
+.slots-fixed {
+  position: sticky;
+  top: -12px;
+  z-index: 2;
+  margin: -12px -4px 12px;
+  padding: 10px 4px 8px;
+  background: #062a3d;
+  box-shadow: 0 6px 8px -6px rgba(0, 0, 0, 0.6);
+}
+.slots-fixed .section-title {
+  margin: 0 2px 6px;
+}
 .slot-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
 }
 .slot-cell {
   display: flex;
@@ -216,8 +228,8 @@
   align-items: flex-start;
   gap: 2px;
   min-width: 0;
-  min-height: 84px;
-  padding: 8px 10px;
+  min-height: 56px;
+  padding: 6px 8px;
   border: 2px solid var(--rarity, #5d7380);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.05);
@@ -239,6 +251,10 @@
 .slot-effect {
   max-width: 100%;
   overflow-wrap: anywhere;
+}
+.slot-stars {
+  font-size: 14px;
+  letter-spacing: -1px;
 }
 .slot-name {
   font-weight: bold;
@@ -295,6 +311,22 @@
   margin: 4px 0 0;
   padding: 0 0 0 1.2em;
   font-size: 14px;
+  color: #b9e6ff;
+}
+.skill-changes {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+}
+.skill-changes-title {
+  opacity: 0.8;
+  font-size: 14px;
+}
+.fx-skills {
+  margin-top: 2px;
+  font-size: 14px;
+  color: #b9e6ff;
 }
 /* 下から出るシート。 */
 .sheet-backdrop {
@@ -593,4 +625,42 @@
   bottom: calc(env(safe-area-inset-bottom) + 16px);
   font-size: 14px;
   opacity: 0.6;
+}
+/* スキルの画面(D-179)。1 行に 名前・Lv/最大・MAX の印、細い棒、今の効果。 */
+.skill-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.skill-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.skill-top .menu-label {
+  flex: 1;
+}
+.skill-max {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #ffd54f;
+  color: #062a3d;
+  font-size: 14px;
+  font-weight: bold;
+}
+.skill-bar {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+.skill-bar-fill {
+  display: block;
+  height: 100%;
+  background: #4fc3f7;
+}
+.skill-effect {
+  font-size: 14px;
+  opacity: 0.85;
 }
