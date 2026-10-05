@@ -2,7 +2,7 @@
   "name": "fish",
   "version": "0.0.0",
   "private": true,
-  "description": "スマホのブラウザで動く、釣り×クリッカー×ローグライク/ハクスラのゲーム",
+  "description": "スマホのブラウザで動く、タップ主体の釣り×ハクスラのゲーム",
   "license": "MIT",
   "type": "module",
   "engines": {

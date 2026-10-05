@@ -18,7 +18,7 @@
         user-select: none;
         -webkit-tap-highlight-color: transparent;
       }
-      /* 上(数)・真ん中(釣りの絵)・下(竿の強化)の 3 段(D-051)。 */
+      /* 上(数)・真ん中(釣りの絵)・下(竿のボタン)の 3 段(D-051)。メニューは右から重ねて出す(D-130)。 */
       #app {
         position: relative;
         display: flex;
@@ -98,51 +98,158 @@
       }
       #sub {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         font-size: 11px;
         opacity: 0.7;
       }
-      #reset {
-        border: 0;
-        padding: 0;
-        background: none;
-        color: inherit;
-        font: inherit;
-        text-decoration: underline;
-      }
-      #reset.armed {
-        color: #ff8fa3;
-        opacity: 1;
-      }
-      #sub button.link {
-        border: 0;
-        padding: 0;
-        background: none;
-        color: inherit;
-        font: inherit;
-        text-decoration: underline;
-      }
-      /* セーブコードの小さな窓(D-066)。 */
-      #code-panel {
+      /* ドロワーメニュー(D-130・D-134)。☰ は釣りの絵の右上。メニューは上の数の欄の下から、右に出る。 */
+      #menu-toggle {
         position: absolute;
-        left: 10px;
-        right: 10px;
-        bottom: 10px;
+        top: 8px;
+        right: 8px;
+        z-index: 30;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 10px;
+        background: rgba(4, 30, 46, 0.7);
+        color: #fff;
+        font-size: 22px;
+        line-height: 40px;
+      }
+      .drawer-backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        display: none;
+        background: rgba(0, 0, 0, 0.45);
+      }
+      .drawer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        width: 85%;
+        max-width: 360px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        padding: 12px;
-        border-radius: 12px;
-        background: rgba(4, 30, 46, 0.96);
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        background: #062a3d;
+        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.5);
+        transform: translateX(105%);
+        transition: transform 0.2s ease-out;
+        visibility: hidden;
       }
-      #code-panel[hidden] {
+      #app.menu-open .drawer-backdrop {
+        display: block;
+      }
+      #app.menu-open .drawer {
+        transform: translateX(0);
+        visibility: visible;
+      }
+      .drawer-tabs {
+        display: flex;
+        gap: 4px;
+        padding: 8px 56px 8px 8px;
+        border-bottom: 1px solid #44555f;
+      }
+      .drawer-tab {
+        flex: 1;
+        min-height: 40px;
+        border: 0;
+        border-radius: 8px;
+        background: #0b3954;
+        color: #cfe3ee;
+        font: inherit;
+        font-size: 14px;
+      }
+      .drawer-tab.active {
+        background: #ffd166;
+        color: #3d2c00;
+        font-weight: bold;
+      }
+      .drawer-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 8px 10px calc(env(safe-area-inset-bottom) + 12px);
+      }
+      .menu-header {
+        padding: 6px 2px 10px;
+        font-size: 16px;
+        font-weight: bold;
+      }
+      .menu-section h3 {
+        margin: 10px 2px 4px;
+        font-size: 12px;
+        font-weight: normal;
+        opacity: 0.7;
+      }
+      .menu-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .menu-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        min-height: 40px;
+        padding: 8px 10px;
+        border: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: none;
+        color: inherit;
+        font: inherit;
+        font-size: 14px;
+        text-align: left;
+      }
+      .menu-row:disabled {
+        color: #7f95a1;
+      }
+      .menu-value {
+        font-weight: bold;
+        white-space: nowrap;
+      }
+      .menu-detail {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 10px;
+        margin: 0;
+        padding: 8px 12px 10px;
+        background: rgba(255, 255, 255, 0.06);
+        font-size: 13px;
+      }
+      .menu-detail[hidden] {
         display: none;
+      }
+      .menu-detail dt {
+        opacity: 0.7;
+      }
+      .menu-detail dd {
+        margin: 0;
+      }
+      #reset {
+        width: 100%;
+        min-height: 40px;
+        border: 1px solid #ff8fa3;
+        border-radius: 8px;
+        background: none;
+        color: #ff8fa3;
+        font: inherit;
+        font-size: 14px;
+      }
+      #reset.armed {
+        background: #ff8fa3;
+        color: #3d0010;
+        font-weight: bold;
       }
       #code-text {
         width: 100%;
         box-sizing: border-box;
-        height: 72px;
+        height: 88px;
         resize: none;
         border: 1px solid #44555f;
         border-radius: 8px;
@@ -168,12 +275,9 @@
         font-size: 14px;
         font-weight: bold;
       }
-      #code-buttons button.plain {
-        background: #44555f;
-        color: #fff;
-      }
       #code-status {
-        min-height: 1em;
+        min-height: 1.4em;
+        padding: 4px 0;
         font-size: 13px;
         text-align: center;
       }
@@ -194,23 +298,12 @@
       <div id="stage">
         <canvas id="scene"></canvas>
         <div id="message"></div>
+        <button id="menu-toggle" type="button" aria-label="メニュー" aria-expanded="false" aria-controls="drawer">☰</button>
       </div>
       <div id="footer">
         <button id="upgrade" type="button"></button>
         <div id="sub">
-          <button id="reset" type="button">データを消す</button>
-          <button id="code-open" class="link" type="button">セーブコード</button>
           <span><span id="version"></span> / <span id="seed"></span></span>
-        </div>
-      </div>
-      <div id="code-panel" hidden>
-        <textarea id="code-text" spellcheck="false" autocomplete="off" aria-label="セーブコード"></textarea>
-        <div id="code-status" role="status"></div>
-        <div id="code-buttons">
-          <button id="code-export" type="button">書き出し</button>
-          <button id="code-copy" type="button">コピー</button>
-          <button id="code-import" type="button">読み込み</button>
-          <button id="code-close" class="plain" type="button">閉じる</button>
         </div>
       </div>
     </div>

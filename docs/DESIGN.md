@@ -31,14 +31,14 @@
 | `src/core/config.js` | ゲームの数値(D-047・D-048・D-078・D-087)。待ち時間・ミニゲームの限界・戦闘の数値の基本の表(`combat`)と上限下限(`combatLimits`)・強い魚の出現率(`strongChance`)。 |
 | `src/core/combat.js` | 戦闘の数値の表の点検と丸め、クリティカルの規則の一覧、ダメージの計算、合わせの輪の判定、戦闘中の上乗せ(D-078〜D-080・D-087〜D-089)。 |
 | `src/version.js` | バージョン(手で決める番号と識別番号)。画面だけが読む(D-091)。 |
-| `src/core/fish.js` | 魚の表(`FISH_LIST`)と段階の表(`STAGE_LIST`)、表の点検(`checkContent`)、抽選の重み(D-046・D-111)。魚と段階を足すときは、ここに行を足すだけ(下の「段階や魚を足す手順」)。 |
+| `src/core/fish.js` | 魚の表(`FISH_ROWS`)と段階の表(`STAGE_ROWS`)。どちらも項目名つきの行で、中で使う形(`FISH_LIST`・`STAGE_LIST`)に直す。表の点検(`checkContent`)、抽選の重み(D-046・D-111・D-136)。魚と段階を足すときは、ここに行を足すだけ(下の「段階や魚を足す手順」)。 |
 | `src/core/rng.js` | シードで固定できる乱数(D-021)。 |
 | `src/core/minigame.js` | ミニゲームの印の動きと判定。 |
 | `src/core/fishing.js` | 釣りの 1 サイクルの場面の進み方(合わせ・体力制・休み)と、報酬。 |
 | `src/core/rod.js` | 竿の工程(製作・ヌシ撃破・進化)、竿の名前、次に要る鱗、数の上限(D-114・D-116)。 |
 | `src/core/save.js` | 保存の形式(版 3)の変換と点検、版 1・版 2 からの読み替え(D-065・D-117)。ブラウザへの読み書きは UI が行う。 |
 | `src/core/savecode.js` | セーブコードの書き出しと読み込み(D-065)。 |
-| `src/ui/` | 画面の表示と操作。`main.js` が時間を進めてタップとボタンを受け取り、保存とセーブコードの窓を扱う。URL に `?debug` を付けると、ブラウザの自動操作の確認用に状態を `window.fishDebug` で読めるようにする(読むだけ)。`?debug&crit=100` のように付けると、クリティカルの確率(%)を変えられる(`?debug` がないときは無視)。`draw.js` が絵、`effects.js` が手応えの演出を描く。`format.js` は大きな数を「1.2万」のように短くする(D-116)。 |
+| `src/ui/` | 画面の表示と操作。`main.js` が時間を進めてタップとボタンを受け取り、保存を扱う。`session.js` は時間とタップを計算本体に渡す窓口で、メニューを開いている間は止める(D-134)。`drawer.js` がドロワーメニューの画面、`menu_tabs.js` がタブの表とタブの中身を作る部品、`settings.js` が設定タブ(セーブコードとデータを消す)(D-135)。URL に `?debug` を付けると、ブラウザの自動操作の確認用に状態を `window.fishDebug` で読めるようにする(読むだけ)。`?debug&crit=100` のように付けると、クリティカルの確率(%)を変えられる(`?debug` がないときは無視)。`draw.js` が絵、`effects.js` が手応えの演出を描く。`format.js` は大きな数を「1.2万」のように短くする(D-116)。 |
 | `tests/fixtures/` | テストで比べる記録。変えてはいけない。`fish_order.json` は全段階 × シード 3 つの「待ち時間・魚・最初の当たり範囲」の並び(強い魚 10% にしたときに作り直した:D-113)。`hookring_plays.json` は縮む輪の合わせで決まった遊び方をした結果(D-090・D-113。作り方は `tests/hookring_play.js`)。 |
 | `tests/*.test.js` | 速いテスト。`npm test` で並列に回る。 |
 | `tests/slow/*.test.js` | 重いテスト(D-026)。`npm run test:slow` で回る。 |
@@ -53,7 +53,7 @@
 ### 計算本体と画面の分け方
 
 - 計算本体は「状態」と、それを変える関数(`update` で時間を進める、`tap` でタップする)だけを持つ。時計や画面には触らない。
-- 画面(`src/ui/main.js`)は、ブラウザの描画のたびに経過時間を `update` に渡し、状態を読んで描く。
+- 画面(`src/ui/main.js`)は、ブラウザの描画のたびに経過時間を窓口(`src/ui/session.js` の `advance`)に渡し、状態を読んで描く。窓口は、メニューを開いている間は時間もタップも計算本体に渡さない(D-134)。
 - こうすると、テストでは時間を好きなだけ早送りでき、同じシードで同じ結果になることを確かめられる。
 - 演出(`src/ui/effects.js`)は、計算本体の結果(`game.results`)を読むだけで、書き換えない(D-051)。
 - 進み具合(ウロコイン・魚ごとの鱗・竿の段階と工程・釣れた魚)は `game.progress` にまとめ、保存とセーブコードはこれだけを対象にする。
@@ -100,26 +100,53 @@
 - セーブコード:`FISH3-(中身)-(印)`。中身は保存の形の JSON を base64url にしたもの、印は中身から FNV-1a で計算した 8 けたの 16 進数。`FISH2-` も読める(中身の版と合っているとき)。
 - 読み込みの点検の順番:空か → 形(`FISH数字-英数字-16進8けた`)→ 印 → 版 → 中身。どこで失敗しても、いまの保存データは変えない。
 
-### 段階や魚を足す手順(D-093・D-111)
+### 段階や魚を足す手順(D-093・D-111・D-136)
 
 魚と段階は `src/core/fish.js` の 2 つの表だけで決まる。コードは変えなくてよい(`tests/content.test.js` が、6 段階目を足した表で全部が動くことを確かめている)。
 
 **魚を 1 種類足す**
 
-1. `FISH_LIST` に `defineFish(id, 名前, 区分, 段階, ウロコイン, 鱗の数, 色, 大きさ, ミニゲーム)` を 1 行足す。
+1. `FISH_ROWS` に 1 行足す。例:
+   ```
+   { id: "kisu", name: "キス", kind: "weak", stage: 6, coins: 120, scales: 0, color: "#fefae0", size: 26 },
+   {
+     id: "kanpachi", name: "カンパチ", kind: "strong", stage: 6, coins: 600, scales: 1, color: "#bc6c25", size: 46,
+     minigame: { sweepMs: 480, zoneWidth: 0.1, hp: 70, timeLimitMs: 13000 },
+   },
+   ```
    - id は小文字の英数字とハイフン(保存の鱗のキーになるので、あとから変えない)。
-   - 区分は `W`(弱い:鱗 0、ミニゲームなし)・`S`(強い:鱗 1、ミニゲームあり)・`B`(ヌシ:鱗 1、ミニゲームあり)。
-   - ミニゲームは `{ sweepMs, zoneWidth, hp, timeLimitMs }`。限界(`config.minigame`)の外の値は丸められる。
+   - kind は `"weak"`(弱い:鱗 0、ミニゲームなし)・`"strong"`(強い:鱗 1、ミニゲームあり)・`"boss"`(ヌシ:鱗 1、ミニゲームあり)。
+   - minigame は `{ sweepMs(印が端から端まで), zoneWidth(当たり範囲の幅), hp(体力), timeLimitMs(制限時間) }`。限界(`config.minigame`)の外の値は丸められる。
 2. 同じ段階・同じ区分に魚が複数いても動く。区分の中では段階が上の魚ほど出やすい(重み 2 倍ずつ)。
-3. `npm test` を回す。`checkContent` が、id の重なり・区分・報酬の形のまちがいを見つける。
-4. 魚の並び(`tests/fixtures/fish_order.json`)が変わるので、意図した変更なら決定として記録し、記録を作り直す。
+3. `npm test` を回す。`checkContent` が、id の形と重なり・名前・区分・段階・報酬・見た目・ミニゲームの数のまちがいを見つける。
+4. メニューの素材タブには、何もしなくても新しい鱗が出る(未入手は「?」)。
+5. 魚の並び(`tests/fixtures/fish_order.json`)が変わるので、意図した変更なら決定として記録し、記録を作り直す。
 
 **段階を 1 つ足す**
 
-1. その段階の弱い魚・強い魚・ヌシを、上の手順で `FISH_LIST` に足す(段階の番号は表の最後の次)。
-2. `STAGE_LIST` に `defineStage(段階, 製作に使う鱗の魚の id, 製作に要る数, ヌシの id, 進化に要るヌシの鱗の数)` を 1 行足す。
+1. その段階の弱い魚・強い魚・ヌシを、上の手順で `FISH_ROWS` に足す(段階の番号は表の最後の次)。
+2. `STAGE_ROWS` に 1 行足す。例:`{ stage: 6, craft: { scale: "kanpachi", count: 2 }, boss: "nushi-kanpachi", evolve: { count: 1 } }`(製作に使う強い魚の鱗と数、ヌシ、進化に使うヌシの鱗の数)。
 3. これだけで、前の最後の段階の「次の魚はまだいない」が「進化」になり、新しい段階へ進める。保存は版を変えなくてよい(段階の上限は表から読む)。
 4. 時間の目安は `npm run test:slow`(`tests/slow/rewards.test.js` が段階ごとの毎秒のウロコインを出す)で測り、製作の数を決める。
+
+### ドロワーメニューとタブを足す手順(D-130・D-134・D-135)
+
+- 画面:`index.html` の ☰(`#menu-toggle`)を `drawer.js` の `createDrawer` に渡す。メニューの中身は、開くたびとタブを切り替えるたびに作り直す(開いている間は釣りが止まるので、中身は変わらない)。
+- 釣りを止める:`createDrawer` の `onOpenChange` で窓口(`session.js`)の `setPaused` を呼ぶ。止めている間は `advance`・`tapSession`・`act` が何もしない。計算本体は、止まっていることを知らない。
+- メニューと外側のタップは、`pointerdown` を下に伝えない(釣りの絵に届かない)。外側は click で閉じる。
+
+**タブを 1 つ足す(例:②-4a の装備タブ)**
+
+1. `src/ui/menu_tabs.js` に、中身を作る部品を 1 つ作る。
+   - 一覧のタブ:`(ctx) => ({ header, sections: [{ title, rows: [{ label, value, detail }] }] })`。`detail` は `[見出し, 中身]` の一覧(`null` なら押せない)。画面に触らないので、テストで中身を確かめられる。`ctx.game` から状態を読む。
+   - 自由な中身のタブ:`(container, ctx) => { ... }` で要素を作る(設定タブの `mountSettings` と同じ形)。
+2. `MENU_TABS` に `{ id, name, view }`(または `mount`)を 1 行足す。並びの順にタブが出る。
+3. `tests/menu.test.js` に、部品の中身のテストを足す。
+
+**ステータスの項目を足す**
+
+- 1 項目:`STATUS_ITEMS` に `{ label, value: (combat) => 値, format }` を 1 行足す。
+- 節ごと(例:②-4b のスキルレベル):`STATUS_SECTIONS` に `{ title, items }` を 1 行足す。
 
 ### ファイルの大きさの目安
 

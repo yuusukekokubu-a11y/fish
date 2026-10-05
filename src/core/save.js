@@ -6,7 +6,7 @@
 // 魚や段階が増えても形は変わらない(鱗は魚の id をキーにした表)。表にない魚の鱗や id は、
 // 消さずに持ち続ける(画面では使わない)。
 
-import { DEFAULT_CONTENT } from "./fish.js";
+import { DEFAULT_CONTENT, FISH_ID_PATTERN as ID_PATTERN } from "./fish.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 
 export const SAVE_VERSION = 3;
@@ -14,7 +14,6 @@ export const SAVE_KEY = "fish:save";
 
 // 鱗の表の大きさの上限(壊れたデータで大きくなりすぎないように)。
 const MAX_SCALE_KINDS = 1000;
-const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 /** 初めて遊ぶときの進み具合。 */
 export function initialProgress() {

@@ -1,5 +1,5 @@
 // 画面の入り口:ゲームの状態を時間で進め、絵と数を描き、タップとボタンを受け取る。
-// 保存とセーブコードの読み書きも、ここ(画面の側)で行う。
+// 保存の読み書きもここ(画面の側)で行う。セーブコードと「データを消す」はメニューの設定タブ(settings.js)。
 
 import { fishById, scaleName } from "../core/fish.js";
 import {
@@ -16,17 +16,17 @@ import {
   PHASES,
   phaseDuration,
   REASONS,
-  tap,
-  update,
   evolveGameRod,
   gameStage,
 } from "../core/fishing.js";
 import { nextNeed, ROD_STEPS, rodName, stageRodNames } from "../core/rod.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { formatCount } from "./format.js";
+import { MENU_TABS } from "./menu_tabs.js";
+import { act, advance, createSession, setPaused, tapSession } from "./session.js";
 import { parseSave, SAVE_KEY, toSaveData } from "../core/save.js";
-import { decodeSaveCode, encodeSaveCode } from "../core/savecode.js";
 import { versionLabel } from "../version.js";
+import { createDrawer } from "./drawer.js";
 import { drawScene } from "./draw.js";
 import {
   addHitEffects,
@@ -41,8 +41,6 @@ import {
 
 // 1 回の描画で進める時間の上限。裏に回って戻ったときに、一気に何匹も進まないようにする。
 const MAX_STEP_MS = 100;
-// 「データを消す」を 2 回目に押せる時間。
-const RESET_CONFIRM_MS = 3000;
 
 /** シードの指定がないときに使う、毎回ちがうシード。計算本体では Math.random を使わない(D-021)。 */
 function randomSeed() {
@@ -154,7 +152,8 @@ function main() {
     rodName: document.getElementById("rod-name"),
     message: document.getElementById("message"),
     upgrade: document.getElementById("upgrade"),
-    reset: document.getElementById("reset"),
+    hud: document.getElementById("hud"),
+    menu: document.getElementById("menu-toggle"),
     seed: document.getElementById("seed"),
     version: document.getElementById("version"),
   };
@@ -162,6 +161,8 @@ function main() {
   const progress = parseSave(loadText());
   const game = createGame(readSeed(), { progress, combat: readDebugCombat() });
   const effects = createEffects();
+  // 時間とタップは、この窓口を通して渡す。メニューを開いている間は止まる(D-134)。
+  const session = createSession(game, { maxStepMs: MAX_STEP_MS });
   el.seed.textContent = `seed ${game.seed}`;
   el.version.textContent = versionLabel();
 
@@ -177,7 +178,7 @@ function main() {
 
   canvas.addEventListener("pointerdown", (event) => {
     event.preventDefault();
-    const result = tap(game);
+    const result = tapSession(session);
     const now = performance.now();
     if (result?.action === "hook") addHookEffects(effects, result.grade, now);
     else if (result?.action === "hit") addHitEffects(effects, result, now);
@@ -187,31 +188,31 @@ function main() {
   el.upgrade.addEventListener("click", () => {
     const button = rodButton(game);
     if (!button.enabled) return;
-    const text = button.run();
+    const text = act(session, () => button.run());
     if (text === false) return;
     saveProgress(game.progress);
     if (text) addRodEffects(effects, text, performance.now());
   });
 
-  let resetArmedUntil = 0;
-  el.reset.addEventListener("click", () => {
-    const now = performance.now();
-    if (now < resetArmedUntil) {
-      clearSave();
-      location.reload();
-      return;
-    }
-    resetArmedUntil = now + RESET_CONFIRM_MS;
+  createDrawer({
+    app: document.getElementById("app"),
+    toggle: el.menu,
+    hud: el.hud,
+    tabs: MENU_TABS,
+    ctx: { game, storage: { save: saveProgress, clear: clearSave }, reload: () => location.reload() },
+    onOpenChange: (open) => setPaused(session, open),
   });
-
-  setupSaveCode(game);
   // ?debug を付けたときだけ、ブラウザの自動操作の確認用に状態を見せる(読むだけ。結果には関係しない)。
-  if (new URLSearchParams(location.search).has("debug")) window.fishDebug = game;
+  if (new URLSearchParams(location.search).has("debug")) {
+    window.fishDebug = game;
+    window.fishSession = session;
+  }
 
   let shownResults = 0;
   let last = performance.now();
   function frame(now) {
-    update(game, Math.min(MAX_STEP_MS, now - last));
+    // メニューを開いている間は時間を渡さない。閉じたら、その時点から続きを進める。
+    advance(session, now - last);
     last = now;
 
     // 新しい結果が出たら、保存して演出を足す。
@@ -247,73 +248,9 @@ function main() {
     const button = rodButton(game);
     el.upgrade.textContent = button.label;
     el.upgrade.disabled = !button.enabled;
-    const armed = now < resetArmedUntil;
-    el.reset.classList.toggle("armed", armed);
-    el.reset.textContent = armed ? "もう一度押すと消えます" : "データを消す";
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-}
-
-/**
- * セーブコードの小さな窓(D-059・D-065・D-092)。
- * 読み込みは、コードが正しく、上書きの確認に「はい」と答えたときだけ保存を書き換える。
- */
-function setupSaveCode(game) {
-  const el = {
-    open: document.getElementById("code-open"),
-    panel: document.getElementById("code-panel"),
-    text: document.getElementById("code-text"),
-    status: document.getElementById("code-status"),
-    exportButton: document.getElementById("code-export"),
-    copy: document.getElementById("code-copy"),
-    importButton: document.getElementById("code-import"),
-    close: document.getElementById("code-close"),
-  };
-  const show = (message, isError = false) => {
-    el.status.textContent = message;
-    el.status.classList.toggle("error", isError);
-  };
-
-  el.open.addEventListener("click", () => {
-    el.panel.hidden = false;
-    show("");
-  });
-  el.close.addEventListener("click", () => {
-    el.panel.hidden = true;
-  });
-  el.exportButton.addEventListener("click", () => {
-    el.text.value = encodeSaveCode(game.progress);
-    show("書き出しました");
-  });
-  el.copy.addEventListener("click", async () => {
-    if (el.text.value === "") el.text.value = encodeSaveCode(game.progress);
-    try {
-      await navigator.clipboard.writeText(el.text.value);
-      show("コピーしました");
-    } catch {
-      // コピーが使えないブラウザでは、選んだ状態にして手で写せるようにする。
-      el.text.focus();
-      el.text.select();
-      show("選んだ文字をコピーしてください");
-    }
-  });
-  el.importButton.addEventListener("click", () => {
-    const result = decodeSaveCode(el.text.value);
-    if (!result.ok) {
-      show(result.message, true);
-      return;
-    }
-    if (!window.confirm("いまのデータを上書きしますか?")) {
-      show("やめました");
-      return;
-    }
-    if (!saveProgress(result.progress)) {
-      show("保存できませんでした", true);
-      return;
-    }
-    location.reload();
-  });
 }
 
 main();
