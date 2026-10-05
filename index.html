@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0b3954" />
+    <title>fish</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b3954;
+        color: #fff;
+        font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+        overscroll-behavior: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #app {
+        position: relative;
+        max-width: 480px;
+        height: 100%;
+        margin: 0 auto;
+        overflow: hidden;
+        touch-action: manipulation;
+      }
+      #scene {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #hud {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: space-around;
+        padding: calc(env(safe-area-inset-top) + 10px) 8px 8px;
+        background: rgba(0, 0, 0, 0.25);
+        font-size: 15px;
+        pointer-events: none;
+      }
+      #hud b {
+        font-size: 20px;
+      }
+      #message {
+        position: absolute;
+        top: 16%;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 22px;
+        font-weight: bold;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+      }
+      #seed {
+        position: absolute;
+        bottom: calc(env(safe-area-inset-bottom) + 6px);
+        left: 8px;
+        font-size: 11px;
+        opacity: 0.6;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+      <div id="hud">
+        <span>普通 <b id="count-normal">0</b></span>
+        <span>強い <b id="count-strong">0</b></span>
+        <span>逃げた <b id="count-escaped">0</b></span>
+      </div>
+      <div id="message"></div>
+      <div id="seed"></div>
+    </div>
+    <script type="module" src="src/ui/main.js"></script>
+  </body>
+</html>

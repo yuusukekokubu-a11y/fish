@@ -19,24 +19,22 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 - ファイルは 800 行以内が目安。超えるなら分けるか、理由を DESIGN の「800 行を超えるファイル」に書く(D-006)。
 - `docs/ROADMAP.md` と `docs/REQUESTS.md` も、依頼の状況に合わせて直す。
 
-## 3. テストの回し方(D-005・D-013)
+## 3. テストの回し方(D-005・D-026)
 
-準備(最初の 1 回):
-
-```
-python -m pip install -e ".[dev]"
-```
+準備はいらない(Node.js 22 以上があればよい。npm の外部の部品はない:D-025)。
 
 | やりたいこと | コマンド |
 | --- | --- |
-| 速いテスト(既定) | `python -m pytest` |
-| 関係するテストだけ | `python -m pytest tests/test_xxx.py` |
-| 重いテスト | `python scripts/run_slow_tests.py` |
+| 速いテスト(既定) | `npm test` |
+| 関係するテストだけ | `node --test tests/xxx.test.js` |
+| 重いテスト | `npm run test:slow` |
+| 画面で試す | `npm start`(`http://localhost:8000/`) |
 
 - 手元では、速いテストと変更に関係するテストだけを回す。テスト全体は GitHub の PR で 1 回だけ回る。
-- 重いテストには `@pytest.mark.slow` を付けて `tests/slow/` に置く。
-- PR で `src/fish/`(計算本体)などが変わると、GitHub で重いテストも自動で回る(D-012)。
+- 重いテストは `tests/slow/` に `*.test.js` として置く。
+- PR で `src/core/`(計算本体)などが変わると、GitHub で重いテストも自動で回る(D-028)。
 - GitHub で重いテストを手動で回すには、Actions の画面で「ci」を選び「Run workflow」を押す。
+- ゲームの決まりは `src/core/` に置き、画面(`src/ui/`)に触らない。乱数は必ず `src/core/rng.js` のシードつき乱数を使い、`Math.random` を計算本体で使わない(D-021)。
 
 ## 4. 取り込みの条件
 
