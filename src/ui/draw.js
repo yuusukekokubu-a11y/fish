@@ -57,7 +57,7 @@ function drawTimeBar(ctx, x, y, width, ratio, color) {
 
 /**
  * ミニゲームのゲージ:当たり範囲(緑)と、往復する印(白)。
- * 上に体力(四角の数)、下に制限時間の残りの細いバーを出す(D-066)。
+ * 上に数値つきの体力のバー、下に制限時間の残りの細いバーを出す(D-081)。
  */
 function drawGauge(ctx, w, h, view) {
   const gx = w * 0.1;
@@ -71,15 +71,20 @@ function drawGauge(ctx, w, h, view) {
   ctx.fillStyle = COLORS.marker;
   ctx.fillRect(gx + gw * view.marker - 3, gy - 8, 6, gh + 16);
 
-  // 体力:残りは赤、減ったぶんは暗い四角。
-  const size = 16;
-  const gap = 6;
-  const total = view.maxHp * size + (view.maxHp - 1) * gap;
-  const px = w / 2 - total / 2;
-  for (let i = 0; i < view.maxHp; i++) {
-    ctx.fillStyle = i < view.hp ? "#e63946" : "rgba(0,0,0,0.45)";
-    ctx.fillRect(px + i * (size + gap), gy - 34, size, size);
-  }
+  // 体力:数値つきの横長のバー(D-081)。
+  const by = gy - 40;
+  const bh = 20;
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(gx, by, gw, bh);
+  ctx.fillStyle = "#e63946";
+  ctx.fillRect(gx, by, gw * (view.maxHp > 0 ? view.hp / view.maxHp : 0), bh);
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(gx + 0.5, by + 0.5, gw - 1, bh - 1);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 14px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`${view.hp} / ${view.maxHp}`, w / 2, by + 15);
   drawTimeBar(ctx, gx, gy + gh + 10, gw, view.timeLeft, "#ffd166");
 }
 

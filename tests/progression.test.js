@@ -73,7 +73,7 @@ test("段階 1:乱数の並びと魚の設定が Issue #4 と同じ", () => {
   }
   for (const cast of castsAt(1, 1, 200)) {
     if (cast.kind === FISH_KINDS.STRONG) {
-      assert.deepEqual(cast.minigame, { sweepMs: 900, zoneWidth: 0.22, hp: 2, timeLimitMs: 8000 });
+      assert.deepEqual(cast.minigame, { sweepMs: 900, zoneWidth: 0.22, hp: 20, timeLimitMs: 8000 });
     }
   }
 });

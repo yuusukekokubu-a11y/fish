@@ -1,4 +1,4 @@
-// 魚の設定表(D-034・D-045・D-063)。1 種類ごとに、名前・区分・釣れるようになる竿の段階・報酬・
+// 魚の設定表(D-034・D-045・D-078)。1 種類ごとに、名前・区分・釣れるようになる竿の段階・報酬・
 // ミニゲームの重さ(強い魚だけ:印の速さ・当たり範囲の幅・体力・制限時間)・見た目(色と大きさ)を持つ。
 // 段階 1 の 2 種類は、Issue #4 の「普通の魚」「強い魚」と同じ設定。
 
@@ -22,15 +22,15 @@ function fish(id, name, kind, stage, coins, material, color, size, minigame = nu
 
 export const FISH_LIST = Object.freeze([
   fish("aji", "アジ", N, 1, 1, 1, "#a8dadc", 22),
-  fish("kurodai", "クロダイ", S, 1, 5, 3, "#f4a261", 34, { sweepMs: 900, zoneWidth: 0.22, hp: 2, timeLimitMs: 8000 }),
+  fish("kurodai", "クロダイ", S, 1, 5, 3, "#f4a261", 34, { sweepMs: 900, zoneWidth: 0.22, hp: 20, timeLimitMs: 8000 }),
   fish("saba", "サバ", N, 2, 3, 2, "#90be6d", 24),
-  fish("suzuki", "スズキ", S, 2, 15, 6, "#e76f51", 36, { sweepMs: 800, zoneWidth: 0.19, hp: 3, timeLimitMs: 9000 }),
+  fish("suzuki", "スズキ", S, 2, 15, 6, "#e76f51", 36, { sweepMs: 800, zoneWidth: 0.19, hp: 30, timeLimitMs: 9000 }),
   fish("kawahagi", "カワハギ", N, 3, 8, 4, "#f9c74f", 25),
-  fish("buri", "ブリ", S, 3, 40, 12, "#b8c0ff", 38, { sweepMs: 700, zoneWidth: 0.16, hp: 4, timeLimitMs: 10000 }),
+  fish("buri", "ブリ", S, 3, 40, 12, "#b8c0ff", 38, { sweepMs: 700, zoneWidth: 0.16, hp: 40, timeLimitMs: 10000 }),
   fish("tachiuo", "タチウオ", N, 4, 20, 8, "#e9ecef", 28),
-  fish("katsuo", "カツオ", S, 4, 100, 24, "#c77dff", 40, { sweepMs: 600, zoneWidth: 0.13, hp: 5, timeLimitMs: 11000 }),
+  fish("katsuo", "カツオ", S, 4, 100, 24, "#c77dff", 40, { sweepMs: 600, zoneWidth: 0.13, hp: 50, timeLimitMs: 11000 }),
   fish("hirame", "ヒラメ", N, 5, 50, 16, "#ddb892", 30),
-  fish("maguro", "マグロ", S, 5, 250, 48, "#ef233c", 44, { sweepMs: 520, zoneWidth: 0.11, hp: 6, timeLimitMs: 12000 }),
+  fish("maguro", "マグロ", S, 5, 250, 48, "#ef233c", 44, { sweepMs: 520, zoneWidth: 0.11, hp: 60, timeLimitMs: 12000 }),
 ]);
 
 const BY_ID = new Map(FISH_LIST.map((f) => [f.id, f]));

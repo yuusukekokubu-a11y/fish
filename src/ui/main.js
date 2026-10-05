@@ -47,6 +47,17 @@ function readSeed() {
   return value === null || value === "" ? randomSeed() : value;
 }
 
+/**
+ * 確認用:`?debug&crit=100` のように付けたときだけ、クリティカルの確率(%)を変える(D-081)。
+ * `?debug` がないときは、いつも基本の表を使う。
+ */
+function readDebugCombat() {
+  const params = new URLSearchParams(location.search);
+  const crit = params.get("crit");
+  if (!params.has("debug") || crit === null || crit === "") return DEFAULT_CONFIG.combat;
+  return { ...DEFAULT_CONFIG.combat, critChance: Number(crit) / 100 };
+}
+
 // 保存の読み書き。ブラウザの設定で使えないときも、エラーで止めずに遊べるようにする(D-050)。
 function loadText() {
   try {
@@ -114,7 +125,7 @@ function main() {
   };
 
   const progress = parseSave(loadText(), DEFAULT_CONFIG.rod);
-  const game = createGame(readSeed(), { progress });
+  const game = createGame(readSeed(), { progress, combat: readDebugCombat() });
   const effects = createEffects();
   el.seed.textContent = `seed ${game.seed}`;
 
@@ -133,8 +144,8 @@ function main() {
     const result = tap(game);
     const now = performance.now();
     if (result?.action === "hook") addHookEffects(effects, now);
-    else if (result?.action === "hit" && !result.caught) addHitEffects(effects, now);
-    else if (result?.action === "miss") addMissEffects(effects, now);
+    else if (result?.action === "hit") addHitEffects(effects, result, now);
+    else if (result?.action === "miss") addMissEffects(effects, result, now);
   });
 
   el.upgrade.addEventListener("click", () => {
@@ -205,7 +216,7 @@ function main() {
 }
 
 /**
- * セーブコードの小さな窓(D-059・D-065・D-066)。
+ * セーブコードの小さな窓(D-059・D-065・D-081)。
  * 読み込みは、コードが正しく、上書きの確認に「はい」と答えたときだけ保存を書き換える。
  */
 function setupSaveCode(game) {
