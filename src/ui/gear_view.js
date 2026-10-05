@@ -1,5 +1,5 @@
 // @ts-check
-// クレートタブと装備タブの中身(画面に触らない部分:D-139・D-151)。
+// クレートと装備の画面の中身(画面に触らない部分:D-139・D-162)。
 // ここは数と文字を作るだけ。ボタンや演出は gear_tabs.js・gacha_fx.js が受け持つ。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144)。
 
@@ -47,7 +47,7 @@ export const PULL_MESSAGES = Object.freeze({
   locked: "まだ引けません",
   seed: "準備中です",
   coins: "ウロコインが足りません",
-  space: "持ち物がいっぱいです。装備タブで分解してください",
+  space: "持ち物がいっぱいです。装備の画面で分解してください",
 });
 
 /** 千分率を「22%」「6.5%」の形に。 @param {number} rate */

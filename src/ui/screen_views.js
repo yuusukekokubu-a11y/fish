@@ -57,7 +57,7 @@ const seconds = (ms) => `${Math.round(ms) / 1000} 秒`;
 const signedSeconds = (ms) => `${ms >= 0 ? "+" : "−"}${Math.abs(ms) / 1000} 秒`;
 
 /**
- * ステータスの項目の表(D-135・D-163)。1 行が 1 項目:名前、戦闘の数値の表から値を取る関数、表示の形。
+ * ステータスの項目の表(D-152・D-163)。1 行が 1 項目:名前、戦闘の数値の表から値を取る関数、表示の形。
  * グループ(節)に分けて並べる。②-4b のスキルレベルは、節(STATUS_SECTIONS)を 1 つ足して並べる。
  */
 const ITEM = Object.freeze({
@@ -81,7 +81,7 @@ export const STATUS_SECTIONS = Object.freeze([
 /** 全部の項目(節の順)。 */
 export const STATUS_ITEMS = Object.freeze(STATUS_SECTIONS.flatMap((s) => s.items));
 
-/** 装備なしの表(点検・丸め済み)。詳細で「基本の値」として並べる(D-151)。 */
+/** 装備なしの表(点検・丸め済み)。詳細で「基本の値」として並べる(D-162)。 */
 function baseCombat(game) {
   const config = game.config ?? DEFAULT_CONFIG;
   return normalizeCombat(game.baseCombat ?? config.combat, config.combat, config.combatLimits);
