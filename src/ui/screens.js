@@ -1,0 +1,80 @@
+// @ts-check
+// 画面の表と、画面の切り替えの状態(D-152・D-153・D-161)。
+// - 画面の表(SCREENS):1 行に id・タイトルと、中身を作る部品(mount)を持つ。ドロワーの目次はこの表から作る。
+//   画面を足すときは、表に 1 行足して、中身を作る部品を 1 つ作るだけでよい(DESIGN の手順)。
+// - 状態は { drawer: 目次が開いているか, screen: 開いている画面の id か null }。どちらかなら釣りを止める。
+// - URL の「#」のあと(#equipment など)で、開いている画面を表す。ブラウザの「戻る」で前の画面に戻れる。
+// ここは画面に触らない(テストで確かめられる)。画面の枠は screen_shell.js が作る。
+// JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
+
+import { mountCrates } from "./crate_screen.js";
+import { mountEquipment } from "./equip_screen.js";
+import { mountList } from "./list_view.js";
+import { materialsView, statusView } from "./screen_views.js";
+import { mountSettings } from "./settings.js";
+
+/**
+ * 画面 1 つ。mount は、中身を container に作る。ctx は main.js が渡す(ゲームの状態や保存の窓口)。
+ * @typedef {object} Screen
+ * @property {string} id URL の「#」のあとに使う名前(小文字の英字)
+ * @property {string} title 目次と、画面の上のバーに出す名前
+ * @property {(container: HTMLElement, ctx: any) => void} mount
+ */
+
+/** @type {readonly Screen[]} */
+export const SCREENS = Object.freeze([
+  { id: "equipment", title: "装備", mount: mountEquipment },
+  { id: "crates", title: "クレート", mount: mountCrates },
+  { id: "materials", title: "素材", mount: mountList(materialsView) },
+  { id: "status", title: "ステータス", mount: mountList(statusView) },
+  { id: "settings", title: "設定", mount: mountSettings },
+]);
+
+/**
+ * 目次の項目(表の順)。
+ * @param {readonly { id: string, title: string }[]} screens
+ */
+export function drawerItems(screens = SCREENS) {
+  return screens.map((s) => ({ id: s.id, label: s.title }));
+}
+
+/**
+ * 画面の切り替えの状態。
+ * @typedef {object} NavState
+ * @property {boolean} drawer 目次が開いているか
+ * @property {string | null} screen 開いている全画面の id(メイン画面なら null)
+ */
+
+/** @returns {NavState} */
+export function initialNav() {
+  return { drawer: false, screen: null };
+}
+
+/** 目次か全画面が開いていれば、釣りを止める(D-134・D-153)。 @param {NavState} nav */
+export function isPaused(nav) {
+  return nav.drawer || nav.screen !== null;
+}
+
+/** 目次を開く・閉じる。全画面の上では開かない。 @param {NavState} nav @param {boolean} open @returns {NavState} */
+export function setDrawer(nav, open) {
+  return { drawer: open && nav.screen === null, screen: nav.screen };
+}
+
+/** 全画面に移る(目次は閉じる)。 @param {NavState} _nav @param {string | null} screen @returns {NavState} */
+export function showScreen(_nav, screen) {
+  return { drawer: false, screen };
+}
+
+/**
+ * URL の「#」のあとから、画面の id を取り出す。表にない名前や空なら null(メイン画面)。
+ * @param {string} hash 例:"#equipment" @param {readonly { id: string }[]} screens
+ */
+export function screenFromHash(hash, screens = SCREENS) {
+  const id = hash.replace(/^#/, "");
+  return screens.some((s) => s.id === id) ? id : null;
+}
+
+/** 画面の id を、URL の「#」の形にする。 @param {string} id */
+export function hashFor(id) {
+  return `#${id}`;
+}

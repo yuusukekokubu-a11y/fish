@@ -40,7 +40,7 @@
 | `src/core/rod.js` | 竿の工程(製作・ヌシ撃破・進化)、竿の名前、次に要る鱗、数の上限(D-114・D-116)。 |
 | `src/core/save.js` | 保存の形式(版 4)の変換と点検、版 1〜3 からの読み替え(D-065・D-117・D-143)。ブラウザへの読み書きは UI が行う。 |
 | `src/core/savecode.js` | セーブコードの書き出しと読み込み(D-065)。 |
-| `src/ui/` | 画面の表示と操作。`main.js` が時間を進めてタップとボタンを受け取り、保存を扱う。`session.js` は時間とタップを計算本体に渡す窓口で、メニューを開いている間は止める(D-134)。`drawer.js` がドロワーメニューの画面、`menu_tabs.js` がタブの表とタブの中身を作る部品、`settings.js` が設定タブ(セーブコードとデータを消す)(D-135)。URL に `?debug` を付けると、ブラウザの自動操作の確認用に状態を `window.fishDebug` で読めるようにする(読むだけ)。`?debug&crit=100` のように付けると、クリティカルの確率(%)を変えられる(`?debug` がないときは無視)。`draw.js` が絵、`effects.js` が手応えの演出を描く。`format.js` は大きな数を「1.2万」のように短くする(D-116)。`gear_view.js` はクレートタブと装備タブの数と文字(画面に触らない)、`gear_tabs.js` はその 2 つのタブの画面、`gacha_fx.js` は引く演出(D-151。3 つとも JSDoc で型を書いている)。 |
+| `src/ui/` | 画面の表示と操作。`main.js` が時間を進めてタップとボタンを受け取り、保存を扱う。`session.js` は時間とタップを計算本体に渡す窓口で、メニューを開いている間は止める(D-134)。`screens.js` が画面の表と切り替えの状態、`drawer.js` が目次、`screen_shell.js` が全画面の枠と履歴、`list_view.js` が一覧の描き方、`sheet.js` が下から出るシート、`screen_views.js` が素材とステータスの中身、`equip_screen.js` と `crate_screen.js` が装備とクレートの画面、`settings.js` が設定の画面(D-152・D-161・D-162)。見た目は `index.html` と `screens.css`。URL に `?debug` を付けると、ブラウザの自動操作の確認用に状態を `window.fishDebug` で読めるようにする(読むだけ)。`?debug&crit=100` のように付けると、クリティカルの確率(%)を変えられる(`?debug` がないときは無視)。`draw.js` が絵、`effects.js` が手応えの演出を描く。`format.js` は大きな数を「1.2万」のように短くする(D-116)。`gear_view.js` はクレートと装備の画面の数と文字(画面に触らない)、`gacha_fx.js` は引く演出(D-162)。新しいファイルは JSDoc で型を書いている(D-158)。 |
 | `tests/fixtures/` | テストで比べる記録。変えてはいけない。`fish_order.json` は全段階 × シード 3 つの「待ち時間・魚・最初の当たり範囲」の並び(強い魚 10% にしたときに作り直した:D-113)。`hookring_plays.json` は縮む輪の合わせで決まった遊び方をした結果(D-090・D-113。作り方は `tests/hookring_play.js`)。 |
 | `tests/*.test.js` | 速いテスト。`npm test` で並列に回る。 |
 | `tests/slow/*.test.js` | 重いテスト(D-026)。`npm run test:slow` で回る。 |
@@ -123,7 +123,7 @@
    - minigame は `{ sweepMs(印が端から端まで), zoneWidth(当たり範囲の幅), hp(体力), timeLimitMs(制限時間) }`。限界(`config.minigame`)の外の値は丸められる。
 2. 同じ段階・同じ区分に魚が複数いても動く。区分の中では段階が上の魚ほど出やすい(重み 2 倍ずつ)。
 3. `npm test` を回す。`checkContent` が、id の形と重なり・名前・区分・段階・報酬・見た目・ミニゲームの数のまちがいを見つける。
-4. メニューの素材タブには、何もしなくても新しい鱗が出る(未入手は「?」)。
+4. 素材の画面には、何もしなくても新しい鱗が出る(未入手は「?」)。
 5. 魚の並び(`tests/fixtures/fish_order.json`)が変わるので、意図した変更なら決定として記録し、記録を作り直す。
 
 **段階を 1 つ足す**
@@ -133,24 +133,32 @@
 3. これだけで、前の最後の段階の「次の魚はまだいない」が「進化」になり、新しい段階へ進める。保存は版を変えなくてよい(段階の上限は表から読む)。
 4. 時間の目安は `npm run test:slow`(`tests/slow/rewards.test.js` が段階ごとの毎秒のウロコインを出す)で測り、製作の数を決める。
 
-### ドロワーメニューとタブを足す手順(D-130・D-134・D-135)
+### 目次と全画面の作り、画面を足す手順(D-152〜D-155・D-161〜D-164)
 
-- 画面:`index.html` の ☰(`#menu-toggle`)を `drawer.js` の `createDrawer` に渡す。メニューの中身は、開くたびとタブを切り替えるたびに作り直す(開いている間は釣りが止まるので、中身は変わらない)。
-- 釣りを止める:`createDrawer` の `onOpenChange` で窓口(`session.js`)の `setPaused` を呼ぶ。止めている間は `advance`・`tapSession`・`act` が何もしない。計算本体は、止まっていることを知らない。
-- メニューと外側のタップは、`pointerdown` を下に伝えない(釣りの絵に届かない)。外側は click で閉じる。
+- 画面の表:`src/ui/screens.js` の `SCREENS`。1 行に `{ id, title, mount }`。目次(`drawer.js`)はこの表から項目を作る。
+- 画面の切り替えの状態:`{ drawer, screen }`(`initialNav`・`setDrawer`・`showScreen`・`isPaused`)。どちらかが開いていれば、窓口(`session.js`)の `setPaused` で釣りを止める。計算本体は、止まっていることを知らない。
+- 全画面の枠:`screen_shell.js` の `createScreenShell`。上のバー(「←」・タイトル・ウロコイン)と中身。中身は、画面に移るたびと `ctx.rerender()` のたびに作り直す(作り直しではスクロールの位置を保つ)。
+- 履歴:移るたびに `history.pushState({ screen, depth }, "", "#id")`。ブラウザの「戻る」は `popstate` で 1 つ前の画面。バーの「←」は `history.go(-depth)` でメイン画面まで。再読み込みしたら、履歴を「メイン画面 → その画面」に作り直して開く。
+- 画面と外側のタップは `pointerdown` を下に伝えない(釣りの絵に届かない)。下から出るシート(`sheet.js`)も同じ。
+- 見た目は `src/ui/screens.css`。ボタンは 48px(丸いボタン 44px)以上、文字は 14px 以上、`env(safe-area-inset-*)` で端の余白を取る。
 
-**タブを 1 つ足す(例:②-4a の装備タブ)**
+**画面を 1 つ足す(例:図鑑)**
 
-1. `src/ui/menu_tabs.js` に、中身を作る部品を 1 つ作る。
-   - 一覧のタブ:`(ctx) => ({ header, sections: [{ title, rows: [{ label, value, detail }] }] })`。`detail` は `[見出し, 中身]` の一覧(`null` なら押せない)。画面に触らないので、テストで中身を確かめられる。`ctx.game` から状態を読む。
-   - 自由な中身のタブ:`(container, ctx) => { ... }` で要素を作る(設定タブの `mountSettings` と同じ形)。
-2. `MENU_TABS` に `{ id, name, view }`(または `mount`)を 1 行足す。並びの順にタブが出る。
-3. `tests/menu.test.js` に、部品の中身のテストを足す。
+1. 中身を作る部品を作る。
+   - 一覧の画面:`screen_views.js` に `(ctx) => ({ header, sections: [{ title, rows: [{ label, value, detail }] }] })` を作り、表には `mountList(その関数)` を渡す。画面に触らないので、テストで中身を確かめられる。
+   - 自由な中身の画面:`(container, ctx) => { ... }` で要素を作る(`equip_screen.js` と同じ形)。新しいファイルは先頭に `// @ts-check` を書き、JSDoc で型を書いて `tsconfig.json` の `files` に足す。
+2. `SCREENS` に `{ id, title, mount }` を 1 行足す。目次の項目と、URL の `#id` が自動で増える(`tests/screens.test.js` が確かめている)。
+3. 中身のテストを足す。ブラウザでは、ボタンの大きさ(44px 以上)と横スクロールがないことを確かめる。
+- `ctx` で使えるもの:`game`(ゲームの状態)、`app`(シートや演出を重ねる場所)、`storage.save`・`storage.clear`、`reload()`、`rerender()`、`navigate(id)`、`onGearChanged()`(装備が変わったら呼ぶ)。
 
 **ステータスの項目を足す**
 
-- 1 項目:`STATUS_ITEMS` に `{ label, value: (combat) => 値, format }` を 1 行足す。
-- 節ごと(例:②-4b のスキルレベル):`STATUS_SECTIONS` に `{ title, items }` を 1 行足す。
+- 1 項目:`screen_views.js` の項目を、`STATUS_SECTIONS` のグループの `items` に足す(`{ label, value: (combat) => 値, format }`)。
+- グループごと(例:②-4b のスキルレベル):`STATUS_SECTIONS` に `{ title, items }` を 1 行足す。
+
+**装備の画面の決まり(7 枠とスキル 3 行:D-155)**
+
+- 枠は装備の種類の表から作り、2 列のグリッドに並べる(7 枠なら 4 段)。カードのスキルは `skills` の最初の 3 つを行で出す(空なら出さない)。
 
 ### 装備とガチャの作り(D-145〜D-149)
 
@@ -163,7 +171,7 @@
 **装備の種類を 1 つ足す(既にある戦闘の数値の項目を使う場合)**
 
 1. `gear.js` の `EQUIP_KIND_ROWS` に 1 行足す。例:`{ id: "rod-tip", name: "穂先", stat: "critChance", base: { min: 0.05, max: 0.1 }, step: 0.01, display: { label: "クリティカルの確率", scale: 0.01, unit: "%" } }`。
-2. これだけで、抽選に加わり(種類は等しい確率)、装備タブに枠が増え、装着すると戦闘の数値の表に足される(`tests/gear.test.js` が確かめている)。保存の点検も種類の表から作る。
+2. これだけで、抽選に加わり(種類は等しい確率)、装備の画面に枠が増え、装着すると戦闘の数値の表に足される(`tests/gear.test.js` が確かめている)。保存の点検も種類の表から作る。
 3. 新しい戦闘の数値の項目が要る種類(②-5 のおもり・浮きなど)は、`config.combat` と `normalizeCombat` に項目を足し、戦闘のコードで 1 か所使う(ルアーの `missBonusDamage` と同じ)。
 
 ### ファイルの大きさの目安
@@ -202,13 +210,6 @@
 - 型チェックは別のジョブで、`npm ci`(`package-lock.json` の版どおりに入れる)のあと `npm run typecheck`(`tsc -p tsconfig.json`)を回す(D-150)。
 
 ## 検討中の論点
-
-### TypeScript に移るか
-
-- 状況:②-4a で、新しいファイル 5 つ(`gear.js`・`gear_save.js`・`gear_view.js`・`gear_tabs.js`・`gacha_fx.js`)に JSDoc で型を書き、`tsc --noEmit` を CI に入れた(D-144・D-150)。ビルドはない。使い心地は報告 Issue に書く。
-- 案:A 案:このまま JSDoc を新しいファイルに広げる(既存のファイルは触るときに足す)/B 案:TypeScript とビルドの道具(esbuild など)を入れる。
-- 今の見立て:A 案。ブラウザがそのまま読める良さを保てて、データの形のまちがいは JSDoc で見つかる。
-- 決める時期:オーナーと報告で相談して決める。
 
 ### 合わせと戦闘の数値
 

@@ -1,4 +1,4 @@
-// 設定タブの中身(D-130・D-135):セーブコードと「データを消す」。
+// 設定の画面の中身(D-130・D-152):セーブコードと「データを消す」。
 // 動きは前の画面の隅にあったときと同じ(D-059・D-065・D-092)。
 // - セーブコード:書き出し・コピー・読み込み。読み込みは、コードが正しく、上書きの確認に「はい」と答えたときだけ保存を書き換える。
 // - データを消す:3 秒のうちに 2 回押したときだけ消す。
@@ -16,14 +16,14 @@ function el(tag, attrs = {}, text = "") {
 }
 
 /**
- * 設定タブの中身を container に作る。
+ * 設定の画面の中身を container に作る。
  * ctx:{ game, storage: { save(progress) → 保存できたら true, clear() }, reload() }。
  */
 export function mountSettings(container, ctx) {
   const { game, storage, reload } = ctx;
 
-  const code = el("section", { class: "menu-section" });
-  code.append(el("h3", {}, "セーブコード"));
+  const code = el("section", { class: "screen-section" });
+  code.append(el("h2", { class: "section-title" }, "セーブコード"));
   const text = el("textarea", { id: "code-text", spellcheck: "false", autocomplete: "off", "aria-label": "セーブコード" });
   const status = el("div", { id: "code-status", role: "status" });
   const buttons = el("div", { id: "code-buttons" });
@@ -33,8 +33,8 @@ export function mountSettings(container, ctx) {
   buttons.append(exportButton, copy, importButton);
   code.append(text, status, buttons);
 
-  const danger = el("section", { class: "menu-section" });
-  danger.append(el("h3", {}, "データ"));
+  const danger = el("section", { class: "screen-section" });
+  danger.append(el("h2", { class: "section-title" }, "データ"));
   const reset = el("button", { id: "reset", type: "button" }, "データを消す");
   danger.append(reset);
   container.append(code, danger);

@@ -1,0 +1,596 @@
+/* 全画面・下から出るシート・引く演出の見た目(D-152・D-154・D-161・D-162)。index.html から読む。 */
+
+/* 全画面(D-152・D-154・D-161)。押せる場所は 44px 四方以上、文字は 14px 以上。端の安全領域に余白を取る。 */
+.screen {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: #062a3d;
+}
+.screen[hidden] {
+  display: none;
+}
+.screen-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: env(safe-area-inset-top) calc(env(safe-area-inset-right) + 10px) 0 calc(env(safe-area-inset-left) + 4px);
+  background: #0b3954;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.screen-back {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: #fff;
+  font-size: 24px;
+}
+.screen-title {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.screen-coins {
+  flex: none;
+  font-size: 15px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+.screen-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px calc(env(safe-area-inset-right) + 14px) calc(env(safe-area-inset-bottom) + 24px)
+    calc(env(safe-area-inset-left) + 14px);
+  font-size: 15px;
+}
+.screen-header {
+  padding: 2px 2px 8px;
+  font-size: 16px;
+  font-weight: bold;
+}
+.screen-section {
+  margin-bottom: 18px;
+}
+.section-title {
+  margin: 6px 2px 8px;
+  font-size: 14px;
+  font-weight: bold;
+  opacity: 0.8;
+}
+.screen-empty {
+  padding: 12px 4px;
+  font-size: 14px;
+  opacity: 0.75;
+}
+.menu-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.menu-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+}
+.menu-row:disabled {
+  color: #8fa5b1;
+}
+.menu-value {
+  font-weight: bold;
+  white-space: nowrap;
+}
+.menu-detail,
+.sheet-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  padding: 10px 12px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+}
+.menu-detail[hidden],
+.crate-detail[hidden] {
+  display: none;
+}
+.menu-detail dt,
+.sheet-list dt {
+  opacity: 0.75;
+}
+.menu-detail dd,
+.sheet-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+/* ボタン(44px 以上)。 */
+.primary-button,
+.secondary-button,
+.chip,
+.bulk-button,
+#code-buttons button,
+#reset {
+  min-height: 48px;
+  min-width: 44px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 15px;
+}
+.primary-button,
+#code-buttons button {
+  border: 0;
+  background: #ffd166;
+  color: #3d2c00;
+  font-weight: bold;
+}
+.secondary-button {
+  border: 1px solid #5d7380;
+  background: #0b3954;
+  color: #fff;
+}
+.primary-button:disabled,
+.bulk-button:disabled {
+  background: #44555f;
+  color: #a9bcc7;
+  border-color: #44555f;
+}
+.chip {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #5d7380;
+  background: #0b3954;
+  color: #fff;
+}
+.chip.active {
+  border-color: #ffd166;
+  background: #ffd166;
+  color: #3d2c00;
+  font-weight: bold;
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.rarity-badge {
+  font-weight: bold;
+  white-space: nowrap;
+}
+.item-tag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #ffd166;
+  color: #3d2c00;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.item-better {
+  color: #8bd17c;
+  font-weight: bold;
+}
+.item-diff {
+  margin: 10px 2px;
+  font-size: 15px;
+  font-weight: bold;
+}
+.item-diff.up {
+  color: #8bd17c;
+}
+.item-diff.down,
+.gacha-message.error,
+#code-status.error {
+  color: #ff8fa3;
+}
+/* 装備の画面(D-155・D-162)。枠は 2 列のグリッド(7 枠でも 4 段)。持ち物は 1 列のカード。 */
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.slot-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  min-height: 84px;
+  padding: 8px 10px;
+  border: 2px solid var(--rarity, #5d7380);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+.slot-cell.empty {
+  border-style: dashed;
+  border-color: #5d7380;
+  color: #a9bcc7;
+}
+.slot-kind {
+  font-size: 14px;
+  opacity: 0.8;
+}
+.slot-name,
+.slot-effect {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.slot-name {
+  font-weight: bold;
+}
+.slot-empty {
+  font-size: 15px;
+}
+.bag-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.bag-head .section-title {
+  margin: 0;
+}
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 12px;
+  border: 0;
+  border-left: 6px solid var(--rarity, #5d7380);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+}
+.item-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 14px;
+}
+.item-kind {
+  opacity: 0.8;
+}
+.item-name {
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+.item-skills {
+  margin: 4px 0 0;
+  padding: 0 0 0 1.2em;
+  font-size: 14px;
+}
+/* 下から出るシート。 */
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.55);
+}
+.sheet {
+  width: 100%;
+  max-height: 85%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 16px calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px)
+    calc(env(safe-area-inset-left) + 16px);
+  border-radius: 16px 16px 0 0;
+  background: #0b3954;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+  font-size: 15px;
+}
+.sheet-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.sheet-line {
+  margin: 4px 0;
+}
+.sheet-list {
+  margin: 10px 0;
+  border-radius: 8px;
+}
+.sheet-buttons {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+.sheet-buttons > button {
+  flex: 1;
+}
+.sheet-close {
+  width: 100%;
+}
+.bulk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.bulk-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--rarity);
+  background: #062a3d;
+  color: #fff;
+}
+/* クレートの画面(D-162)。 */
+.crate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.crate-card {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.crate-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.crate-name {
+  margin: 0;
+  font-size: 17px;
+}
+.crate-price {
+  margin: 4px 0 10px;
+  font-size: 15px;
+}
+.crate-buttons {
+  display: flex;
+  gap: 8px;
+}
+.crate-buttons > button {
+  flex: 1;
+}
+.crate-detail {
+  margin-top: 10px;
+}
+.detail-title {
+  margin: 8px 0 4px;
+  font-size: 14px;
+  opacity: 0.8;
+}
+.gacha-message {
+  min-height: 1.4em;
+  margin: 0 2px 8px;
+  font-size: 15px;
+}
+/* 設定の画面。 */
+#code-text {
+  width: 100%;
+  box-sizing: border-box;
+  height: 96px;
+  resize: none;
+  border: 1px solid #44555f;
+  border-radius: 8px;
+  background: #0b3954;
+  color: #fff;
+  font: 14px ui-monospace, monospace;
+  word-break: break-all;
+  -webkit-user-select: text;
+  user-select: text;
+}
+#code-buttons {
+  display: flex;
+  gap: 8px;
+}
+#code-buttons button {
+  flex: 1;
+}
+#code-status {
+  min-height: 1.4em;
+  padding: 6px 0;
+  font-size: 15px;
+  text-align: center;
+}
+#reset {
+  width: 100%;
+  border: 1px solid #ff8fa3;
+  background: none;
+  color: #ff8fa3;
+}
+#reset.armed {
+  background: #ff8fa3;
+  color: #3d0010;
+  font-weight: bold;
+}
+/* 引く演出(画面全体:D-121・D-162)。 */
+.fx-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 16, 26, 0.97);
+  overflow: hidden;
+}
+.fx-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-height: 85%;
+  padding: 0 12px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+.fx-crate {
+  position: relative;
+  width: 150px;
+  height: 120px;
+}
+.fx-crate-lid {
+  height: 28px;
+  border-radius: 8px 8px 2px 2px;
+  background: #8d5a2b;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.25);
+}
+.fx-crate-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88px;
+  border-radius: 2px 2px 8px 8px;
+  background: #a86b35;
+  color: #fff3e0;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: center;
+}
+.fx-crate.charging {
+  animation: fx-charge 1.2s ease-in forwards;
+}
+@keyframes fx-charge {
+  0% { transform: scale(1) rotate(0); }
+  30% { transform: scale(1.04) rotate(-3deg); }
+  50% { transform: scale(1.06) rotate(3deg); }
+  70% { transform: scale(1.1) rotate(-5deg); }
+  85% { transform: scale(1.14) rotate(6deg); }
+  100% { transform: scale(1.2) rotate(0); }
+}
+.fx-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--best) 0%, transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+}
+.fx-overlay.flashing .fx-flash {
+  animation: fx-flash 0.45s ease-out forwards;
+}
+.fx-overlay[data-best="legend"].flashing .fx-flash {
+  background: var(--best);
+}
+@keyframes fx-flash {
+  0% { opacity: 0; }
+  30% { opacity: var(--flash); }
+  100% { opacity: 0.15; }
+}
+.fx-overlay.shake {
+  animation: fx-shake 0.45s linear;
+}
+@keyframes fx-shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-8px, 4px); }
+  40% { transform: translate(7px, -5px); }
+  60% { transform: translate(-6px, -3px); }
+  80% { transform: translate(5px, 4px); }
+}
+.fx-title {
+  font-size: 20px;
+  font-weight: bold;
+}
+.fx-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+}
+.fx-list.single {
+  grid-template-columns: 1fr;
+  max-width: 280px;
+}
+.fx-card {
+  padding: 8px;
+  border: 2px solid var(--rarity);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+  animation: fx-pop 0.25s ease-out;
+}
+.fx-card.big {
+  padding: 16px;
+  font-size: 16px;
+  text-align: center;
+  box-shadow: 0 0 24px var(--rarity);
+}
+.fx-card.best {
+  box-shadow: 0 0 16px var(--rarity);
+  background: rgba(255, 255, 255, 0.14);
+}
+@keyframes fx-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.fx-card-top {
+  display: flex;
+  justify-content: space-between;
+}
+.fx-rarity {
+  color: var(--rarity);
+  font-weight: bold;
+}
+.fx-better {
+  color: #8bd17c;
+  font-weight: bold;
+}
+.fx-name {
+  margin-top: 2px;
+  font-weight: bold;
+}
+.fx-link {
+  min-height: 48px;
+  margin-top: 6px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 10px;
+  background: #ffd166;
+  color: #3d2c00;
+  font: inherit;
+  font-size: 15px;
+  font-weight: bold;
+}
+.fx-hint {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom) + 16px);
+  font-size: 14px;
+  opacity: 0.6;
+}

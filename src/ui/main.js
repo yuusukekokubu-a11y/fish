@@ -24,7 +24,8 @@ import { nextNeed, ROD_STEPS, rodName, stageRodNames } from "../core/rod.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { normalizeSeed } from "../core/rng.js";
 import { formatCount } from "./format.js";
-import { MENU_TABS } from "./menu_tabs.js";
+import { createScreenShell } from "./screen_shell.js";
+import { initialNav, isPaused, SCREENS, setDrawer, showScreen } from "./screens.js";
 import { act, advance, createSession, setPaused, tapSession } from "./session.js";
 import { parseSave, SAVE_KEY, toSaveData } from "../core/save.js";
 import { versionLabel } from "../version.js";
@@ -213,29 +214,42 @@ function main() {
     if (text) addRodEffects(effects, text, performance.now());
   });
 
-  createDrawer({
-    app: document.getElementById("app"),
-    toggle: el.menu,
-    hud: el.hud,
-    tabs: MENU_TABS,
+  // 目次(ドロワー)と全画面(D-152・D-153)。どちらかが開いている間は、釣りを止める(D-134)。
+  const app = document.getElementById("app");
+  let nav = initialNav();
+  const applyNav = (next) => {
+    nav = next;
+    setPaused(session, isPaused(nav));
+  };
+  const shell = createScreenShell({
+    app,
+    screens: SCREENS,
     ctx: {
       game,
-      app: document.getElementById("app"),
+      app,
       storage: { save: saveProgress, clear: clearSave },
       reload: () => location.reload(),
-      rerender: () => {},
       // 装着・外す・分解のあと:装備を反映した戦闘の数値の表を作り直して保存する(D-145)。
       onGearChanged: () => {
         refreshCombat(game);
         saveProgress(game.progress);
       },
     },
-    onOpenChange: (open) => setPaused(session, open),
+    onChange: (screen) => applyNav(showScreen(nav, screen)),
+  });
+  createDrawer({
+    app,
+    toggle: el.menu,
+    hud: el.hud,
+    screens: SCREENS,
+    onSelect: (id) => shell.navigate(id),
+    onOpenChange: (open) => applyNav(setDrawer(nav, open)),
   });
   // ?debug を付けたときだけ、ブラウザの自動操作の確認用に状態を見せる(読むだけ。結果には関係しない)。
   if (new URLSearchParams(location.search).has("debug")) {
     window.fishDebug = game;
     window.fishSession = session;
+    window.fishNav = () => nav;
   }
 
   let shownResults = 0;
@@ -272,6 +286,7 @@ function main() {
     drawEffects(ctx, rect.width, rect.height, effects, now);
 
     el.coins.textContent = formatCount(game.progress.coins);
+    if (shell.current() !== null) shell.setCoins(`ウロコイン ${formatCount(game.progress.coins)}`);
     el.need.textContent = needLabel(game);
     el.rodName.textContent = rodName(game.progress);
     el.message.textContent = messageFor(game);

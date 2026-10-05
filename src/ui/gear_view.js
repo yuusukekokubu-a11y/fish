@@ -1,5 +1,5 @@
 // @ts-check
-// クレートタブと装備タブの中身(画面に触らない部分:D-139・D-151)。
+// クレートと装備の画面の中身(画面に触らない部分:D-139・D-162)。
 // ここは数と文字を作るだけ。ボタンや演出は gear_tabs.js・gacha_fx.js が受け持つ。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144)。
 
@@ -32,13 +32,22 @@ import { formatCount } from "./format.js";
  * @property {{ gacha: GachaConfig }} config
  */
 
+/**
+ * レア度の★(ノーマル ★、レア ★★、エピック ★★★、レジェンド ★★★★)。色だけに頼らない(D-154)。
+ * @param {string} rarityId
+ */
+export function rarityStars(rarityId) {
+  const index = RARITY_ROWS.findIndex((r) => r.id === rarityId);
+  return "★".repeat(Math.max(1, index + 1));
+}
+
 /** 引けない理由の短い文(画面に出す)。 */
 export const PULL_MESSAGES = Object.freeze({
   count: "引ける回数がちがいます",
   locked: "まだ引けません",
   seed: "準備中です",
   coins: "ウロコインが足りません",
-  space: "持ち物がいっぱいです。装備タブで分解してください",
+  space: "持ち物がいっぱいです。装備の画面で分解してください",
 });
 
 /** 千分率を「22%」「6.5%」の形に。 @param {number} rate */
@@ -63,7 +72,13 @@ export function crateCards(game, crates) {
         one: pullBlocker(progress, crate, 1, config.gacha),
         ten: pullBlocker(progress, crate, 10, config.gacha),
       },
-      rates: crate.rarities.map((r) => ({ id: r.id, name: r.name, color: r.color, rate: formatRate(r.rate) })),
+      rates: crate.rarities.map((r) => ({
+        id: r.id,
+        name: r.name,
+        stars: rarityStars(r.id),
+        color: r.color,
+        rate: formatRate(r.rate),
+      })),
       kinds: content.equipKinds.map((k) => {
         const low = effectRange(k, crate.rarities[0], crate.grade, config.gacha.gradeGrowth);
         const high = effectRange(k, crate.rarities[crate.rarities.length - 1], crate.grade, config.gacha.gradeGrowth);
@@ -82,9 +97,15 @@ export function formatRange(kind, min, max) {
   return `${kind.display.label} +${n(min)}〜+${n(max)}${kind.display.unit}`;
 }
 
-/** 持ち物の空き。 @param {GameLike} game */
+/** 持ち物の数。 @param {GameLike} game */
 export function inventoryLabel(game) {
   return `持ち物 ${game.progress.gear.items.length} / ${game.config.gacha.inventoryMax}`;
+}
+
+/** 持ち物の空き(「あと 12 個」)。 @param {GameLike} game */
+export function inventorySpaceLabel(game) {
+  const left = Math.max(0, game.config.gacha.inventoryMax - game.progress.gear.items.length);
+  return left === 0 ? "持ち物がいっぱいです" : `持ち物 あと ${left} 個`;
 }
 
 /** 差(+/−)の文。 @param {import("../core/gear.js").EquipKind} kind @param {number} diff */
@@ -110,6 +131,8 @@ export function itemView(game, item, crates) {
     kindName: kind ? kind.name : item.kind,
     rarityId: item.rarity,
     rarity: rarity ? rarity.name : item.rarity,
+    stars: rarityStars(item.rarity),
+    kind: item.kind,
     color: rarity ? rarity.color : "#ffffff",
     effect: kind ? formatEffect(kind, item.value) : String(item.value),
     grade: item.grade,
@@ -118,6 +141,8 @@ export function itemView(game, item, crates) {
     diff: kind ? formatDiff(kind, diff) : String(diff),
     diffSign: Math.sign(diff),
     refund: refundFor(item, crates),
+    // スキルの欄(②-4b から。1 個に最大 3 行)。今は空なので、画面には何も出ない。
+    skills: item.skills.slice(0, 3),
   };
 }
 
@@ -128,10 +153,11 @@ function rarityOrder(id) {
 
 /**
  * 持ち物の一覧。sort は "rarity"(レア度の高い順、同じなら効果の大きい順)か "new"(新しい順)。
- * @param {GameLike} game @param {Crate[]} crates @param {"rarity" | "new"} sort
+ * kind を渡すと、その種類だけに絞り込む(null ならすべて)。
+ * @param {GameLike} game @param {Crate[]} crates @param {"rarity" | "new"} sort @param {string | null} [kind]
  */
-export function inventoryRows(game, crates, sort) {
-  const items = [...game.progress.gear.items];
+export function inventoryRows(game, crates, sort, kind = null) {
+  const items = game.progress.gear.items.filter((it) => kind === null || it.kind === kind);
   if (sort === "rarity") {
     items.sort((a, b) => rarityOrder(b.rarity) - rarityOrder(a.rarity) || b.grade - a.grade || b.value - a.value || b.id - a.id);
   } else {
@@ -145,6 +171,17 @@ export function slotRows(game, crates) {
   return game.content.equipKinds.map((kind) => {
     const item = equippedItem(game.progress.gear, kind.id);
     return { kind: kind.id, kindName: kind.name, item: item ? itemView(game, item, crates) : null };
+  });
+}
+
+/**
+ * まとめて分解の一覧(レア度ごとに、何個・いくら戻るか。装着中は除く)。
+ * @param {GameLike} game @param {Crate[]} crates
+ */
+export function bulkDismantleRows(game, crates) {
+  return RARITY_ROWS.map((r) => {
+    const preview = bulkDismantlePreview(game, crates, r.id);
+    return { id: r.id, name: r.name, stars: rarityStars(r.id), color: r.color, ...preview };
   });
 }
 
