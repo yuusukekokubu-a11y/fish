@@ -5,7 +5,7 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 ## 1. 作業の始めに読む順番
 
 1. `docs/ACTIVE_DECISIONS.md`(今有効な決定の一覧)
-2. 必要な番号だけ `docs/DECISIONS.md`(D-093 から)か `docs/decisions/vol1.md`(D-001〜D-092)で、くわしい理由を読む(D-133)。置き換えられた古い決定・完了した段取りは `docs/decisions/archive.md`(D-110)
+2. 必要な番号だけ `docs/DECISIONS.md`(D-132 以降)、`docs/decisions/vol1.md`(D-001〜D-092)、`docs/decisions/vol2.md`(D-093〜D-130)で、くわしい理由を読む(D-133)。置き換えられた古い決定・完了した段取りは `docs/decisions/archive.md`(D-110)
 3. `docs/SPEC.md`(何をするか)と `docs/DESIGN.md`(どう作るか)
 
 ## 2. 依頼の進め方
@@ -45,6 +45,7 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 - 画面は、時間とタップを窓口 `src/ui/session.js` を通して計算本体に渡す。メニューを開いている間は止める(D-134)。画面は `src/ui/screens.js` の表(`SCREENS`)に 1 行足して増やす。全画面と目次が開いている間も止める(D-152・D-161)。押せる場所は 44px 以上、レア度は色と★(D-154)。
 - 新しいファイルは、先頭に `// @ts-check` を書き、JSDoc で型を書いて `tsconfig.json` の `files` に足す。既存のファイルは触るときに足す。TypeScript には移らない(D-144・D-150・D-158)。
 - 装備の種類・レア度は `src/core/gear.js` の表、クレートは段階の表から自動で作る。ガチャの乱数は種と引いた回数から作り、魚の系統を使わない(D-145〜D-148)。
+- スキルは `src/core/skills.js` の表(`SKILL_ROWS`)の最後に行を足して増やす。装備の種類・レア度・スキルの表の行は並べ替えない(保存の版 5 とセーブコードが表の番号を使う:D-174・D-178)。
 - 魚と段階は `src/core/fish.js` の表(`FISH_ROWS`・`STAGE_ROWS`、項目名つきの行:D-136)に行を足して増やす。コードに魚の id や段階の数を直接書かない(D-093・D-111・D-136。手順は DESIGN の「段階や魚を足す手順」)。
 
 ## 3.5 バージョン(D-085・D-091)

@@ -33,14 +33,15 @@
 | `src/version.js` | バージョン(手で決める番号と識別番号)。画面だけが読む(D-091)。 |
 | `src/core/fish.js` | 魚の表(`FISH_ROWS`)と段階の表(`STAGE_ROWS`)。どちらも項目名つきの行で、中で使う形(`FISH_LIST`・`STAGE_LIST`)に直す。表の点検(`checkContent`)、抽選の重み(D-046・D-111・D-136)。魚と段階を足すときは、ここに行を足すだけ(下の「段階や魚を足す手順」)。 |
 | `src/core/gear.js` | 装備・クレート・ガチャ(D-145〜D-149)。レア度の表(`RARITY_ROWS`)と装備の種類の表(`EQUIP_KIND_ROWS`)、クレートの一覧と価格の数式(`makeCrates`)、抽選(`drawItem`・`pullCrate`)、装着と分解、装備を反映した戦闘の数値の表(`applyGear`)。JSDoc で型を書いている(D-144)。 |
-| `src/core/gear_save.js` | 保存の版 4 の、装備とガチャのまとまりの点検(`readGear`)。JSDoc で型を書いている。 |
+| `src/core/gear_save.js` | 保存の版 5 の、装備とガチャのまとまりの変換(`packGear`)と点検(`readGear`)、版 4 の形の点検(`readGearV4`)。JSDoc で型を書いている。 |
+| `src/core/skills.js` | スキル(D-165〜D-168・D-174)。スキルの表(`SKILL_ROWS`)、最大レベル・レベル・ポイントの範囲、装着中の装備からのスキルの状態(`skillStates`)、戦闘の数値の表への反映(`applySkillsToCombat`)、報酬と待ち時間の倍率(`skillRates`・`scaledReward`・`scaledWait`)。スキルを足すときは、ここに行を足すだけ(下の「スキルを足す手順」)。 |
 | `src/core/rng.js` | シードで固定できる乱数(D-021)。 |
 | `src/core/minigame.js` | ミニゲームの印の動きと判定。 |
 | `src/core/fishing.js` | 釣りの 1 サイクルの場面の進み方(合わせ・体力制・休み)と、報酬。 |
 | `src/core/rod.js` | 竿の工程(製作・ヌシ撃破・進化)、竿の名前、次に要る鱗、数の上限(D-114・D-116)。 |
-| `src/core/save.js` | 保存の形式(版 4)の変換と点検、版 1〜3 からの読み替え(D-065・D-117・D-143)。ブラウザへの読み書きは UI が行う。 |
+| `src/core/save.js` | 保存の形式(版 5)の変換と点検、版 1〜4 からの読み替え(D-065・D-117・D-143・D-178)。ブラウザへの読み書きは UI が行う。 |
 | `src/core/savecode.js` | セーブコードの書き出しと読み込み(D-065)。 |
-| `src/ui/` | 画面の表示と操作。`main.js` が時間を進めてタップとボタンを受け取り、保存を扱う。`session.js` は時間とタップを計算本体に渡す窓口で、メニューを開いている間は止める(D-134)。`screens.js` が画面の表と切り替えの状態、`drawer.js` が目次、`screen_shell.js` が全画面の枠と履歴、`list_view.js` が一覧の描き方、`sheet.js` が下から出るシート、`screen_views.js` が素材とステータスの中身、`equip_screen.js` と `crate_screen.js` が装備とクレートの画面、`settings.js` が設定の画面(D-152・D-161・D-162)。見た目は `index.html` と `screens.css`。URL に `?debug` を付けると、ブラウザの自動操作の確認用に状態を `window.fishDebug` で読めるようにする(読むだけ)。`?debug&crit=100` のように付けると、クリティカルの確率(%)を変えられる(`?debug` がないときは無視)。`draw.js` が絵、`effects.js` が手応えの演出を描く。`format.js` は大きな数を「1.2万」のように短くする(D-116)。`gear_view.js` はクレートと装備の画面の数と文字(画面に触らない)、`gacha_fx.js` は引く演出(D-162)。新しいファイルは JSDoc で型を書いている(D-158)。 |
+| `src/ui/` | 画面の表示と操作。`main.js` が時間を進めてタップとボタンを受け取り、保存を扱う。`session.js` は時間とタップを計算本体に渡す窓口で、メニューを開いている間は止める(D-134)。`screens.js` が画面の表と切り替えの状態、`drawer.js` が目次、`screen_shell.js` が全画面の枠と履歴、`list_view.js` が一覧の描き方、`sheet.js` が下から出るシート、`screen_views.js` が素材とステータスの中身、`equip_screen.js` と `crate_screen.js` が装備とクレートの画面、`skill_screen.js` がスキルの画面(数と文字は `skill_view.js`)、`settings.js` が設定の画面(D-152・D-161・D-162)。見た目は `index.html` と `screens.css`。URL に `?debug` を付けると、ブラウザの自動操作の確認用に状態を `window.fishDebug` で読めるようにする(読むだけ)。`?debug&crit=100` のように付けると、クリティカルの確率(%)を変えられる(`?debug` がないときは無視)。`draw.js` が絵、`effects.js` が手応えの演出を描く。`format.js` は大きな数を「1.2万」のように短くする(D-116)。`gear_view.js` はクレートと装備の画面の数と文字(画面に触らない)、`gacha_fx.js` は引く演出(D-162)。新しいファイルは JSDoc で型を書いている(D-158)。 |
 | `tests/fixtures/` | テストで比べる記録。変えてはいけない。`fish_order.json` は全段階 × シード 3 つの「待ち時間・魚・最初の当たり範囲」の並び(強い魚 10% にしたときに作り直した:D-113)。`hookring_plays.json` は縮む輪の合わせで決まった遊び方をした結果(D-090・D-113。作り方は `tests/hookring_play.js`)。 |
 | `tests/*.test.js` | 速いテスト。`npm test` で並列に回る。 |
 | `tests/slow/*.test.js` | 重いテスト(D-026)。`npm run test:slow` で回る。 |
@@ -81,6 +82,7 @@
 - 戦闘の数値の表は `{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs }`。基本の表は `config.combat`。
 - `createGame(seed, { combat, critRules })` で表と規則の一覧を渡す。表は `normalizeCombat` で点検・丸めてから `game.combat` に置き、戦闘はこれだけを見る。
 - ②-4 の装備は、基本の表をもとに「足す・掛ける」を重ねた新しい表を作り、`createGame`(または付け替えのときに作り直す表)に渡す。戦闘のコードは変えなくてよい。範囲外になっても `normalizeCombat` が丸めるので、戦闘は壊れない。
+- 追加クリティカル(D-169):`critStages(context, rules, 上限)` が段数を返す。会心率 c の整数の部分が必ず起きる段数、残りがもう 1 段の確率。ダメージは `hitDamage(表, 段数, 上限)` で「通常ダメージ × 倍率の段数乗」。1 以下なら前の判定と同じ結果。安全上限は `config.combatLimits`(段数 20・総倍率 100 万・ダメージ 10 億)。
 - クリティカルの判定は `isCritical(context, rules)`。`rules` は関数の一覧で、どれか 1 つでも true ならクリティカル。関数は `{ roll, stats, position, zone }` を受け取る。
   - 今の一覧:`chanceRule`(`roll < stats.critChance`)だけ。
   - 腕前型(D-070)を足すときは、`({ position, zone }) => 中心からの距離が帯の幅以下` のような関数を一覧に加える。乱数は使わないので、乱数の並びは変わらない。
@@ -96,12 +98,15 @@
   - 当たりのダメージ = 表の通常ダメージ →(クリティカルなら)倍率をかけて四捨五入 → 上乗せの倍率を全部かけて四捨五入。
 - **②-4 の特性が同じ仕組みで足せる理由**:条件発動型の特性(「連続で 3 回当てたら、次の一撃 1.3 倍」「合わせがジャストなら、2 回ぶん 1.2 倍」など)は、どれも「ある出来事のときに、上乗せを一覧に足す」で書ける。戦闘のコード(ダメージの計算)は一覧をかけ合わせるだけなので、特性を足しても変えなくてよい。ダメージ以外(回復を減らす など)の上乗せが要るときは、上乗せに項目を足し、計算の 1 か所で使う。
 
-### 保存とセーブコード(D-065・D-117・D-143)
+### 保存とセーブコード(D-065・D-117・D-143・D-178)
 
-- 保存の形(版 4):`{ "version": 4, "progress": { "coins", "scales": { 魚の id: 数 }, "rod": { "stage", "step" }, "seen", "gear": { "items", "equipped", "draws", "seed", "nextId" } } }`。`step` は `none`・`crafted`・`defeated`・`evolved`。`items` の 1 個は `{ id, kind, rarity, grade, value, skills }`、`equipped` は `{ 種類の id: 個体の番号 }`。
-- 読み替え:`save.js` の `MIGRATIONS` に「版 n → 版 n+1」の小さな関数を版ごとに置き、`migrate` が順に通す。版 1 → 2 は形の整理、版 2 → 3 は前の素材を同じ数のウロコインに足し、竿をその段階の未製作にする。版 3 → 4 は空の持ち物と、まだ決めていないガチャの種(`null`)を足す。種は画面がデータを読んだときに決めて保存する(D-148)。
-- 点検:数は 0 以上の安全な整数、鱗の id は小文字の英数字とハイフン(40 字まで)、鱗の種類は 1000 まで、竿の段階は表の範囲、`evolved` は最後の段階だけ。表にない魚の鱗は、エラーにせず持ち続ける(古い魚を消したときに備える)。装備は、表にない種類・レア度、範囲外のグレード・値、重なる番号、持ち物にない装着の番号、枠と種類のずれ、空でないスキル、100 個をこえる持ち物を拒否する(`gear_save.js`)。
-- セーブコード:`FISH4-(中身)-(印)`。中身は保存の形の JSON を base64url にしたもの、印は中身から FNV-1a で計算した 8 けたの 16 進数。`FISH2-`・`FISH3-` も読める(中身の版と合っているとき)。長さは、持ち物が 100 個のとき約 1 万文字(上限は 4 万文字)。
+- 保存の形(版 5):`{ "version": 5, "progress": { "coins", "scales": { 魚の id: 数 }, "rod": { "stage", "step" }, "seen", "gear": { "items", "equipped", "draws", "seed", "nextId" } } }`。`step` は `none`・`crafted`・`defeated`・`evolved`。
+  - `items` の 1 個は短い配列 `[個体の番号, 種類の番号, レア度の番号, グレード, 基本効果の値, [スキルの番号, ポイント, …]]`。
+  - `equipped` は `[[種類の番号, 個体の番号], …]`。
+  - 番号は表(`EQUIP_KIND_ROWS`・`RARITY_ROWS`・`SKILL_ROWS`)の並びの順(0 から)。**表の行は並べ替えず、足すのは最後に**(並びを変えると、前のセーブコードの意味が変わる)。
+- 読み替え:`save.js` の `MIGRATIONS` に「版 n → 版 n+1」の小さな関数を版ごとに置き、`migrate` が順に通す。版 1 → 2 は形の整理、版 2 → 3 は前の素材を同じ数のウロコインに足し、竿をその段階の未製作にする。版 3 → 4 は空の持ち物と、まだ決めていないガチャの種(`null`)を足す。種は画面がデータを読んだときに決めて保存する(D-148)。版 4 → 5 は、版 4 の形(オブジェクト)を点検してから短い配列に直す。旧装備はスキルなし(D-172)。
+- 点検:数は 0 以上の安全な整数、鱗の id は小文字の英数字とハイフン(40 字まで)、鱗の種類は 1000 まで、竿の段階は表の範囲、`evolved` は最後の段階だけ。表にない魚の鱗は、エラーにせず持ち続ける(古い魚を消したときに備える)。装備は、表にない種類・レア度・スキルの番号、範囲外のグレード・値・ポイント、レア度の数より多いスキル、同じ装備の同じスキル、重なる番号、持ち物にない装着の番号、枠と種類のずれ、同じ枠の二重の装着、100 個をこえる持ち物を拒否する(`gear_save.js`)。
+- セーブコード:`FISH5-(中身)-(印)`。中身は保存の形の JSON を base64url にしたもの、印は中身から FNV-1a で計算した 8 けたの 16 進数。`FISH2-`〜`FISH4-` も読める(中身の版と合っているとき)。長さは、持ち物 100 個・全部スキル 3 つでも約 5000 文字(上限は 2 万文字)。
 - 読み込みの点検の順番:空か → 形(`FISH数字-英数字-16進8けた`)→ 印 → 版 → 中身。どこで失敗しても、いまの保存データは変えない。
 
 ### 段階や魚を足す手順(D-093・D-111・D-136)
@@ -138,6 +143,7 @@
 - 画面の表:`src/ui/screens.js` の `SCREENS`。1 行に `{ id, title, mount }`。目次(`drawer.js`)はこの表から項目を作る。
 - 画面の切り替えの状態:`{ drawer, screen }`(`initialNav`・`setDrawer`・`showScreen`・`isPaused`)。どちらかが開いていれば、窓口(`session.js`)の `setPaused` で釣りを止める。計算本体は、止まっていることを知らない。
 - 全画面の枠:`screen_shell.js` の `createScreenShell`。上のバー(「←」・タイトル・ウロコイン)と中身。中身は、画面に移るたびと `ctx.rerender()` のたびに作り直す(作り直しではスクロールの位置を保つ)。
+- 目次の履歴(D-173・D-179):開くと `history.pushState({ drawer: true })`。「戻る」で閉じる。✕や外側で閉じたときは `history.back()` で足した履歴を戻す。項目を押したときは、目次の履歴を画面の履歴に置き換える(`navigate(id, { replace: true })`)。
 - 履歴:移るたびに `history.pushState({ screen, depth }, "", "#id")`。ブラウザの「戻る」は `popstate` で 1 つ前の画面。バーの「←」は `history.go(-depth)` でメイン画面まで。再読み込みしたら、履歴を「メイン画面 → その画面」に作り直して開く。
 - 画面と外側のタップは `pointerdown` を下に伝えない(釣りの絵に届かない)。下から出るシート(`sheet.js`)も同じ。
 - 見た目は `src/ui/screens.css`。ボタンは 48px(丸いボタン 44px)以上、文字は 14px 以上、`env(safe-area-inset-*)` で端の余白を取る。
@@ -153,19 +159,20 @@
 
 **ステータスの項目を足す**
 
-- 1 項目:`screen_views.js` の項目を、`STATUS_SECTIONS` のグループの `items` に足す(`{ label, value: (combat) => 値, format }`)。
-- グループごと(例:②-4b のスキルレベル):`STATUS_SECTIONS` に `{ title, items }` を 1 行足す。
+- 1 項目:`screen_views.js` の項目を、`STATUS_SECTIONS` のグループの `items` に足す(`{ label, value: (combat, rates) => 値, format, extra? }`)。`rates` は報酬と待ち時間の倍率(`game.rates`)、`extra` は詳細に足す行。
+- グループごと:`STATUS_SECTIONS` に `{ title, items }` を 1 行足す(例:「報酬と待ち時間」)。
 
-**装備の画面の決まり(7 枠とスキル 3 行:D-155)**
+**装備の画面の決まり(7 枠とスキル 3 行:D-155・D-179)**
 
-- 枠は装備の種類の表から作り、2 列のグリッドに並べる(7 枠なら 4 段)。カードのスキルは `skills` の最初の 3 つを行で出す(空なら出さない)。
+- 枠は装備の種類の表から作り、3 列の小さなグリッドに並べて上に固定する(7 枠なら 3 段)。持ち物だけがスクロールする。
+- カードのスキルは、名前とポイントを最大 3 行で出す(空なら出さない)。詳細のシートには、付けた(外した)ときのスキルレベルの変化を出す(`skillLevelChanges`)。
 
 ### 装備とガチャの作り(D-145〜D-149)
 
 - 装備の効果:`applyGear(基本の表, 装備, 種類の表)` が、装着中の装備の基本効果を、種類の表の `stat`(戦闘の数値の表の項目)に足し算する。`fishing.js` の `refreshCombat(game)` が、`game.baseCombat`(装備なしの表)から `game.combat` を作り直す。画面は、装着・外す・分解のあとに呼ぶ。
-- ルアー:外したときに `fight.boosts` に `{ id: "lure", damageBonus, uses: 1 }` を足す(すでにあれば足さない)。`boostedDamage` は倍率を掛けたあとに `damageBonus` を足す。
+- ルアー:外したときに `fight.boosts` に `{ id: "lure", damageBonus, uses: 1 }` を足す(すでにあれば足さない)。`damageBonus` は「ルアーの値」と「その外しで回復した量」の小さいほう(D-176)。`boostedDamage` は倍率を掛けたあとに `damageBonus` を足す。
 - クレート:`makeCrates(content, config)` が段階の表から作る。価格は `cratePrice`(魚の表から 1 回投げたときの期待値を出し、`config.gacha` の秒数で割り、目標の時間を掛ける)。
-- 抽選:`drawItem(種, 何回目, クレート, 種類の表, グレードの伸び)`。乱数は `drawSeed(種, 何回目)` から作る、ガチャ専用の系統。魚の系統とミニゲームの系統には触らない。
+- 抽選:`drawItem(種, 何回目, クレート, 種類の表, グレードの伸び, スキルの表と数値)`。引く順はレア度 → 種類 → 値 → スキル → ポイント(D-177)。乱数は `drawSeed(種, 何回目)` から作る、ガチャ専用の系統。魚の系統とミニゲームの系統には触らない。
 - 引く:`pullCrate` が、引けるか(`pullBlocker`:回数・解放・種・ウロコイン・持ち物の空き)を確かめてから、価格を減らし、装備を足し、引いた回数を進める。画面は保存してから演出を出す。
 
 **装備の種類を 1 つ足す(既にある戦闘の数値の項目を使う場合)**
@@ -173,6 +180,18 @@
 1. `gear.js` の `EQUIP_KIND_ROWS` に 1 行足す。例:`{ id: "rod-tip", name: "穂先", stat: "critChance", base: { min: 0.05, max: 0.1 }, step: 0.01, display: { label: "クリティカルの確率", scale: 0.01, unit: "%" } }`。
 2. これだけで、抽選に加わり(種類は等しい確率)、装備の画面に枠が増え、装着すると戦闘の数値の表に足される(`tests/gear.test.js` が確かめている)。保存の点検も種類の表から作る。
 3. 新しい戦闘の数値の項目が要る種類(②-5 のおもり・浮きなど)は、`config.combat` と `normalizeCombat` に項目を足し、戦闘のコードで 1 か所使う(ルアーの `missBonusDamage` と同じ)。
+
+### スキルの作りと、スキルを足す手順(D-165〜D-168・D-174)
+
+- 装着中の装備のスキルのポイントを、スキルごとに足してレベルにする(`skillStates`)。4 ポイントで 1 レベル、最大で止まり、余りは無駄。成長型の最大は「2 + 竿の段階」、頭打ち型は 3(`config.skills`)。
+- `refreshCombat(game)` が、`game.skills`(スキルの状態)・`game.rates`(報酬と待ち時間の倍率)・`game.combat` を作り直す。表は「基本 → 装備(足し算)→ スキル(足し算 → 掛け算)→ `normalizeCombat`」の順。
+- 俊敏は、魚の系統から引いた待ち時間にあとから倍率を掛ける(`scaledWait`。引く乱数の数と値は変えない)。豊漁・目利きは、釣れたときの報酬に倍率を掛け、端数は `game.rewardCarry` に持ち越す(D-175)。
+
+**スキルを 1 つ足す(既にある戦闘の数値の項目を使う場合)**
+
+1. `skills.js` の `SKILL_ROWS` の**最後に** 1 行足す(並びの番号をセーブコードに使うため)。例:`{ id: "lure-power", name: "誘い", type: "growth", target: { kind: "combat", stat: "missBonusDamage", op: "add" }, perLevel: 2, display: { label: "外したあとの次の当たり", scale: 1, unit: "", sign: "+" }, description: "外したあとの当たりが強くなる。" }`。
+2. これだけで、ガチャの抽選(等確率)、レベルの計算、戦闘の数値の表、スキルの画面、保存の点検に加わる(`tests/skills.test.js` が確かめている)。
+3. 新しい種類の効果(条件発動型など)は、`target` に種類を足し、`applySkillsToCombat` か `skillRates` の 1 か所で使う。
 
 ### ファイルの大きさの目安
 

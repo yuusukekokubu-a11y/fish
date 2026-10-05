@@ -6,7 +6,9 @@
 // 結果は演出の前に確定し、保存してから見せる(D-148)。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
+import { DEFAULT_CONFIG } from "../core/config.js";
 import { makeCrates, pullCrate } from "../core/gear.js";
+import { SKILL_ROWS } from "../core/skills.js";
 import { playPull } from "./gacha_fx.js";
 import { crateCards, inventorySpaceLabel, PULL_MESSAGES, pullResultView } from "./gear_view.js";
 import { button, el } from "./list_view.js";
@@ -33,6 +35,8 @@ export function mountCrates(container, ctx) {
   message.setAttribute("role", "status");
   container.append(space, message);
 
+  // スキルの抽選に使う表と数値(ゲームの表を使う:D-177)。
+  const skillDraw = { skills: game.content.skills ?? SKILL_ROWS, config: game.config.skills ?? DEFAULT_CONFIG.skills };
   const list = el("div", "crate-list");
   for (const card of crateCards(game, crates)) {
     const box = el("section", "crate-card");
@@ -44,7 +48,7 @@ export function mountCrates(container, ctx) {
     const price = el("p", "crate-price", `1 回 ${card.price.one} ・ 10 連 ${card.price.ten}`);
     const detail = el("div", "crate-detail");
     detail.hidden = true;
-    const rates = detailList(card.rates.map((r) => [`${r.stars} ${r.name}`, r.rate]));
+    const rates = detailList(card.rates.map((r) => [`${r.stars} ${r.name}`, `${r.rate}・${r.skillsText}`]));
     rates.querySelectorAll("dt").forEach((dt, i) => /** @type {HTMLElement} */ (dt).style.setProperty("color", card.rates[i].color));
     detail.append(el("h3", "detail-title", "排出率"), rates);
     detail.append(el("h3", "detail-title", "装備の種類と基本効果の範囲"), detailList(card.kinds.map((k) => [k.name, k.range])));
@@ -64,7 +68,7 @@ export function mountCrates(container, ctx) {
       // ウロコインが足りないときは押せない見た目。持ち物がいっぱいのときは、押すと理由を出す(前と同じ)。
       if (blocker === "coins" || blocker === "locked" || blocker === "seed") b.disabled = true;
       b.addEventListener("click", () => {
-        const result = pullCrate(game.progress, card.crate, count, game.content.equipKinds, game.config.gacha);
+        const result = pullCrate(game.progress, card.crate, count, game.content.equipKinds, game.config.gacha, skillDraw);
         if (!result.ok) {
           message.textContent = PULL_MESSAGES[/** @type {keyof typeof PULL_MESSAGES} */ (result.reason)] ?? "引けません";
           message.classList.add("error");

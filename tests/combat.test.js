@@ -30,11 +30,12 @@ test("基本の表:ダメージ 10・確率 10%・倍率 2・回復 10・時間�
   assert.deepEqual(norm(undefined), norm(BASE), "表がなければ基本の表");
 });
 
-test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以上・確率 0〜100%・倍率 1〜10)", () => {
+test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以上・確率 0 以上・倍率 1 以上。上は安全上限だけ:D-169)", () => {
+  // 会心率 150%・倍率 50 倍は、追加クリティカルでそのまま使う(安全上限の中)。
   assert.deepEqual(norm({ damage: -5, critChance: 1.5, critMultiplier: 50, missHeal: -3, timeLimitBonusMs: 0 }), {
     damage: 1,
-    critChance: 1,
-    critMultiplier: 10,
+    critChance: 1.5,
+    critMultiplier: 50,
     missHeal: 0,
     timeLimitBonusMs: 0,
     missBonusDamage: 0,
@@ -49,6 +50,9 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
   });
   // 境目ちょうどはそのまま。
   assert.deepEqual(norm({ damage: 1, critChance: 1, critMultiplier: 10, missHeal: 0, timeLimitBonusMs: 0 }).critChance, 1);
+  // 安全上限:確率 2000%(20 段)、倍率 100 倍。
+  const big = norm({ ...BASE, critChance: 1e9, critMultiplier: 1e9 });
+  assert.deepEqual([big.critChance, big.critMultiplier], [LIMITS.maxCritChance, LIMITS.maxCritMultiplier]);
   assert.equal(norm({ ...BASE, critChance: 0 }).critChance, 0);
   // 数でない値は基本の表に戻す。整数でない値は四捨五入。
   const odd = norm({ damage: "10", critChance: NaN, critMultiplier: Infinity, missHeal: null, timeLimitBonusMs: undefined });
@@ -153,7 +157,7 @@ test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より�
   // 回復と時間の増減は、計算が壊れないための安全上限で止まる(D-145)。
   assert.deepEqual(combat, {
     damage: 1,
-    critChance: 1,
+    critChance: LIMITS.maxCritChance,
     critMultiplier: 1,
     missHeal: LIMITS.maxMissHeal,
     timeLimitBonusMs: -LIMITS.maxTimeLimitBonusMs,

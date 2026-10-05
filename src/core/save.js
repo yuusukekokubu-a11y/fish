@@ -1,7 +1,8 @@
 // 保存の形式(D-065・D-104・D-117・D-143)。ブラウザに保存するのは UI の役目で、ここは形の変換と点検だけを行う。
-// 版 4 の形:
-//   { version: 4, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...],
-//     gear: { items, equipped, draws, seed, nextId } } }
+// 版 5 の形:
+//   { version: 5, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...],
+//     gear: { items: [[…]], equipped: [[…]], draws, seed, nextId } } }
+//   装備は表の番号の短い配列で書く(D-171・D-178。形は gear_save.js)。
 // 装備とガチャのまとまり(gear)の点検は gear_save.js にある。
 // 古い版は、版ごとの小さな関数(MIGRATIONS)で 1 つずつ新しい版に読み替える。版を足すときは、
 // SAVE_VERSION を上げ、「前の版 → 新しい版」の関数を 1 つ足す。
@@ -11,10 +12,10 @@
 import { DEFAULT_CONFIG } from "./config.js";
 import { DEFAULT_CONTENT, FISH_ID_PATTERN as ID_PATTERN } from "./fish.js";
 import { emptyGear } from "./gear.js";
-import { gearToSave, migratedGear, readGear } from "./gear_save.js";
+import { migratedGear, packGear, readGear, readGearV4 } from "./gear_save.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const SAVE_KEY = "fish:save";
 
 // 鱗の表の大きさの上限(壊れたデータで大きくなりすぎないように)。
@@ -25,8 +26,8 @@ export function initialProgress() {
   return { coins: 0, scales: {}, rodStage: 1, rodStep: ROD_STEPS.NONE, seen: [], gear: emptyGear() };
 }
 
-/** 進み具合を、保存する形(版 4)にする。 */
-export function toSaveData(progress) {
+/** 進み具合を、保存する形(版 5)にする。装備の番号は content の表の並び。 */
+export function toSaveData(progress, content = DEFAULT_CONTENT) {
   return {
     version: SAVE_VERSION,
     progress: {
@@ -34,7 +35,7 @@ export function toSaveData(progress) {
       scales: { ...progress.scales },
       rod: { stage: progress.rodStage, step: progress.rodStep },
       seen: [...progress.seen],
-      gear: gearToSave(progress.gear ?? emptyGear()),
+      gear: packGear(progress.gear ?? emptyGear(), content),
     },
   };
 }
@@ -78,15 +79,35 @@ export const MIGRATIONS = Object.freeze({
     if (!isPlainObject(data.progress)) return null;
     return { version: 4, progress: { ...data.progress, gear: migratedGear() } };
   },
+  // 版 4 → 版 5:装備を表の番号の短い配列にする。旧装備はスキルなしのまま(D-172)。
+  // 版 4 の形の点検もここで行う(おかしければ null)。
+  4: (data, content, config) => {
+    if (!isPlainObject(data.progress)) return null;
+    const gear = readGearV4(data.progress.gear, gearRules(content, config));
+    if (!gear) return null;
+    return { version: 5, progress: { ...data.progress, gear: packGear(gear, content) } };
+  },
 });
 
+/** 装備の点検に使う表と数値。 */
+function gearRules(content, config) {
+  return {
+    equipKinds: content.equipKinds,
+    skills: content.skills,
+    maxStage: content.maxStage,
+    inventoryMax: config.gacha.inventoryMax,
+    gradeGrowth: config.gacha.gradeGrowth,
+    skillConfig: config.skills,
+  };
+}
+
 /** 古い版を、今の版の形まで順に読み替える。知らない版や読み替えられないときは null。 */
-export function migrate(data) {
+export function migrate(data, content = DEFAULT_CONTENT, config = DEFAULT_CONFIG) {
   let current = data;
   while (isPlainObject(current) && current.version !== SAVE_VERSION) {
     const step = MIGRATIONS[current.version];
     if (!step) return null;
-    current = step(current);
+    current = step(current, content, config);
   }
   return isPlainObject(current) ? current : null;
 }
@@ -109,7 +130,7 @@ export function readSaveData(data, content = DEFAULT_CONTENT, config = DEFAULT_C
   if (!isPlainObject(data)) return { ok: false, error: "content" };
   const known = MIGRATIONS[data.version] || data.version === SAVE_VERSION;
   if (!known) return { ok: false, error: "version" };
-  const current = migrate(data);
+  const current = migrate(data, content, config);
   if (!current || !isPlainObject(current.progress)) return { ok: false, error: "content" };
   const { coins, scales, rod, seen, gear } = current.progress;
   if (!isCount(coins)) return { ok: false, error: "content" };
@@ -124,12 +145,7 @@ export function readSaveData(data, content = DEFAULT_CONTENT, config = DEFAULT_C
   if (!Array.isArray(seen) || !seen.every((id) => typeof id === "string" && ID_PATTERN.test(id))) {
     return { ok: false, error: "content" };
   }
-  const ownGear = readGear(gear, {
-    equipKinds: content.equipKinds,
-    maxStage: content.maxStage,
-    inventoryMax: config.gacha.inventoryMax,
-    gradeGrowth: config.gacha.gradeGrowth,
-  });
+  const ownGear = readGear(gear, gearRules(content, config));
   if (!ownGear) return { ok: false, error: "content" };
   return {
     ok: true,

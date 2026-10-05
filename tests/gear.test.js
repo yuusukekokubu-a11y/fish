@@ -232,7 +232,7 @@ function missOnce(game) {
 const noCrit = { ...DEFAULT_CONFIG.combat, critChance: 0 };
 
 for (const rarity of RARITY_ROWS) {
-  test(`効果の反映(${rarity.name}・境界の値):糸は制限時間、リールはダメージ、ルアーは外したあとの次の当たり`, () => {
+  test(`効果の反映(${rarity.name}・境界の値):糸は制限時間、リールはダメージ、ルアーは外したあとの次の当たり(回復した量まで)`, () => {
     for (const grade of [1, 5]) {
       const ranges = Object.fromEntries(KINDS.map((k) => [k.id, effectRange(k, rarity, grade, GACHA.gradeGrowth)]));
       for (const edge of ["min", "max"]) {
@@ -242,10 +242,16 @@ for (const rarity of RARITY_ROWS) {
         assert.equal(game.combat.damage, 10 + ranges.reel[edge]);
         assert.equal(game.combat.timeLimitBonusMs, ranges.line[edge]);
         assert.equal(game.fight.timeLimitMs, 8000 + ranges.line[edge], "クロダイ 8 秒 + 糸");
+        // 満タンの体力で外しても回復しないので、ルアーは乗らない(回復した量まで:D-176)。
         missOnce(game);
+        const first = hitOnce(game);
+        assert.equal(first.damage, 10 + ranges.reel[edge], "回復 0 ならルアー 0");
+        if (game.phase !== PHASES.MINIGAME) continue;
+        const healed = missOnce(game).heal;
         missOnce(game); // 外し続けても積み上げない
         const hit = hitOnce(game);
-        assert.equal(hit.damage, 10 + ranges.reel[edge] + ranges.lure[edge], "次の当たりにルアーが乗る");
+        assert.ok(healed > 0);
+        assert.equal(hit.damage, 10 + ranges.reel[edge] + Math.min(ranges.lure[edge], healed), "次の当たりにルアー(回復した量まで)");
         if (game.phase === PHASES.MINIGAME) assert.equal(hitOnce(game).damage, 10 + ranges.reel[edge], "1 回だけ");
       }
     }

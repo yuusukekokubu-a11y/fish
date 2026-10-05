@@ -1,4 +1,4 @@
-// セーブコードのテスト(版 4 の往復、FISH2・FISH3 の読み替え、壊れたコードの拒否:D-117・D-143)。
+// セーブコードのテスト(版 5 の往復、FISH2〜FISH4 の読み替え、壊れたコードの拒否:D-117・D-143)。
 // 装備とガチャのまとまりのコードは gear_save.test.js でも確かめる。
 
 import assert from "node:assert/strict";
@@ -18,7 +18,7 @@ const SAMPLE = progressAt(4, ROD_STEPS.DEFEATED, {
 });
 
 /** 中身を差し替えて、印も正しく付け直したコードを作る(範囲外の数値などを試すため)。 */
-function codeWith(data, prefix = "FISH4") {
+function codeWith(data, prefix = "FISH5") {
   const body = btoa(JSON.stringify(data)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
   return `${prefix}-${body}-${checksum(body)}`;
 }
@@ -32,7 +32,7 @@ test("書き出して読み込むと、完全に元に戻る(往復)", () => {
   ];
   for (const progress of cases) {
     const code = encodeSaveCode(progress);
-    assert.match(code, /^FISH4-[A-Za-z0-9_-]+-[0-9a-f]{8}$/);
+    assert.match(code, /^FISH5-[A-Za-z0-9_-]+-[0-9a-f]{8}$/);
     assert.deepEqual(decodeSaveCode(code, ROD), { ok: true, progress });
   }
 });
@@ -104,7 +104,7 @@ test("ちがう形式のコードは拒否する", () => {
   assertRejected(`FISH2-${body}-${checksum(body)}`, "format");
 });
 
-test("前の FISH2・FISH3 のコードも読め、版 4 に読み替える", () => {
+test("前の FISH2・FISH3 のコードも読め、版 5 に読み替える", () => {
   const v3 = { version: 3, progress: { coins: 7, scales: { kurodai: 2 }, rod: { stage: 2, step: "crafted" }, seen: ["aji"] } };
   assert.deepEqual(decodeSaveCode(codeWith(v3, "FISH3"), ROD), {
     ok: true,
@@ -118,11 +118,12 @@ test("前の FISH2・FISH3 のコードも読め、版 4 に読み替える", ()
 });
 
 test("ちがう版のコードは拒否する", () => {
-  assert.deepEqual(decodeSaveCode(codeWith(toSaveData(SAMPLE), "FISH5"), ROD).error, "version");
+  assert.deepEqual(decodeSaveCode(codeWith(toSaveData(SAMPLE), "FISH6"), ROD).error, "version");
   assert.deepEqual(decodeSaveCode(codeWith(toSaveData(SAMPLE), "FISH1"), ROD).error, "version");
   assert.deepEqual(decodeSaveCode(codeWith(toSaveData(SAMPLE), "FISH2"), ROD).error, "version", "先頭と中身の版がちがう");
   assert.deepEqual(decodeSaveCode(codeWith({ version: 4, progress: {} }, "FISH3"), ROD).error, "version");
   assert.deepEqual(decodeSaveCode(codeWith({ version: 3, progress: {} }, "FISH4"), ROD).error, "version");
+  assert.deepEqual(decodeSaveCode(codeWith({ version: 4, progress: {} }, "FISH5"), ROD).error, "version");
 });
 
 test("範囲外の数値・存在しない工程・形のちがう中身は拒否する", () => {
@@ -146,12 +147,12 @@ test("範囲外の数値・存在しない工程・形のちがう中身は拒�
     { seen: [1, 2] },
   ];
   for (const over of bad) {
-    const r = decodeSaveCode(codeWith({ version: 4, progress: { ...base, ...over } }), ROD);
+    const r = decodeSaveCode(codeWith({ version: 5, progress: { ...base, ...over } }), ROD);
     assert.equal(r.ok, false, JSON.stringify(over));
     assert.equal(r.error, "content", JSON.stringify(over));
   }
-  assert.equal(decodeSaveCode(codeWith({ version: 4 }), ROD).error, "content");
-  assert.equal(decodeSaveCode(codeWith({ version: 4, progress: null }), ROD).error, "content");
+  assert.equal(decodeSaveCode(codeWith({ version: 5 }), ROD).error, "content");
+  assert.equal(decodeSaveCode(codeWith({ version: 5, progress: null }), ROD).error, "content");
 });
 
 test("範囲の境界の値は読める", () => {

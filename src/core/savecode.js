@@ -1,7 +1,7 @@
 // セーブコード(D-059・D-065・D-117):進み具合を 1 行の文字列に書き出し、読み込む。
-// 形:FISH4-(中身)-(印)(D-143)
-// - 中身:保存の形(版 4)の JSON を base64url(英数字と「-」「_」だけの書き方)にしたもの。
-//   前に書き出した FISH2・FISH3 のコードも読める(版 4 に読み替える)。
+// 形:FISH5-(中身)-(印)(D-171・D-178)
+// - 中身:保存の形(版 5。装備は表の番号の短い配列)の JSON を base64url(英数字と「-」「_」だけの書き方)にしたもの。
+//   前に書き出した FISH2・FISH3・FISH4 のコードも読める(版 5 に読み替える)。
 // - 印:中身から計算する 8 けたの 16 進数(FNV-1a)。壊れたコードを見つけるためのもの。
 // 暗号化はしない。改ざんの防止は目的にしない。
 
@@ -9,8 +9,8 @@ import { DEFAULT_CONTENT } from "./fish.js";
 import { readSaveData, SAVE_VERSION, toSaveData } from "./save.js";
 
 const PREFIX = "FISH";
-// 長さの上限。持ち物が上限(100 個)いっぱいでも約 1 万文字なので、余裕を持たせる。
-const MAX_LENGTH = 40000;
+// 長さの上限(D-178)。持ち物 100 個(全部スキル 3 つ)でも約 5000 文字。FISH4 の 100 個(約 1 万文字)も読める。
+const MAX_LENGTH = 20000;
 // 読めるコードの版(FISH2 から)。
 const MIN_CODE_VERSION = 2;
 const PATTERN = /^FISH(\d+)-([A-Za-z0-9_-]+)-([0-9a-f]{8})$/;
@@ -43,8 +43,8 @@ function fromBase64Url(text) {
 }
 
 /** 進み具合をセーブコードにする。 */
-export function encodeSaveCode(progress) {
-  const body = toBase64Url(JSON.stringify(toSaveData(progress)));
+export function encodeSaveCode(progress, content = DEFAULT_CONTENT) {
+  const body = toBase64Url(JSON.stringify(toSaveData(progress, content)));
   return `${PREFIX}${SAVE_VERSION}-${body}-${checksum(body)}`;
 }
 

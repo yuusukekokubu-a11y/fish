@@ -8,17 +8,18 @@ import {
   boostedDamage,
   consumeBoosts,
   critSeed,
+  critStages,
   DEFAULT_CRIT_RULES,
   fightTimeLimit,
   hitDamage,
   HOOK_GRADES,
   hookTiming,
-  isCritical,
   judgeHook,
   normalizeCombat,
 } from "./combat.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { applyGear, copyGear, emptyGear } from "./gear.js";
+import { applySkillsToCombat, scaledReward, scaledWait, skillRates, skillStates } from "./skills.js";
 import { availableFish, DEFAULT_CONTENT, effectiveMinigame, FISH_KINDS, FISH_LIST, pickWeighted } from "./fish.js";
 import { drawZone, isHit, markerPosition, zoneAt } from "./minigame.js";
 import { createRng, normalizeSeed } from "./rng.js";
@@ -111,12 +112,13 @@ function ownProgress(progress) {
 
 /** 装備を反映した戦闘の数値の表を作り直す(装着・外す・分解のあとに呼ぶ:D-145)。 */
 export function refreshCombat(game) {
-  const { config } = game;
-  game.combat = normalizeCombat(
-    applyGear(game.baseCombat, game.progress.gear, game.content.equipKinds),
-    config.combat,
-    config.combatLimits,
-  );
+  const { config, content } = game;
+  // スキルのレベル(竿の段階で最大が伸びる)と、報酬・待ち時間の倍率(D-174)。
+  game.skills = skillStates(game.progress.gear, game.progress.rodStage, config.skills, content.skills);
+  game.rates = skillRates(game.skills, content.skills);
+  // 基本の表 → 装備の基本効果(足し算)→ スキル(足し算 → 掛け算)→ 点検と丸め(D-145・D-174)。
+  const geared = applyGear(game.baseCombat, game.progress.gear, content.equipKinds);
+  game.combat = normalizeCombat(applySkillsToCombat(geared, game.skills, content.skills), config.combat, config.combatLimits);
   return game.combat;
 }
 
@@ -147,9 +149,13 @@ export function createGame(
     seed: normalizeSeed(seed),
     config,
     rng,
-    // 装備なしの表。装備を反映した表(combat)は、ここから refreshCombat で作る。
+    // 装備なしの表。装備とスキルを反映した表(combat)は、ここから refreshCombat で作る。
     baseCombat: combat,
     combat: null,
+    skills: null,
+    rates: null,
+    // 豊漁・目利きの端数の持ち越し(D-175)。保存はしない。
+    rewardCarry: { coins: 0, scales: {} },
     critRules,
     content,
     strongChance: chance,
@@ -194,7 +200,8 @@ export function phaseDuration(game) {
     case PHASES.CASTING:
       return c.castMs;
     case PHASES.WAITING:
-      return game.cast.waitMs;
+      // 俊敏:引いた待ち時間に倍率を掛ける(引く乱数の数と値は変えない:D-174)。
+      return scaledWait(game.cast.waitMs, game.rates.wait, c.skills.minWaitMs);
     case PHASES.BITE:
       return currentHookTiming(game).ringMs;
     case PHASES.REELING:
@@ -228,7 +235,7 @@ const NO_REWARD = Object.freeze({ coins: 0, scales: 0 });
 function finish(game, outcome, reason) {
   const { fish, kind } = game.cast;
   const caught = outcome === OUTCOMES.CAUGHT;
-  const reward = caught ? fish.reward : NO_REWARD;
+  const reward = caught ? scaledFishReward(game, fish) : NO_REWARD;
   const firstCatch = caught && !game.progress.seen.includes(fish.id);
   const result = { fishId: fish.id, kind, outcome, reason, reward, firstCatch, hook: game.hookGrade ?? null };
   if (game.fight) {
@@ -254,6 +261,17 @@ function finish(game, outcome, reason) {
     game.missStreak = reason === REASONS.EARLY || reason === REASONS.LATE ? game.missStreak + 1 : 0;
   }
   enter(game, PHASES.RESULT);
+}
+
+/** 豊漁・目利きを効かせた報酬。スキルがなければ、魚の表の報酬そのもの(前と同じ)。端数は持ち越す。 */
+function scaledFishReward(game, fish) {
+  const { rates, rewardCarry } = game;
+  if (rates.coins === 1 && rates.scales === 1) return fish.reward;
+  const coins = scaledReward(fish.reward.coins, rates.coins, rewardCarry.coins);
+  rewardCarry.coins = coins.carry;
+  const scales = scaledReward(fish.reward.scales, rates.scales, rewardCarry.scales[fish.id] ?? 0);
+  if (fish.reward.scales > 0) rewardCarry.scales[fish.id] = scales.carry;
+  return { coins: coins.amount, scales: scales.amount };
 }
 
 /** 場面が時間切れになったときに、次の場面へ進める。 */
@@ -336,16 +354,19 @@ function fightTap(game) {
   const { fight, config, combat } = game;
   const position = currentMarker(game);
   if (isHit(position, fight.zone)) {
+    // クリティカルの乱数は、当たりのたびに 1 回だけ引く。会心率 100% 超は追加の段(D-169)。
     const roll = fight.critRng();
-    const critical = isCritical({ roll, stats: combat, position, zone: fight.zone }, game.critRules);
+    const limits = config.combatLimits;
+    const stages = critStages({ roll, stats: combat, position, zone: fight.zone }, game.critRules, limits.maxCritStages);
+    const critical = stages > 0;
     const boosted = fight.boosts.length > 0;
-    const damage = boostedDamage(hitDamage(combat, critical), fight.boosts);
+    const damage = boostedDamage(hitDamage(combat, stages, limits), fight.boosts);
     fight.boosts = consumeBoosts(fight.boosts);
     // 残りの体力より大きいダメージは、超過を切り捨てる(体力は 0 より下にしない)。
     fight.hp = Math.max(0, fight.hp - damage);
     fight.hits += 1;
     if (critical) fight.crits += 1;
-    const base = { action: "hit", damage, critical, boosted, hp: fight.hp, maxHp: fight.maxHp, position };
+    const base = { action: "hit", damage, critical, critStages: stages, boosted, hp: fight.hp, maxHp: fight.maxHp, position };
     if (fight.hp === 0) {
       finish(game, OUTCOMES.CAUGHT, REASONS.HP_ZERO);
       return { ...base, caught: true };
@@ -361,11 +382,14 @@ function fightTap(game) {
   const before = fight.hp;
   fight.hp = Math.min(fight.maxHp, fight.hp + combat.missHeal);
   fight.misses += 1;
+  const heal = fight.hp - before;
   // ルアー:外したあと、次の当たり 1 回のダメージを足す。外し続けても積み上げない(D-145)。
-  if (combat.missBonusDamage > 0 && !fight.boosts.some((b) => b.id === "lure")) {
-    fight.boosts.push({ id: "lure", damageBonus: combat.missBonusDamage, uses: 1 });
+  // 足す量は、その外しで魚が回復した量まで(D-176)。わざと外しても、差し引きで得にならない。
+  const bonus = Math.min(combat.missBonusDamage, heal);
+  if (bonus > 0 && !fight.boosts.some((b) => b.id === "lure")) {
+    fight.boosts.push({ id: "lure", damageBonus: bonus, uses: 1 });
   }
-  return { action: "miss", heal: fight.hp - before, hp: fight.hp, maxHp: fight.maxHp, position };
+  return { action: "miss", heal, hp: fight.hp, maxHp: fight.maxHp, position };
 }
 
 /**
@@ -423,7 +447,10 @@ export function canEvolveRod(game) {
 
 /** 竿を進化する。次の段階の魚は、次に投げるときから一覧に加わる。 */
 export function evolveGameRod(game) {
-  return evolveRod(game.progress, game.content);
+  const done = evolveRod(game.progress, game.content);
+  // 段階が上がると、成長型のスキルの最大レベルが伸びる(D-167)。
+  if (done) refreshCombat(game);
+  return done;
 }
 
 /**

@@ -53,12 +53,19 @@ export function addHookEffects(effects, grade, now) {
 /**
  * ミニゲームで当たったときの演出(D-092)。魚の近くにダメージの数字を浮かべる。
  * クリティカルは、大きなオレンジの数字と「CRITICAL!」、大きめの揺れ。
+ * 追加クリティカル(2 段以上:D-169)は「CRITICAL ×2!」のように段数を出し、段数が多いほど少し大きく揺らす。
  */
+export function critLabel(stages) {
+  return stages >= 2 ? `CRITICAL ×${stages}!` : "CRITICAL!";
+}
+
 export function addHitEffects(effects, hit, now) {
   if (hit.critical) {
-    effects.shake = { start: now, ms: 260, amplitude: 9 };
-    effects.flash = { color: "255,140,0", start: now, ms: 220, strength: 0.25 };
-    effects.floats.push({ text: "CRITICAL!", start: now, ms: 800, y: 0.5, size: 22, color: "#ffd166" });
+    const stages = hit.critStages ?? 1;
+    const extra = Math.min(3, stages - 1);
+    effects.shake = { start: now, ms: 260 + 60 * extra, amplitude: 9 + 2 * extra };
+    effects.flash = { color: "255,140,0", start: now, ms: 220, strength: 0.25 + 0.05 * extra };
+    effects.floats.push({ text: critLabel(stages), start: now, ms: 800, y: 0.5, size: 22 + 2 * extra, color: "#ffd166" });
     effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 800, y: 0.58, size: 34, color: "#ff8c00" });
     return;
   }

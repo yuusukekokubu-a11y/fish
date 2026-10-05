@@ -6,7 +6,9 @@
 // - ガチャの乱数は、魚とミニゲームの乱数とは別の系統。種と「何回目に引いたか」から作る(D-141)。
 // このファイルは JSDoc(コメントで型を書く方法)で型を書き、`npm run typecheck` で確かめる(D-144)。
 
+import { DEFAULT_CONFIG } from "./config.js";
 import { createRng } from "./rng.js";
+import { pointsRange, SKILL_ROWS } from "./skills.js";
 
 /**
  * レア度の表の 1 行。
@@ -17,6 +19,7 @@ import { createRng } from "./rng.js";
  * @property {number} rate 排出率(千分率:1000 で 100%)。全部の行の合計は 1000
  * @property {number} multiplier 基本効果の範囲に掛ける倍率
  * @property {number} refundRate 分解したときに返るウロコインの、クレートの価格に対する割合
+ * @property {number} skillCount 装備 1 個に付くスキルの数(D-166)
  */
 
 /**
@@ -38,7 +41,7 @@ import { createRng } from "./rng.js";
  * @property {string} rarity レア度の id
  * @property {number} grade グレード(引いたクレートの段階)
  * @property {number} value 基本効果の値(stat の単位の整数)
- * @property {string[]} skills スキル(②-4b で入る。今は空)
+ * @property {import("./skills.js").ItemSkill[]} skills スキル(スキルの id とポイント。レア度で 0〜3 種類、重複なし:D-166)
  */
 
 /**
@@ -80,6 +83,7 @@ import { createRng } from "./rng.js";
  * @property {Map<string, { name: string }>} byId
  * @property {number} maxStage
  * @property {EquipKind[]} equipKinds
+ * @property {readonly import("./skills.js").SkillRow[]} [skills] スキルの表
  */
 
 /**
@@ -91,10 +95,10 @@ import { createRng } from "./rng.js";
 
 /** @type {readonly Rarity[]} */
 export const RARITY_ROWS = Object.freeze([
-  { id: "normal", name: "ノーマル", color: "#cfd8dc", rate: 700, multiplier: 1, refundRate: 0.06 },
-  { id: "rare", name: "レア", color: "#4fc3f7", rate: 220, multiplier: 1.5, refundRate: 0.12 },
-  { id: "epic", name: "エピック", color: "#ce93d8", rate: 65, multiplier: 2.2, refundRate: 0.25 },
-  { id: "legend", name: "レジェンド", color: "#ffd54f", rate: 15, multiplier: 3.2, refundRate: 0.5 },
+  { id: "normal", name: "ノーマル", color: "#cfd8dc", rate: 700, multiplier: 1, refundRate: 0.06, skillCount: 0 },
+  { id: "rare", name: "レア", color: "#4fc3f7", rate: 220, multiplier: 1.5, refundRate: 0.12, skillCount: 1 },
+  { id: "epic", name: "エピック", color: "#ce93d8", rate: 65, multiplier: 2.2, refundRate: 0.25, skillCount: 2 },
+  { id: "legend", name: "レジェンド", color: "#ffd54f", rate: 15, multiplier: 3.2, refundRate: 0.5, skillCount: 3 },
 ]);
 
 /** @type {readonly EquipKind[]} */
@@ -133,7 +137,7 @@ export function emptyGear() {
 /** 複製する(呼んだ側のものは変えない)。 @param {Gear} gear @returns {Gear} */
 export function copyGear(gear) {
   return {
-    items: gear.items.map((it) => ({ ...it, skills: [...it.skills] })),
+    items: gear.items.map((it) => ({ ...it, skills: it.skills.map((s) => ({ ...s })) })),
     equipped: { ...gear.equipped },
     draws: gear.draws,
     seed: gear.seed,
@@ -231,12 +235,22 @@ export function drawSeed(seed, index) {
 }
 
 /**
- * 1 回ぶんの抽選。乱数は 3 回、決まった順に引く:レア度 → 種類(等確率)→ 基本効果の値。
+ * スキルの抽選に使う表と数値。
+ * @typedef {{ skills: readonly import("./skills.js").SkillRow[], config: import("./skills.js").SkillConfig }} SkillDraw
+ */
+
+/** @type {SkillDraw} */
+export const DEFAULT_SKILL_DRAW = Object.freeze({ skills: SKILL_ROWS, config: DEFAULT_CONFIG.skills });
+
+/**
+ * 1 回ぶんの抽選。乱数は決まった順に引く(D-148・D-177):
+ * レア度 → 種類(等確率)→ 基本効果の値 → スキル(数はレア度で決まる。表から等確率、重複なし)→ 各スキルのポイント。
+ * 前の 3 つは ②-4a と同じなので、スキルが付かないノーマルの結果は前と同じ。
  * @param {number} seed @param {number} index 何回目か(0 から) @param {Crate} crate
- * @param {readonly EquipKind[]} kinds @param {number} gradeGrowth
+ * @param {readonly EquipKind[]} kinds @param {number} gradeGrowth @param {SkillDraw} [skillDraw]
  * @returns {Omit<Item, "id">}
  */
-export function drawItem(seed, index, crate, kinds, gradeGrowth) {
+export function drawItem(seed, index, crate, kinds, gradeGrowth, skillDraw = DEFAULT_SKILL_DRAW) {
   const rng = createRng(drawSeed(seed, index));
   const r = rng() * 1000;
   let rarity = crate.rarities[crate.rarities.length - 1];
@@ -252,7 +266,17 @@ export function drawItem(seed, index, crate, kinds, gradeGrowth) {
   const range = effectRange(kind, rarity, crate.grade, gradeGrowth);
   const choices = Math.round((range.max - range.min) / kind.step) + 1;
   const value = range.min + Math.min(choices - 1, Math.floor(rng() * choices)) * kind.step;
-  return { kind: kind.id, rarity: rarity.id, grade: crate.grade, value, skills: [] };
+  // スキル:レア度の数だけ、残りの中から等確率で選ぶ(同じスキルは付かない)。そのあとポイントを引く。
+  const pool = [...skillDraw.skills];
+  const count = Math.min(rarity.skillCount ?? 0, pool.length);
+  const picked = [];
+  for (let i = 0; i < count; i++) {
+    const at = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
+    picked.push(pool.splice(at, 1)[0]);
+  }
+  const pr = pointsRange(rarity.id, crate.grade, skillDraw.config);
+  const skills = picked.map((s) => ({ id: s.id, points: pr.min + Math.min(pr.max - pr.min, Math.floor(rng() * (pr.max - pr.min + 1))) }));
+  return { kind: kind.id, rarity: rarity.id, grade: crate.grade, value, skills };
 }
 
 /**
@@ -274,10 +298,10 @@ export function pullBlocker(progress, crate, count, gacha) {
  * クレートを count 回引く(1 回か 10 連)。引けないときは何も変えない。
  * 引けたら、価格ぶんのウロコインを減らし、装備を持ち物に足し、引いた回数を進める。
  * @param {{ coins: number, rodStage: number, gear: Gear }} progress @param {Crate} crate @param {number} count
- * @param {readonly EquipKind[]} kinds @param {GachaConfig} gacha
+ * @param {readonly EquipKind[]} kinds @param {GachaConfig} gacha @param {SkillDraw} [skillDraw]
  * @returns {{ ok: true, items: Item[] } | { ok: false, reason: string }}
  */
-export function pullCrate(progress, crate, count, kinds, gacha) {
+export function pullCrate(progress, crate, count, kinds, gacha, skillDraw = DEFAULT_SKILL_DRAW) {
   const blocker = pullBlocker(progress, crate, count, gacha);
   if (blocker) return { ok: false, reason: blocker };
   const gear = progress.gear;
@@ -285,7 +309,7 @@ export function pullCrate(progress, crate, count, kinds, gacha) {
   /** @type {Item[]} */
   const items = [];
   for (let i = 0; i < count; i++) {
-    const drawn = drawItem(seed, gear.draws, crate, kinds, gacha.gradeGrowth);
+    const drawn = drawItem(seed, gear.draws, crate, kinds, gacha.gradeGrowth, skillDraw);
     const item = { id: gear.nextId, ...drawn };
     gear.nextId += 1;
     gear.draws += 1;

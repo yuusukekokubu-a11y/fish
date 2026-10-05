@@ -1,8 +1,9 @@
 // @ts-check
 // 装備の画面(全画面:D-152・D-155・D-162)。
-// - 上:装着中の枠を 2 列のグリッドで並べる(枠の数は装備の種類の表から。7 枠でも 4 段に収まる)。
-// - 下:持ち物のカード。並べ替え(レア度順/新しい順)と、種類ごとの絞り込み、まとめて分解。
-// - カードか枠を押すと、下から詳細のシートが出る(いまの装備との差、付ける・外す・分解)。
+// - 上:装着中の枠を、小さめの 3 列のグリッドで並べ、上に固定する(持ち物だけが動く:D-179)。
+//   枠の数は装備の種類の表から(7 枠でも 3 段)。
+// - 下:持ち物のカード(スキルの行つき)。並べ替え(レア度順/新しい順)と、種類ごとの絞り込み、まとめて分解。
+// - カードか枠を押すと、下から詳細のシートが出る(いまの装備との差、スキルレベルの変化、付ける・外す・分解)。
 // 数と文字は gear_view.js が作る。操作は計算本体(gear.js)の関数を呼ぶ。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
@@ -49,10 +50,10 @@ function itemCard(v) {
   if (v.equipped) top.append(el("span", "item-tag", "装着中"));
   if (v.better) top.append(el("span", "item-better", "▲"));
   card.append(top, el("div", "item-name", v.name), el("div", "item-effect", v.effect));
-  // スキルの欄(最大 3 行)。空なら何も出さない(D-155)。
+  // スキルの欄(最大 3 行。名前とポイント)。空なら何も出さない(D-155・D-179)。
   if (v.skills.length > 0) {
     const skills = el("ul", "item-skills");
-    for (const s of v.skills) skills.append(el("li", "", s));
+    for (const s of v.skills) skills.append(el("li", "", s.text));
     card.append(skills);
   }
   return card;
@@ -74,13 +75,20 @@ function openItemSheet(ctx, v, crates) {
         ["種類", v.kindName],
         ["グレード", String(v.grade)],
         ["基本効果", v.effect],
-        ...v.skills.map((s) => /** @type {[string, string]} */ (["スキル", s])),
+        ...v.skills.map((s) => /** @type {[string, string]} */ (["スキル", s.text])),
       ])) {
         dl.append(el("dt", "", k), el("dd", "", val));
       }
       panel.append(dl);
       const diffText = v.equipped ? "装着中" : `いまの装備との差 ${v.diff}`;
       panel.append(el("p", `item-diff ${v.diffSign > 0 ? "up" : v.diffSign < 0 ? "down" : ""}`, diffText));
+      // 付けた(外した)ときの、スキルレベルの変化(例:「会心率 Lv2→Lv3」)。
+      if (v.skillChanges.length > 0) {
+        const changes = el("ul", "skill-changes");
+        changes.append(el("li", "skill-changes-title", v.equipped ? "外すと" : "付けると"));
+        for (const c of v.skillChanges) changes.append(el("li", `item-diff ${c.up ? "up" : "down"}`, c.text));
+        panel.append(changes);
+      }
       const row = el("div", "sheet-buttons");
       const toggle = button(v.equipped ? "外す" : "付ける", "primary-button item-equip");
       toggle.addEventListener("click", () => {
@@ -164,7 +172,7 @@ export function mountEquipment(container, ctx) {
   const { game } = ctx;
   const crates = makeCrates(game.content, /** @type {any} */ (game.config));
 
-  const slots = el("section", "screen-section");
+  const slots = el("section", "screen-section slots-fixed");
   slots.append(el("h2", "section-title", "装着中"));
   const grid = el("div", "slot-grid");
   for (const slot of slotRows(game, crates)) {
@@ -174,7 +182,10 @@ export function mountEquipment(container, ctx) {
     if (slot.item) {
       const item = slot.item;
       cell.style.setProperty("--rarity", item.color);
-      cell.append(rarityBadge(item), el("span", "slot-name", item.name), el("span", "slot-effect", item.effect));
+      const stars = el("span", "slot-stars", item.stars);
+      stars.style.setProperty("color", item.color);
+      stars.setAttribute("aria-label", item.rarity);
+      cell.append(stars, el("span", "slot-effect", item.effect));
       cell.addEventListener("click", () => openItemSheet(ctx, item, crates));
     } else {
       // 空の枠を押すと、その種類で持ち物を絞り込む。
