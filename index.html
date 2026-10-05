@@ -18,37 +18,40 @@
         user-select: none;
         -webkit-tap-highlight-color: transparent;
       }
+      /* 上(数)・真ん中(釣りの絵)・下(竿の強化)の 3 段(D-051)。 */
       #app {
-        position: relative;
+        display: flex;
+        flex-direction: column;
         max-width: 480px;
         height: 100%;
+        height: 100dvh;
         margin: 0 auto;
         overflow: hidden;
         touch-action: manipulation;
+      }
+      #hud {
+        display: flex;
+        justify-content: space-around;
+        padding: calc(env(safe-area-inset-top) + 10px) 8px 8px;
+        background: rgba(0, 0, 0, 0.35);
+        font-size: 15px;
+      }
+      #hud b {
+        font-size: 20px;
+      }
+      #stage {
+        position: relative;
+        flex: 1;
+        min-height: 0;
       }
       #scene {
         display: block;
         width: 100%;
         height: 100%;
       }
-      #hud {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        display: flex;
-        justify-content: space-around;
-        padding: calc(env(safe-area-inset-top) + 10px) 8px 8px;
-        background: rgba(0, 0, 0, 0.25);
-        font-size: 15px;
-        pointer-events: none;
-      }
-      #hud b {
-        font-size: 20px;
-      }
       #message {
         position: absolute;
-        top: 16%;
+        top: 12%;
         left: 0;
         right: 0;
         text-align: center;
@@ -57,26 +60,68 @@
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
         pointer-events: none;
       }
-      #seed {
-        position: absolute;
-        bottom: calc(env(safe-area-inset-bottom) + 6px);
-        left: 8px;
+      #footer {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 10px calc(env(safe-area-inset-bottom) + 6px);
+        background: rgba(0, 0, 0, 0.35);
+      }
+      #upgrade {
+        width: 100%;
+        min-height: 48px;
+        border: 0;
+        border-radius: 10px;
+        background: #ffd166;
+        color: #3d2c00;
+        font: inherit;
+        font-size: 15px;
+        font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #upgrade:disabled {
+        background: #44555f;
+        color: #9fb3bf;
+      }
+      #sub {
+        display: flex;
+        justify-content: space-between;
         font-size: 11px;
-        opacity: 0.6;
-        pointer-events: none;
+        opacity: 0.7;
+      }
+      #reset {
+        border: 0;
+        padding: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-decoration: underline;
+      }
+      #reset.armed {
+        color: #ff8fa3;
+        opacity: 1;
       }
     </style>
   </head>
   <body>
     <div id="app">
-      <canvas id="scene"></canvas>
       <div id="hud">
-        <span>普通 <b id="count-normal">0</b></span>
-        <span>強い <b id="count-strong">0</b></span>
-        <span>逃げた <b id="count-escaped">0</b></span>
+        <span>ウロコイン <b id="coins">0</b></span>
+        <span>素材 <b id="material">0</b></span>
       </div>
-      <div id="message"></div>
-      <div id="seed"></div>
+      <div id="stage">
+        <canvas id="scene"></canvas>
+        <div id="message"></div>
+      </div>
+      <div id="footer">
+        <button id="upgrade" type="button"></button>
+        <div id="sub">
+          <button id="reset" type="button">データを消す</button>
+          <span id="seed"></span>
+        </div>
+      </div>
     </div>
     <script type="module" src="src/ui/main.js"></script>
   </body>

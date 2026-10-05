@@ -40,11 +40,13 @@ test("印は 0 → 1 → 0 と往復する", () => {
 
 test("当たり範囲はゲージの中に収まり、幅は決めたとおり", () => {
   const rng = createRng(3);
-  const { zoneWidth, zoneMargin } = DEFAULT_CONFIG.minigame;
-  for (let i = 0; i < 1000; i++) {
-    const z = drawZone(rng, DEFAULT_CONFIG.minigame);
-    assert.ok(z.start >= zoneMargin - 1e-12);
-    assert.ok(z.end <= 1 - zoneMargin + 1e-12);
-    assert.ok(Math.abs(z.end - z.start - zoneWidth) < 1e-12);
+  const { zoneMargin } = DEFAULT_CONFIG.minigame;
+  for (const zoneWidth of [0.22, 0.1]) {
+    for (let i = 0; i < 1000; i++) {
+      const z = drawZone(rng, { zoneWidth, zoneMargin });
+      assert.ok(z.start >= zoneMargin - 1e-12);
+      assert.ok(z.end <= 1 - zoneMargin + 1e-12);
+      assert.ok(Math.abs(z.end - z.start - zoneWidth) < 1e-12);
+    }
   }
 });

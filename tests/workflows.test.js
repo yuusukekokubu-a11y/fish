@@ -1,4 +1,4 @@
-// GitHub のテストの設定が決まりどおりかのテスト(D-005・D-015・D-026〜D-028)。
+// GitHub のテストの設定が決まりどおりかのテスト(D-005・D-015・D-026・D-028・D-052)。
 // 外部の部品を入れないため、YAML を読む道具は使わず、行のまとまりで確かめる。
 
 import assert from "node:assert/strict";
@@ -9,7 +9,12 @@ import { test } from "node:test";
 import { readText, ROOT } from "./helpers.js";
 
 const CI = readText(".github/workflows/ci.yml");
-const ALLOWED_ACTIONS = new Set(["actions/checkout", "actions/setup-node"]);
+const ALLOWED_ACTIONS = new Set([
+  "actions/checkout",
+  "actions/setup-node",
+  "actions/upload-pages-artifact",
+  "actions/deploy-pages",
+]);
 
 /** jobs: の下を、ジョブの名前ごとの文字列に分ける。 */
 function jobs(text) {
@@ -97,8 +102,8 @@ test("外部の部品は決めたものだけで、commit の番号で固定し�
   for (const file of readdirSync(dir).filter((f) => /\.ya?ml$/.test(f))) {
     const text = readText(join(".github", "workflows", file));
     for (const [, name, ref] of text.matchAll(/uses: ([^@\s]+)@(\S+)/g)) {
-      assert.ok(ALLOWED_ACTIONS.has(name), `${file}:許可していない部品 ${name}(D-027)`);
-      assert.match(ref, /^[0-9a-f]{40}$/, `${file}:commit の番号で固定していない ${name}(D-027)`);
+      assert.ok(ALLOWED_ACTIONS.has(name), `${file}:許可していない部品 ${name}(D-052)`);
+      assert.match(ref, /^[0-9a-f]{40}$/, `${file}:commit の番号で固定していない ${name}(D-052)`);
     }
   }
 });

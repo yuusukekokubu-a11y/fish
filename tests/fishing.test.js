@@ -15,22 +15,10 @@ import {
   update,
 } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
-import { mean } from "./helpers.js";
+import { makeAimCenter, makePlayer, mean } from "./helpers.js";
 
-/** 時間を少しずつ進めて遊ぶ。policy はミニゲームの毎こまで呼ばれ、true を返すとタップする。 */
-function play(game, totalMs, { stepMs = 16, policy = () => false } = {}) {
-  for (let t = 0; t < totalMs; t += stepMs) {
-    update(game, stepMs);
-    if (game.phase === PHASES.MINIGAME && policy(game)) tap(game);
-  }
-  return game;
-}
-
-/** 印が当たり範囲の真ん中に来たらタップする遊び方。 */
-function aimCenter(game) {
-  const z = game.cast.zone;
-  return Math.abs(currentMarker(game) - (z.start + z.end) / 2) < 0.02;
-}
+const play = makePlayer({ update, tap, PHASES });
+const aimCenter = makeAimCenter(currentMarker);
 
 /** 状態を進めながら、掛かるまでの待ち時間を n 回ぶん集める。 */
 function collectWaits(seed, n) {
@@ -95,8 +83,12 @@ test("放置すると、普通の魚は自動で釣れ、強い魚は時間切�
   assert.ok(game.counts.normal > 0);
   assert.equal(game.counts.strong, 0);
   for (const r of game.results) {
-    if (r.kind === FISH_KINDS.NORMAL) assert.equal(r.outcome, OUTCOMES.CAUGHT);
-    else assert.deepEqual(r, { kind: FISH_KINDS.STRONG, outcome: OUTCOMES.ESCAPED, reason: "timeout" });
+    if (r.kind === FISH_KINDS.NORMAL) {
+      assert.equal(r.outcome, OUTCOMES.CAUGHT);
+    } else {
+      assert.equal(r.outcome, OUTCOMES.ESCAPED);
+      assert.equal(r.reason, "timeout");
+    }
   }
   assert.equal(game.counts.escaped, game.results.filter((r) => r.kind === FISH_KINDS.STRONG).length);
 });
