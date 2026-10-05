@@ -1,6 +1,6 @@
 // 画面の絵を、画像素材を使わずに簡素な図形で描く。
 
-import { FISH_KINDS, PHASES } from "../core/fishing.js";
+import { PHASES } from "../core/fishing.js";
 
 const COLORS = {
   skyTop: "#7ec8e3",
@@ -11,8 +11,6 @@ const COLORS = {
   rod: "#5b3a1a",
   bobberTop: "#e63946",
   bobberBottom: "#ffffff",
-  normalFish: "#a8dadc",
-  strongFish: "#f4a261",
   gauge: "rgba(0,0,0,0.45)",
   zone: "#52b788",
   marker: "#ffffff",
@@ -53,7 +51,7 @@ function drawBackground(ctx, w, h, waterY) {
 function drawGauge(ctx, w, h, zone, marker) {
   const gx = w * 0.1;
   const gw = w * 0.8;
-  const gy = h * 0.78;
+  const gy = h * 0.8;
   const gh = 34;
   ctx.fillStyle = COLORS.gauge;
   ctx.fillRect(gx, gy, gw, gh);
@@ -120,8 +118,9 @@ export function drawScene(ctx, w, h, view, timeMs) {
     ctx.fill();
   }
 
-  const fishColor = view.kind === FISH_KINDS.STRONG ? COLORS.strongFish : COLORS.normalFish;
-  const fishSize = view.kind === FISH_KINDS.STRONG ? 34 : 22;
+  // 魚の色と大きさは、設定表(src/core/fish.js)の値を使う。
+  const fishColor = view.fish.color;
+  const fishSize = view.fish.size;
   if (view.phase === PHASES.REELING) {
     drawFish(ctx, bobber.x, bobber.y + fishSize, fishSize, fishColor);
   } else if (view.phase === PHASES.MINIGAME) {

@@ -29,12 +29,15 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 | 関係するテストだけ | `node --test tests/xxx.test.js` |
 | 重いテスト | `npm run test:slow` |
 | 画面で試す | `npm start`(`http://localhost:8000/`) |
+| 公開されたものを試す | `https://yuusukekokubu-a11y.github.io/fish/`(main に取り込まれたもの) |
 
 - 手元では、速いテストと変更に関係するテストだけを回す。テスト全体は GitHub の PR で 1 回だけ回る。
 - 重いテストは `tests/slow/` に `*.test.js` として置く。
 - PR で `src/core/`(計算本体)などが変わると、GitHub で重いテストも自動で回る(D-028)。
 - GitHub で重いテストを手動で回すには、Actions の画面で「ci」を選び「Run workflow」を押す。
 - ゲームの決まりは `src/core/` に置き、画面(`src/ui/`)に触らない。乱数は必ず `src/core/rng.js` のシードつき乱数を使い、`Math.random` を計算本体で使わない(D-021)。
+- 1 回の投げで乱数を引く順番(待ち時間 → 魚 → 当たり範囲)を変えない。変えると同じシードの結果が変わり、`tests/fixtures/issue4_stage1.json` との比べ合わせが失敗する。変えざるを得ないときは、理由を決定として記録する。
+- 演出は `src/ui/` だけで行い、計算本体の結果を書き換えない(D-051)。
 
 ## 4. 取り込みの条件
 
@@ -51,6 +54,7 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 ## 6. 報告 Issue
 
 - 取り込みごとに報告 Issue を 1 つ発行する。識別子は Issue 番号だけ(D-002)。
+- 報告 Issue は、PR がオーナーに取り込まれてから発行する。取り込み後の main のテストの結果も書く(D-031)。
 - ひな形は `.github/ISSUE_TEMPLATE/report.md`。全部の項目を埋める(該当なしなら「なし」と書く)。
 - 別の報告や PR を指すときは番号で書く。
 - URL は前後に半角スペースを置くか、独立した行に書く(日本語の文字が URL にくっつくのを防ぐため)。

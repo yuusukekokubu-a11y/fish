@@ -2,8 +2,13 @@
 // 画面に関係しない計算だけを置く(D-028)。時間は update に渡したぶんだけ進む。
 
 import { DEFAULT_CONFIG } from "./config.js";
+import { availableFish, effectiveMinigame, FISH_KINDS, pickWeighted } from "./fish.js";
 import { drawZone, isHit, markerPosition } from "./minigame.js";
 import { createRng, normalizeSeed } from "./rng.js";
+import { canUpgrade, upgradeCost, upgradeRod } from "./rod.js";
+import { initialProgress } from "./save.js";
+
+export { FISH_KINDS };
 
 export const PHASES = Object.freeze({
   CASTING: "casting", // 投げる
@@ -14,30 +19,41 @@ export const PHASES = Object.freeze({
   RESULT: "result", // 結果を見せる
 });
 
-export const FISH_KINDS = Object.freeze({ NORMAL: "normal", STRONG: "strong" });
 export const OUTCOMES = Object.freeze({ CAUGHT: "caught", ESCAPED: "escaped" });
 
 /**
- * 1 回の投げで使う乱数をまとめて引く。引く順番は固定(待ち時間 → 魚の種類 → 当たり範囲)。
- * 引く順番を変えると、同じシードの結果が変わるので注意。
+ * 竿の段階 rodStage で、1 回の投げに使う乱数をまとめて引く(D-046)。
+ * 引く順番は固定(待ち時間 → 魚 → 当たり範囲)。魚は 1 回の乱数で「区分」と「種類」をまとめて決める。
+ * こうすると、段階 1 の乱数の並びは Issue #4 のときと同じになる。
  */
-export function drawCast(rng, config = DEFAULT_CONFIG) {
+export function drawCast(rng, config = DEFAULT_CONFIG, rodStage = 1) {
   const waitMs = config.waitMinMs + rng() * (config.waitMaxMs - config.waitMinMs);
-  const kind = rng() < config.strongChance ? FISH_KINDS.STRONG : FISH_KINDS.NORMAL;
-  const zone = kind === FISH_KINDS.STRONG ? drawZone(rng, config.minigame) : null;
-  return { waitMs, kind, zone };
+  const u = rng();
+  const strong = u < config.strongChance;
+  const kind = strong ? FISH_KINDS.STRONG : FISH_KINDS.NORMAL;
+  // 区分の中での位置を 0〜1 に引きのばし、その値で種類を選ぶ。
+  const v = strong ? u / config.strongChance : (u - config.strongChance) / (1 - config.strongChance);
+  const fish = pickWeighted(availableFish(rodStage, kind), v);
+  const minigame = effectiveMinigame(fish, config.minigame);
+  const zone = minigame ? drawZone(rng, { zoneWidth: minigame.zoneWidth, zoneMargin: config.minigame.zoneMargin }) : null;
+  return { waitMs, kind, fish, minigame, zone };
 }
 
-/** 新しいゲームの状態を作る。 */
-export function createGame(seed, config = DEFAULT_CONFIG) {
+/**
+ * 新しいゲームの状態を作る。progress は保存から読んだ進み具合(なければ初めから)。
+ * progress は複製して使う(呼んだ側のものは変えない)。
+ */
+export function createGame(seed, { config = DEFAULT_CONFIG, progress = initialProgress() } = {}) {
   const rng = createRng(seed);
+  const own = { ...progress, seen: [...progress.seen] };
   return {
     seed: normalizeSeed(seed),
     config,
     rng,
+    progress: own,
     phase: PHASES.CASTING,
     phaseMs: 0,
-    cast: drawCast(rng, config),
+    cast: drawCast(rng, config, own.rodStage),
     castCount: 1,
     counts: { normal: 0, strong: 0, escaped: 0 },
     results: [],
@@ -71,12 +87,21 @@ function enter(game, phase) {
   game.phaseMs = 0;
 }
 
+const NO_REWARD = Object.freeze({ coins: 0, material: 0 });
+
 function finish(game, outcome, extra = {}) {
-  const result = { kind: game.cast.kind, outcome, ...extra };
+  const { fish, kind } = game.cast;
+  const caught = outcome === OUTCOMES.CAUGHT;
+  const reward = caught ? fish.reward : NO_REWARD;
+  const firstCatch = caught && !game.progress.seen.includes(fish.id);
+  const result = { fishId: fish.id, kind, outcome, ...extra, reward, firstCatch };
   game.results.push(result);
   game.lastResult = result;
-  if (outcome === OUTCOMES.CAUGHT) {
-    game.counts[game.cast.kind] += 1;
+  if (caught) {
+    game.counts[kind] += 1;
+    game.progress.coins += reward.coins;
+    game.progress.material += reward.material;
+    if (firstCatch) game.progress.seen.push(fish.id);
   } else {
     game.counts.escaped += 1;
   }
@@ -97,7 +122,8 @@ function advance(game) {
     case PHASES.MINIGAME:
       return finish(game, OUTCOMES.ESCAPED, { reason: "timeout" });
     case PHASES.RESULT:
-      game.cast = drawCast(game.rng, game.config);
+      // 次の魚は、この時点の竿の段階で決まる。
+      game.cast = drawCast(game.rng, game.config, game.progress.rodStage);
       game.castCount += 1;
       return enter(game, PHASES.CASTING);
     default:
@@ -123,7 +149,7 @@ export function update(game, dtMs) {
 /** ミニゲーム中の印の位置(0〜1)。ミニゲーム中でなければ null。 */
 export function currentMarker(game) {
   if (game.phase !== PHASES.MINIGAME) return null;
-  return markerPosition(game.phaseMs, game.config.minigame.sweepMs);
+  return markerPosition(game.phaseMs, game.cast.minigame.sweepMs);
 }
 
 /**
@@ -136,4 +162,19 @@ export function tap(game) {
   const hit = isHit(position, game.cast.zone);
   finish(game, hit ? OUTCOMES.CAUGHT : OUTCOMES.ESCAPED, { reason: hit ? "hit" : "miss", position });
   return { hit, position };
+}
+
+/** 竿の強化に必要な素材の数(上限なら null)。 */
+export function rodUpgradeCost(game) {
+  return upgradeCost(game.progress.rodStage, game.config.rod);
+}
+
+/** 竿を強化できるか。 */
+export function canUpgradeRod(game) {
+  return canUpgrade(game.progress, game.config.rod);
+}
+
+/** 竿を強化する。新しい魚は、次に投げるときから一覧に加わる。 */
+export function upgradeGameRod(game) {
+  return upgradeRod(game.progress, game.config.rod);
 }

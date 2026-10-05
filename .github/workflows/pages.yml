@@ -1,0 +1,57 @@
+# GitHub Pages への公開の設定(D-043・D-052)。
+# - main への取り込みと手動の実行で、index.html と src/ だけを公開する(ビルドなし)。
+# - オーナーが Pages の設定(Source を「GitHub Actions」)をする前は、公開の手順を飛ばして成功で終わる。
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 公開は 1 つずつ。途中の公開は止めずに最後までやらせる。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: 公開
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - id: check
+        name: Pages の設定が済んでいるか確かめる
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          build_type="$(gh api "repos/$REPO/pages" --jq '.build_type' 2>/dev/null || true)"
+          if [ "$build_type" = "workflow" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Pages の設定がまだです。Settings → Pages の Source を「GitHub Actions」にすると、次から公開されます。"
+          fi
+      - if: steps.check.outputs.enabled == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - if: steps.check.outputs.enabled == 'true'
+        name: 公開するファイルを集める
+        run: |
+          mkdir _site
+          cp index.html _site/
+          cp -r src _site/
+      - if: steps.check.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+      - if: steps.check.outputs.enabled == 'true'
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
