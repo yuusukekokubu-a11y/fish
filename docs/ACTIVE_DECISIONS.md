@@ -2,7 +2,7 @@
 
 [DECISIONS.md](DECISIONS.md) の決定のうち、今も有効なものだけを分野ごとにまとめた一覧です。
 作業の始めに、まずこの一覧を読みます。くわしい理由が必要なときだけ、元の D 番号を DECISIONS で読みます。
-決定を足す・変えるたびに、この一覧も直します。D 番号は、必ずこの一覧か [decisions/archive.md](decisions/archive.md)(載せなかった決定の保管庫)のどちらか一方だけに出します(テストで確かめています:D-110)。全文は [DECISIONS.md](DECISIONS.md)(D-131 から)、[decisions/vol1.md](decisions/vol1.md)(D-001〜D-092)、[decisions/vol2.md](decisions/vol2.md)(D-093〜D-130)にあります(D-133)。
+決定を足す・変えるたびに、この一覧も直します。D 番号は、必ずこの一覧か [decisions/archive.md](decisions/archive.md)(載せなかった決定の保管庫)のどちらか一方だけに出します(テストで確かめています:D-110)。全文は [DECISIONS.md](DECISIONS.md)(D-132 以降)、[decisions/vol1.md](decisions/vol1.md)(D-001〜D-092)、[decisions/vol2.md](decisions/vol2.md)(D-093〜D-130)にあります(D-133)。
 
 ## 書式の見本
 
@@ -160,4 +160,4 @@
 ## 記録の分け方
 
 - 置き換え・取り下げ・完了した決定は `docs/decisions/archive.md` に元の文のまま移す。D 番号は ACTIVE か保管庫のどちらか一方だけに出る。(D-110)
-- 今有効な決定の全文は番号の範囲で巻に分ける(D-001〜D-092 は `decisions/vol1.md`、D-093〜D-130 は `decisions/vol2.md`、D-131 からは DECISIONS)。DECISIONS が 700 行をこえたら次の巻へ。(D-133)
+- 今有効な決定の全文は番号の範囲で巻に分ける(D-001〜D-092 は `decisions/vol1.md`、D-093〜D-130 は `decisions/vol2.md`、D-132 以降は DECISIONS)。DECISIONS が 700 行をこえたら次の巻へ。(D-133)

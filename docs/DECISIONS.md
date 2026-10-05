@@ -3,7 +3,7 @@
 このプロジェクトで決めたことを、決めた順に D 番号つきで残します。
 一度書いた決定は消しません。変えるときは新しい D 番号を足し、「置き換えた番号」に古い番号を書きます。
 今も有効な決定だけの一覧は [ACTIVE_DECISIONS.md](ACTIVE_DECISIONS.md) にあります。決定を足す・変えるたびに、一覧も直します。
-このファイルには D-131 からの今有効な決定を書きます。D-001〜D-092 は [decisions/vol1.md](decisions/vol1.md)(第 1 巻)、D-093〜D-130 は [decisions/vol2.md](decisions/vol2.md)(第 2 巻)にあります(D-133)。
+このファイルには D-132 以降の今有効な決定を書きます。D-001〜D-092 は [decisions/vol1.md](decisions/vol1.md)(第 1 巻)、D-093〜D-130 は [decisions/vol2.md](decisions/vol2.md)(第 2 巻)にあります(D-133)。
 置き換えられた決定・取り下げた決定・完了した一度きりの段取りは、元の文のまま [decisions/archive.md](decisions/archive.md) に移してあります(D-110)。D 番号の通し番号は、これらのファイルを合わせて数えます。
 このファイルが 700 行をこえたら、古いほうの番号をまとめて次の巻(`decisions/vol2.md` など)へ移します(D-133)。
 
