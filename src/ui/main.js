@@ -1,4 +1,5 @@
 // 画面の入り口:ゲームの状態を時間で進め、絵と数を描き、タップとボタンを受け取る。
+// 保存とセーブコードの読み書きも、ここ(画面の側)で行う。
 
 import { fishById } from "../core/fish.js";
 import {
@@ -6,9 +7,11 @@ import {
   createGame,
   currentMarker,
   FISH_KINDS,
+  hookWindowMs,
   OUTCOMES,
   PHASES,
   phaseDuration,
+  REASONS,
   rodUpgradeCost,
   tap,
   update,
@@ -16,8 +19,18 @@ import {
 } from "../core/fishing.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { parseSave, SAVE_KEY, toSaveData } from "../core/save.js";
+import { decodeSaveCode, encodeSaveCode } from "../core/savecode.js";
 import { drawScene } from "./draw.js";
-import { addResultEffects, addUpgradeEffects, createEffects, drawEffects, shakeOffset } from "./effects.js";
+import {
+  addHitEffects,
+  addHookEffects,
+  addMissEffects,
+  addResultEffects,
+  addUpgradeEffects,
+  createEffects,
+  drawEffects,
+  shakeOffset,
+} from "./effects.js";
 
 // 1 回の描画で進める時間の上限。裏に回って戻ったときに、一気に何匹も進まないようにする。
 const MAX_STEP_MS = 100;
@@ -43,11 +56,13 @@ function loadText() {
   }
 }
 
+/** 保存する。できたら true(保存できなくても遊びは続ける)。 */
 function saveProgress(progress) {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(toSaveData(progress)));
+    return true;
   } catch {
-    // 保存できなくても遊びは続ける。
+    return false;
   }
 }
 
@@ -67,10 +82,13 @@ function messageFor(game) {
       return game.cast.kind === FISH_KINDS.STRONG ? "強い魚だ!" : "掛かった!";
     case PHASES.RESULT: {
       const r = game.lastResult;
+      if (r.reason === REASONS.NO_HOOK) return "逃げられた…";
       const name = fishById(r.fishId).name;
       if (r.outcome === OUTCOMES.ESCAPED) return `${name}に逃げられた…`;
       return r.kind === FISH_KINDS.STRONG ? `${name}を釣り上げた!` : `${name}が釣れた`;
     }
+    case PHASES.RESTING:
+      return "タップで再開";
     default:
       return "";
   }
@@ -112,7 +130,11 @@ function main() {
 
   canvas.addEventListener("pointerdown", (event) => {
     event.preventDefault();
-    tap(game);
+    const result = tap(game);
+    const now = performance.now();
+    if (result?.action === "hook") addHookEffects(effects, now);
+    else if (result?.action === "hit" && !result.caught) addHitEffects(effects, now);
+    else if (result?.action === "miss") addMissEffects(effects, now);
   });
 
   el.upgrade.addEventListener("click", () => {
@@ -133,6 +155,10 @@ function main() {
     resetArmedUntil = now + RESET_CONFIRM_MS;
   });
 
+  setupSaveCode(game);
+  // ?debug を付けたときだけ、ブラウザの自動操作の確認用に状態を見せる(読むだけ。結果には関係しない)。
+  if (new URLSearchParams(location.search).has("debug")) window.fishDebug = game;
+
   let shownResults = 0;
   let last = performance.now();
   function frame(now) {
@@ -149,10 +175,14 @@ function main() {
     const rect = canvas.getBoundingClientRect();
     const view = {
       phase: game.phase,
-      progress: Math.min(1, game.phaseMs / phaseDuration(game)),
+      progress: game.phase === PHASES.RESTING ? 0 : Math.min(1, game.phaseMs / phaseDuration(game)),
       fish: game.phase === PHASES.RESULT ? fishById(game.lastResult.fishId) : game.cast.fish,
-      zone: game.cast.zone,
+      zone: game.fight?.zone ?? game.cast.zone,
       marker: currentMarker(game),
+      hp: game.fight?.hp ?? 0,
+      maxHp: game.fight?.maxHp ?? 0,
+      timeLeft: game.phase === PHASES.MINIGAME ? 1 - game.phaseMs / phaseDuration(game) : 0,
+      hookLeft: game.phase === PHASES.BITE ? 1 - game.phaseMs / hookWindowMs(game) : 0,
       caught: game.lastResult?.outcome === OUTCOMES.CAUGHT,
     };
     ctx.save();
@@ -172,6 +202,67 @@ function main() {
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+}
+
+/**
+ * セーブコードの小さな窓(D-059・D-065・D-066)。
+ * 読み込みは、コードが正しく、上書きの確認に「はい」と答えたときだけ保存を書き換える。
+ */
+function setupSaveCode(game) {
+  const el = {
+    open: document.getElementById("code-open"),
+    panel: document.getElementById("code-panel"),
+    text: document.getElementById("code-text"),
+    status: document.getElementById("code-status"),
+    exportButton: document.getElementById("code-export"),
+    copy: document.getElementById("code-copy"),
+    importButton: document.getElementById("code-import"),
+    close: document.getElementById("code-close"),
+  };
+  const show = (message, isError = false) => {
+    el.status.textContent = message;
+    el.status.classList.toggle("error", isError);
+  };
+
+  el.open.addEventListener("click", () => {
+    el.panel.hidden = false;
+    show("");
+  });
+  el.close.addEventListener("click", () => {
+    el.panel.hidden = true;
+  });
+  el.exportButton.addEventListener("click", () => {
+    el.text.value = encodeSaveCode(game.progress);
+    show("書き出しました");
+  });
+  el.copy.addEventListener("click", async () => {
+    if (el.text.value === "") el.text.value = encodeSaveCode(game.progress);
+    try {
+      await navigator.clipboard.writeText(el.text.value);
+      show("コピーしました");
+    } catch {
+      // コピーが使えないブラウザでは、選んだ状態にして手で写せるようにする。
+      el.text.focus();
+      el.text.select();
+      show("選んだ文字をコピーしてください");
+    }
+  });
+  el.importButton.addEventListener("click", () => {
+    const result = decodeSaveCode(el.text.value, DEFAULT_CONFIG.rod);
+    if (!result.ok) {
+      show(result.message, true);
+      return;
+    }
+    if (!window.confirm("いまのデータを上書きしますか?")) {
+      show("やめました");
+      return;
+    }
+    if (!saveProgress(result.progress)) {
+      show("保存できませんでした", true);
+      return;
+    }
+    location.reload();
+  });
 }
 
 main();

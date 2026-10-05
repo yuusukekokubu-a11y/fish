@@ -29,6 +29,24 @@ export function addResultEffects(effects, result, now) {
   lines.forEach((text, i) => effects.floats.push({ text, start: now + i * 120, ms: FLOAT_MS }));
 }
 
+/** 合わせが成功したときの小さな演出(D-066)。 */
+export function addHookEffects(effects, now) {
+  effects.flash = { color: "255,255,255", start: now, ms: 200, strength: 0.25 };
+  effects.floats.push({ text: "合わせ!", start: now, ms: 700, y: 0.3, size: 20, color: "#ffffff" });
+}
+
+/** ミニゲームで当たった(体力が減った)ときの小さな演出。 */
+export function addHitEffects(effects, now) {
+  effects.shake = { start: now, ms: 150, amplitude: 4 };
+  effects.floats.push({ text: "-1", start: now, ms: 600, y: 0.72, size: 22, color: "#ffd166" });
+}
+
+/** ミニゲームで外した(体力が回復した)ときの小さな演出。 */
+export function addMissEffects(effects, now) {
+  effects.flash = { color: "230,57,70", start: now, ms: 200, strength: 0.2 };
+  effects.floats.push({ text: "+1", start: now, ms: 600, y: 0.72, size: 22, color: "#ff8fa3" });
+}
+
 /** 竿を強化したときの演出を足す。 */
 export function addUpgradeEffects(effects, rodStage, now) {
   effects.flash = { color: "255,209,102", start: now, ms: FLASH_MS };
@@ -45,14 +63,14 @@ function progressOf(item, now) {
 export function shakeOffset(effects, now) {
   const p = progressOf(effects.shake, now);
   if (p === null) return 0;
-  return Math.sin(p * Math.PI * 8) * 10 * (1 - p);
+  return Math.sin(p * Math.PI * 8) * (effects.shake.amplitude ?? 10) * (1 - p);
 }
 
 /** 光・浮かぶ文字・帯を描く。 */
 export function drawEffects(ctx, w, h, effects, now) {
   const flash = progressOf(effects.flash, now);
   if (flash !== null) {
-    ctx.fillStyle = `rgba(${effects.flash.color},${0.45 * (1 - flash)})`;
+    ctx.fillStyle = `rgba(${effects.flash.color},${(effects.flash.strength ?? 0.45) * (1 - flash)})`;
     ctx.fillRect(0, 0, w, h);
   }
 
@@ -62,9 +80,10 @@ export function drawEffects(ctx, w, h, effects, now) {
     const p = progressOf(f, now);
     if (p === null) return;
     ctx.globalAlpha = 1 - p;
-    ctx.fillStyle = "#ffd166";
-    ctx.font = "bold 22px system-ui, sans-serif";
-    ctx.fillText(f.text, w / 2, h * 0.42 + i * 28 - p * 60);
+    ctx.fillStyle = f.color ?? "#ffd166";
+    ctx.font = `bold ${f.size ?? 22}px system-ui, sans-serif`;
+    const y = f.y === undefined ? h * 0.42 + i * 28 : h * f.y;
+    ctx.fillText(f.text, w / 2, y - p * 60);
     ctx.globalAlpha = 1;
   });
 

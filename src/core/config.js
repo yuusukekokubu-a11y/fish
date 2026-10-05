@@ -1,4 +1,4 @@
-// ゲームの数値(D-029・D-047・D-048)。時間の単位はミリ秒、位置と幅はゲージ全体を 1 とした割合。
+// ゲームの数値(D-047・D-048・D-062・D-063)。時間の単位はミリ秒、位置と幅はゲージ全体を 1 とした割合。
 // 魚ごとの数値(報酬・ミニゲームの重さ)は fish.js の設定表にある。
 
 export const DEFAULT_CONFIG = Object.freeze({
@@ -9,12 +9,19 @@ export const DEFAULT_CONFIG = Object.freeze({
   strongChance: 0.2,
   // 各場面の長さ。
   castMs: 700, // 投げる
-  biteMs: 500, // 掛かった合図
-  reelMs: 900, // 普通の魚を巻き上げる
+  reelMs: 900, // 合わせたあと、普通の魚を巻き上げる
   resultMs: 1200, // 結果を見せる
+  // 合わせの受付時間(D-062)。スマホで反応できるよう、どちらも 1.0 秒を下回らない。
+  hook: Object.freeze({
+    normalMs: 1500,
+    strongMs: 1100,
+  }),
+  // 合わせをこの回数続けて逃すと、投げ直しを止めて休む(タップで再開)。
+  missStreakLimit: 5,
   minigame: Object.freeze({
     zoneMargin: 0.08, // 当たり範囲をゲージの端から離す幅
-    timeoutMs: 5000, // この間タップしなければ逃げられる
+    damagePerHit: 1, // 当たり 1 回で減る体力(装備で変えられるようにデータで持つ)
+    missHeal: 1, // 外したときに回復する体力
     // 絶対に当たらない状態にしないための限界(D-036・D-048)。
     minZoneWidth: 0.1, // 当たり範囲の幅は、ゲージの 10% より狭くしない
     minSweepMs: 450, // 印は、端から端まで 0.45 秒より速く動かさない

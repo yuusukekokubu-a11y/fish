@@ -47,8 +47,19 @@ function drawBackground(ctx, w, h, waterY) {
   ctx.fillRect(0, waterY, w, h - waterY);
 }
 
-/** ミニゲームのゲージ:当たり範囲(緑)と、往復する印(白)。 */
-function drawGauge(ctx, w, h, zone, marker) {
+/** 残りの割合(0〜1)を、細い横のバーで描く。 */
+function drawTimeBar(ctx, x, y, width, ratio, color) {
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  ctx.fillRect(x, y, width, 6);
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, width * Math.max(0, Math.min(1, ratio)), 6);
+}
+
+/**
+ * ミニゲームのゲージ:当たり範囲(緑)と、往復する印(白)。
+ * 上に体力(四角の数)、下に制限時間の残りの細いバーを出す(D-066)。
+ */
+function drawGauge(ctx, w, h, view) {
   const gx = w * 0.1;
   const gw = w * 0.8;
   const gy = h * 0.8;
@@ -56,13 +67,29 @@ function drawGauge(ctx, w, h, zone, marker) {
   ctx.fillStyle = COLORS.gauge;
   ctx.fillRect(gx, gy, gw, gh);
   ctx.fillStyle = COLORS.zone;
-  ctx.fillRect(gx + gw * zone.start, gy, gw * (zone.end - zone.start), gh);
+  ctx.fillRect(gx + gw * view.zone.start, gy, gw * (view.zone.end - view.zone.start), gh);
   ctx.fillStyle = COLORS.marker;
-  ctx.fillRect(gx + gw * marker - 3, gy - 8, 6, gh + 16);
-  ctx.fillStyle = "#fff";
-  ctx.font = "bold 20px system-ui, sans-serif";
+  ctx.fillRect(gx + gw * view.marker - 3, gy - 8, 6, gh + 16);
+
+  // 体力:残りは赤、減ったぶんは暗い四角。
+  const size = 16;
+  const gap = 6;
+  const total = view.maxHp * size + (view.maxHp - 1) * gap;
+  const px = w / 2 - total / 2;
+  for (let i = 0; i < view.maxHp; i++) {
+    ctx.fillStyle = i < view.hp ? "#e63946" : "rgba(0,0,0,0.45)";
+    ctx.fillRect(px + i * (size + gap), gy - 34, size, size);
+  }
+  drawTimeBar(ctx, gx, gy + gh + 10, gw, view.timeLeft, "#ffd166");
+}
+
+/** 掛かった合図:浮きの上の大きな「!」と、合わせの受付の残りのバー。 */
+function drawBiteSign(ctx, bobber, hookLeft) {
+  ctx.fillStyle = "#ffd166";
+  ctx.font = "bold 44px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("緑の中でタップ!", w / 2, gy - 20);
+  ctx.fillText("!", bobber.x, bobber.y - 26);
+  drawTimeBar(ctx, bobber.x - 30, bobber.y - 18, 60, hookLeft, "#ffd166");
 }
 
 /**
@@ -96,6 +123,8 @@ export function drawScene(ctx, w, h, view, timeMs) {
     bobber.y += Math.sin(timeMs / 300) * 3;
   } else if (view.phase === PHASES.BITE || view.phase === PHASES.MINIGAME) {
     bobber.y += 10 + Math.sin(timeMs / 40) * 5;
+  } else if (view.phase === PHASES.RESTING) {
+    bobber.y += Math.sin(timeMs / 600) * 2;
   } else if (view.phase === PHASES.REELING) {
     const p = view.progress;
     bobber = { x: target.x + (rodTip.x - target.x) * p, y: target.y + (rodTip.y - target.y) * p };
@@ -123,9 +152,11 @@ export function drawScene(ctx, w, h, view, timeMs) {
   const fishSize = view.fish.size;
   if (view.phase === PHASES.REELING) {
     drawFish(ctx, bobber.x, bobber.y + fishSize, fishSize, fishColor);
+  } else if (view.phase === PHASES.BITE) {
+    drawBiteSign(ctx, bobber, view.hookLeft);
   } else if (view.phase === PHASES.MINIGAME) {
     drawFish(ctx, target.x + Math.sin(timeMs / 120) * 20, target.y + 60, fishSize, fishColor);
-    drawGauge(ctx, w, h, view.zone, view.marker);
+    drawGauge(ctx, w, h, view);
   } else if (view.phase === PHASES.RESULT && view.caught) {
     drawFish(ctx, w * 0.5, h * 0.55, fishSize * 1.6, fishColor);
   }
