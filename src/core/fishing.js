@@ -18,6 +18,7 @@ import {
   normalizeCombat,
 } from "./combat.js";
 import { DEFAULT_CONFIG } from "./config.js";
+import { applyGear, copyGear, emptyGear } from "./gear.js";
 import { availableFish, DEFAULT_CONTENT, effectiveMinigame, FISH_KINDS, FISH_LIST, pickWeighted } from "./fish.js";
 import { drawZone, isHit, markerPosition, zoneAt } from "./minigame.js";
 import { createRng, normalizeSeed } from "./rng.js";
@@ -104,13 +105,26 @@ function ownProgress(progress) {
     rodStage: progress.rodStage ?? 1,
     rodStep: progress.rodStep ?? ROD_STEPS.NONE,
     seen: [...(progress.seen ?? [])],
+    gear: copyGear(progress.gear ?? emptyGear()),
   };
+}
+
+/** 装備を反映した戦闘の数値の表を作り直す(装着・外す・分解のあとに呼ぶ:D-145)。 */
+export function refreshCombat(game) {
+  const { config } = game;
+  game.combat = normalizeCombat(
+    applyGear(game.baseCombat, game.progress.gear, game.content.equipKinds),
+    config.combat,
+    config.combatLimits,
+  );
+  return game.combat;
 }
 
 /**
  * 新しいゲームの状態を作る。
  * - progress:保存から読んだ進み具合(なければ初めから)。複製して使う(呼んだ側のものは変えない)。
- * - combat:戦闘の数値の表(なければ config.combat の基本の表)。点検して丸めてから使う(D-080)。
+ * - combat:装備なしの戦闘の数値の表(なければ config.combat の基本の表)。progress.gear の装着中の装備を足し算し、
+ *   点検して丸めてから game.combat に置く(D-080・D-145)。装着が変わったら refreshCombat を呼ぶ。
  * - critRules:クリティカルの判定の規則の一覧(なければ確率だけ)。
  * - content:魚と段階の設定表(なければ基本の表)。段階や魚を足すときは、ここに別の表を渡せる(D-093)。
  * - strongChance:強い魚の出現率(なければ config の値)。将来のスキル(大物狙い)で上げられる(D-096)。
@@ -133,7 +147,9 @@ export function createGame(
     seed: normalizeSeed(seed),
     config,
     rng,
-    combat: normalizeCombat(combat, config.combat, config.combatLimits),
+    // 装備なしの表。装備を反映した表(combat)は、ここから refreshCombat で作る。
+    baseCombat: combat,
+    combat: null,
     critRules,
     content,
     strongChance: chance,
@@ -151,6 +167,7 @@ export function createGame(
     results: [],
     lastResult: null,
   };
+  refreshCombat(game);
   game.cast = drawGameCast(game);
   return game;
 }
@@ -344,6 +361,10 @@ function fightTap(game) {
   const before = fight.hp;
   fight.hp = Math.min(fight.maxHp, fight.hp + combat.missHeal);
   fight.misses += 1;
+  // ルアー:外したあと、次の当たり 1 回のダメージを足す。外し続けても積み上げない(D-145)。
+  if (combat.missBonusDamage > 0 && !fight.boosts.some((b) => b.id === "lure")) {
+    fight.boosts.push({ id: "lure", damageBonus: combat.missBonusDamage, uses: 1 });
+  }
   return { action: "miss", heal: fight.hp - before, hp: fight.hp, maxHp: fight.maxHp, position };
 }
 

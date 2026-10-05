@@ -1,0 +1,20 @@
+{
+  // 型チェックだけの設定(D-144)。ファイルは作らない(noEmit)。ビルドはしない。
+  // JSDoc で型を書いたファイル(先頭に // @ts-check)だけを、下の files に並べて確かめる。
+  // ここに並べたファイルが import するファイルは、型の推測には使うが、エラーは確かめない。
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2023", "dom"],
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "skipLibCheck": true
+  },
+  "files": ["src/core/gear.js", "src/core/gear_save.js", "src/ui/gear_view.js", "src/ui/gear_tabs.js", "src/ui/gacha_fx.js"]
+}

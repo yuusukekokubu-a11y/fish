@@ -26,6 +26,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     critMultiplier: 2, // クリティカルの倍率
     missHeal: 10, // 外したときの回復
     timeLimitBonusMs: 0, // 魚ごとの制限時間に足す時間
+    missBonusDamage: 0, // 外したあと、次の当たり 1 回に足すダメージ(ルアー:D-127・D-145)
     // 合わせの縮む輪(D-084・D-087)。「!」と同時に縮み始め、ringMs で通り過ぎる。
     // 成功帯は通り過ぎる直前の successMs、ジャスト帯は成功帯の真ん中の justMs。
     hook: Object.freeze({
@@ -42,11 +43,24 @@ export const DEFAULT_CONFIG = Object.freeze({
     maxCritMultiplier: 10,
     minMissHeal: 0,
     minTimeLimitMs: 1000,
+    // 計算が壊れないための安全上限だけ(ゲームデザイン上の上限ではない:D-145)。
+    maxDamage: 1000000,
+    maxMissHeal: 1000000,
+    maxMissBonusDamage: 1000000,
+    maxTimeLimitBonusMs: 3600000,
     // 合わせの輪の下限(スマホで反応できる範囲と、連打を通用させないための早すぎの区間)。
     minHookRingMs: 1000,
     minHookSuccessMs: 250,
     minHookJustMs: 100,
     minHookEarlyMs: 300,
     maxJustMultiplier: 5,
+  }),
+  // クレートガチャ(D-140・D-146・D-147・D-149)。
+  gacha: Object.freeze({
+    targetSeconds: 120, // クレート 1 回分が貯まる目標の時間
+    secondsPerCast: 8.6, // 1 回投げて結果が出るまでの平均の時間(上手に遊んだときの測定:Issue 14)
+    gradeGrowth: 0.35, // グレードが 1 上がるごとに、基本効果の範囲が増える割合
+    inventoryMax: 100, // 持ち物の上限
+    pullMax: 10, // 1 回に引ける最大(10 連)
   }),
 });

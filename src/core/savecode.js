@@ -1,7 +1,7 @@
 // セーブコード(D-059・D-065・D-117):進み具合を 1 行の文字列に書き出し、読み込む。
-// 形:FISH3-(中身)-(印)
-// - 中身:保存の形(版 3)の JSON を base64url(英数字と「-」「_」だけの書き方)にしたもの。
-//   前に書き出した FISH2 のコードも読める(版 3 に読み替える)。
+// 形:FISH4-(中身)-(印)(D-143)
+// - 中身:保存の形(版 4)の JSON を base64url(英数字と「-」「_」だけの書き方)にしたもの。
+//   前に書き出した FISH2・FISH3 のコードも読める(版 4 に読み替える)。
 // - 印:中身から計算する 8 けたの 16 進数(FNV-1a)。壊れたコードを見つけるためのもの。
 // 暗号化はしない。改ざんの防止は目的にしない。
 
@@ -9,8 +9,8 @@ import { DEFAULT_CONTENT } from "./fish.js";
 import { readSaveData, SAVE_VERSION, toSaveData } from "./save.js";
 
 const PREFIX = "FISH";
-// 長さの上限。魚が 60 種類ほどに増えても 2000 文字ほどなので、十分に余裕がある。
-const MAX_LENGTH = 20000;
+// 長さの上限。持ち物が上限(100 個)いっぱいでも約 1 万文字なので、余裕を持たせる。
+const MAX_LENGTH = 40000;
 // 読めるコードの版(FISH2 から)。
 const MIN_CODE_VERSION = 2;
 const PATTERN = /^FISH(\d+)-([A-Za-z0-9_-]+)-([0-9a-f]{8})$/;

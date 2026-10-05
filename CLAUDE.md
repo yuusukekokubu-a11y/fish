@@ -21,13 +21,14 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 
 ## 3. テストの回し方(D-005・D-026)
 
-準備はいらない(Node.js 22 以上があればよい。npm の外部の部品はない:D-025)。
+準備はいらない(Node.js 22 以上があればよい)。型チェックだけは、初回に `npm install` で開発用の `typescript` を入れる(D-144・D-150)。
 
 | やりたいこと | コマンド |
 | --- | --- |
 | 速いテスト(既定) | `npm test` |
 | 関係するテストだけ | `node --test tests/xxx.test.js` |
 | 重いテスト | `npm run test:slow` |
+| 型チェック | `npm run typecheck` |
 | 画面で試す | `npm start`(`http://localhost:8000/`) |
 | 公開されたものを試す | `https://yuusukekokubu-a11y.github.io/fish/`(main に取り込まれたもの) |
 
@@ -42,6 +43,8 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 - 戦闘の数値は「戦闘の数値の表」(`config.combat`、合わせの輪は `config.combat.hook`)を通して変える。戦闘のコードに数を直接書かない(D-071・D-080・D-084)。
 - 戦闘中だけの一時的な変化は、表を書き換えず「上乗せの一覧」(`fight.boosts`)に足す(D-089)。
 - 画面は、時間とタップを窓口 `src/ui/session.js` を通して計算本体に渡す。メニューを開いている間は止める(D-134)。メニューのタブは `src/ui/menu_tabs.js` の表に足す(D-135)。
+- 新しいファイルは、先頭に `// @ts-check` を書き、JSDoc で型を書いて `tsconfig.json` の `files` に足す。既存のファイルは触るときに足してよい(D-144・D-150)。
+- 装備の種類・レア度は `src/core/gear.js` の表、クレートは段階の表から自動で作る。ガチャの乱数は種と引いた回数から作り、魚の系統を使わない(D-145〜D-148)。
 - 魚と段階は `src/core/fish.js` の表(`FISH_ROWS`・`STAGE_ROWS`、項目名つきの行:D-136)に行を足して増やす。コードに魚の id や段階の数を直接書かない(D-093・D-111・D-136。手順は DESIGN の「段階や魚を足す手順」)。
 
 ## 3.5 バージョン(D-085・D-091)

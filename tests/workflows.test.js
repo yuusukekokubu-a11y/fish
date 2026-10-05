@@ -66,6 +66,17 @@ test("速いテストは PR と main で回り、重いテストは含まない"
   assert.doesNotMatch(fast, /slow/);
 });
 
+test("型チェックは PR と main で回り、npm ci で固定の版を入れてから tsc を回す(D-144)", () => {
+  const job = JOBS.typecheck;
+  assert.equal(condition(job), "github.event_name != 'workflow_dispatch'");
+  assert.match(job, /- run: npm ci$/m);
+  assert.match(job, /- run: npm run typecheck$/m);
+  const pkg = JSON.parse(readText("package.json"));
+  assert.equal(pkg.scripts.typecheck, "tsc -p tsconfig.json");
+  assert.deepEqual(Object.keys(pkg.devDependencies ?? {}), ["typescript"], "外部の部品は typescript の 1 つだけ");
+  assert.match(pkg.devDependencies.typescript, /^\d+\.\d+\.\d+$/, "版を固定");
+});
+
 test("重いテストは計算本体が変わった PR と手動の実行だけ", () => {
   const slow = JOBS.slow;
   const cond = condition(slow);

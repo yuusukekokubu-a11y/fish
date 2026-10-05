@@ -1,12 +1,13 @@
 // 戦闘の数値の表と、クリティカルの判定(D-068〜D-071・D-078〜D-080)。
-// 表の形:{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs, hook }
+// 表の形:{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs, missBonusDamage, hook }
 // - damage:当たり 1 回で減る体力(通常ダメージ)
 // - critChance:クリティカルの確率(0〜1)
 // - critMultiplier:クリティカルのときの倍率
 // - missHeal:外したときに回復する体力
 // - timeLimitBonusMs:魚ごとの制限時間に足す時間(装備の糸などで増える)
+// - missBonusDamage:外したあと、次の当たり 1 回に足すダメージ(装備のルアー。積み上げない:D-145)
 // - hook:合わせの縮む輪 { normal: { ringMs, successMs, justMs }, strong: {...}, justMultiplier }(D-084・D-087)
-// ②-4 では、装備がこの表を書き換えて createGame に渡す。
+// 装備は、基本の表に足し算した表を作り、ここで点検してから使う(gear.js の applyGear:D-145)。
 
 function finiteOr(value, fallback) {
   return Number.isFinite(value) ? value : fallback;
@@ -23,15 +24,20 @@ function clamp(value, min, max) {
 export function normalizeCombat(stats, base, limits) {
   const s = stats ?? {};
   return {
-    damage: Math.max(limits.minDamage, Math.round(finiteOr(s.damage, base.damage))),
+    damage: clamp(Math.round(finiteOr(s.damage, base.damage)), limits.minDamage, limits.maxDamage),
     critChance: clamp(finiteOr(s.critChance, base.critChance), 0, limits.maxCritChance),
     critMultiplier: clamp(
       finiteOr(s.critMultiplier, base.critMultiplier),
       limits.minCritMultiplier,
       limits.maxCritMultiplier,
     ),
-    missHeal: Math.max(limits.minMissHeal, Math.round(finiteOr(s.missHeal, base.missHeal))),
-    timeLimitBonusMs: finiteOr(s.timeLimitBonusMs, base.timeLimitBonusMs),
+    missHeal: clamp(Math.round(finiteOr(s.missHeal, base.missHeal)), limits.minMissHeal, limits.maxMissHeal),
+    timeLimitBonusMs: clamp(
+      finiteOr(s.timeLimitBonusMs, base.timeLimitBonusMs),
+      -limits.maxTimeLimitBonusMs,
+      limits.maxTimeLimitBonusMs,
+    ),
+    missBonusDamage: clamp(Math.round(finiteOr(s.missBonusDamage, base.missBonusDamage ?? 0)), 0, limits.maxMissBonusDamage),
     hook: normalizeHook(s.hook, base.hook, limits),
   };
 }
@@ -80,12 +86,13 @@ export function judgeHook(timing, t) {
 }
 
 /**
- * 戦闘中の一時的な上乗せ(D-089)。{ id, damageMultiplier, uses } の一覧。
- * 当たりのダメージに、残っている上乗せの倍率を全部かけて四捨五入する。
+ * 戦闘中の一時的な上乗せ(D-089・D-145)。{ id, damageMultiplier, damageBonus, uses } の一覧。
+ * 当たりのダメージに、残っている上乗せの倍率を全部かけて四捨五入し、そのあと足し算の分(ルアー)を足す。
  */
 export function boostedDamage(damage, boosts) {
-  const multiplier = boosts.reduce((m, b) => m * b.damageMultiplier, 1);
-  return Math.max(damage, Math.round(damage * multiplier));
+  const multiplier = boosts.reduce((m, b) => m * (b.damageMultiplier ?? 1), 1);
+  const bonus = boosts.reduce((sum, b) => sum + (b.damageBonus ?? 0), 0);
+  return Math.max(damage, Math.round(damage * multiplier)) + bonus;
 }
 
 /** 当たったあと、上乗せの残り回数を 1 減らし、0 になったものを消す。 */

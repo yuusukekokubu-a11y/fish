@@ -1,15 +1,20 @@
-// 保存の形式(D-065・D-104・D-117)。ブラウザに保存するのは UI の役目で、ここは形の変換と点検だけを行う。
-// 版 3 の形:
-//   { version: 3, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...] } }
+// 保存の形式(D-065・D-104・D-117・D-143)。ブラウザに保存するのは UI の役目で、ここは形の変換と点検だけを行う。
+// 版 4 の形:
+//   { version: 4, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...],
+//     gear: { items, equipped, draws, seed, nextId } } }
+// 装備とガチャのまとまり(gear)の点検は gear_save.js にある。
 // 古い版は、版ごとの小さな関数(MIGRATIONS)で 1 つずつ新しい版に読み替える。版を足すときは、
 // SAVE_VERSION を上げ、「前の版 → 新しい版」の関数を 1 つ足す。
 // 魚や段階が増えても形は変わらない(鱗は魚の id をキーにした表)。表にない魚の鱗や id は、
 // 消さずに持ち続ける(画面では使わない)。
 
+import { DEFAULT_CONFIG } from "./config.js";
 import { DEFAULT_CONTENT, FISH_ID_PATTERN as ID_PATTERN } from "./fish.js";
+import { emptyGear } from "./gear.js";
+import { gearToSave, migratedGear, readGear } from "./gear_save.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const SAVE_KEY = "fish:save";
 
 // 鱗の表の大きさの上限(壊れたデータで大きくなりすぎないように)。
@@ -17,10 +22,10 @@ const MAX_SCALE_KINDS = 1000;
 
 /** 初めて遊ぶときの進み具合。 */
 export function initialProgress() {
-  return { coins: 0, scales: {}, rodStage: 1, rodStep: ROD_STEPS.NONE, seen: [] };
+  return { coins: 0, scales: {}, rodStage: 1, rodStep: ROD_STEPS.NONE, seen: [], gear: emptyGear() };
 }
 
-/** 進み具合を、保存する形(版 3)にする。 */
+/** 進み具合を、保存する形(版 4)にする。 */
 export function toSaveData(progress) {
   return {
     version: SAVE_VERSION,
@@ -29,6 +34,7 @@ export function toSaveData(progress) {
       scales: { ...progress.scales },
       rod: { stage: progress.rodStage, step: progress.rodStep },
       seen: [...progress.seen],
+      gear: gearToSave(progress.gear ?? emptyGear()),
     },
   };
 }
@@ -67,6 +73,11 @@ export const MIGRATIONS = Object.freeze({
       },
     };
   },
+  // 版 3 → 版 4:空の持ち物、引いた回数 0。ガチャの種は、画面がデータを読んだときに決める(D-141)。
+  3: (data) => {
+    if (!isPlainObject(data.progress)) return null;
+    return { version: 4, progress: { ...data.progress, gear: migratedGear() } };
+  },
 });
 
 /** 古い版を、今の版の形まで順に読み替える。知らない版や読み替えられないときは null。 */
@@ -94,13 +105,13 @@ function readScales(scales) {
  * 保存の形(オブジェクト)を点検して、進み具合を取り出す。
  * 成功:{ ok: true, progress }。失敗:{ ok: false, error: "version" | "content" }。
  */
-export function readSaveData(data, content = DEFAULT_CONTENT) {
+export function readSaveData(data, content = DEFAULT_CONTENT, config = DEFAULT_CONFIG) {
   if (!isPlainObject(data)) return { ok: false, error: "content" };
   const known = MIGRATIONS[data.version] || data.version === SAVE_VERSION;
   if (!known) return { ok: false, error: "version" };
   const current = migrate(data);
   if (!current || !isPlainObject(current.progress)) return { ok: false, error: "content" };
-  const { coins, scales, rod, seen } = current.progress;
+  const { coins, scales, rod, seen, gear } = current.progress;
   if (!isCount(coins)) return { ok: false, error: "content" };
   const ownScales = readScales(scales);
   if (!ownScales) return { ok: false, error: "content" };
@@ -113,9 +124,16 @@ export function readSaveData(data, content = DEFAULT_CONTENT) {
   if (!Array.isArray(seen) || !seen.every((id) => typeof id === "string" && ID_PATTERN.test(id))) {
     return { ok: false, error: "content" };
   }
+  const ownGear = readGear(gear, {
+    equipKinds: content.equipKinds,
+    maxStage: content.maxStage,
+    inventoryMax: config.gacha.inventoryMax,
+    gradeGrowth: config.gacha.gradeGrowth,
+  });
+  if (!ownGear) return { ok: false, error: "content" };
   return {
     ok: true,
-    progress: { coins, scales: ownScales, rodStage: stage, rodStep: step, seen: [...new Set(seen)] },
+    progress: { coins, scales: ownScales, rodStage: stage, rodStep: step, seen: [...new Set(seen)], gear: ownGear },
   };
 }
 

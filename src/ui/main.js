@@ -10,6 +10,7 @@ import {
   craftGameRod,
   createGame,
   currentMarker,
+  refreshCombat,
   FISH_KINDS,
   currentHookTiming,
   OUTCOMES,
@@ -21,6 +22,7 @@ import {
 } from "../core/fishing.js";
 import { nextNeed, ROD_STEPS, rodName, stageRodNames } from "../core/rod.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
+import { normalizeSeed } from "../core/rng.js";
 import { formatCount } from "./format.js";
 import { MENU_TABS } from "./menu_tabs.js";
 import { act, advance, createSession, setPaused, tapSession } from "./session.js";
@@ -45,6 +47,18 @@ const MAX_STEP_MS = 100;
 /** シードの指定がないときに使う、毎回ちがうシード。計算本体では Math.random を使わない(D-021)。 */
 function randomSeed() {
   return Math.floor(Math.random() * 1000000);
+}
+
+/**
+ * ガチャの乱数の種を決める(D-148)。URL に ?seed= があればそれ(確認用)、なければ毎回ちがう数。
+ * 計算本体では Math.random を使わない(D-021)ので、画面の側で決める。
+ */
+function newGachaSeed() {
+  const value = new URLSearchParams(location.search).get("seed");
+  if (value !== null && value !== "") return normalizeSeed(value);
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return buf[0];
 }
 
 function readSeed() {
@@ -159,6 +173,11 @@ function main() {
   };
 
   const progress = parseSave(loadText());
+  // ガチャの種がまだなければ(初めて遊ぶ・データを消した・前の版から読んだ)、ここで決めて保存する(D-141・D-148)。
+  if (progress.gear.seed === null) {
+    progress.gear.seed = newGachaSeed();
+    saveProgress(progress);
+  }
   const game = createGame(readSeed(), { progress, combat: readDebugCombat() });
   const effects = createEffects();
   // 時間とタップは、この窓口を通して渡す。メニューを開いている間は止まる(D-134)。
@@ -199,7 +218,18 @@ function main() {
     toggle: el.menu,
     hud: el.hud,
     tabs: MENU_TABS,
-    ctx: { game, storage: { save: saveProgress, clear: clearSave }, reload: () => location.reload() },
+    ctx: {
+      game,
+      app: document.getElementById("app"),
+      storage: { save: saveProgress, clear: clearSave },
+      reload: () => location.reload(),
+      rerender: () => {},
+      // 装着・外す・分解のあと:装備を反映した戦闘の数値の表を作り直して保存する(D-145)。
+      onGearChanged: () => {
+        refreshCombat(game);
+        saveProgress(game.progress);
+      },
+    },
     onOpenChange: (open) => setPaused(session, open),
   });
   // ?debug を付けたときだけ、ブラウザの自動操作の確認用に状態を見せる(読むだけ。結果には関係しない)。

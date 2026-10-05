@@ -12,14 +12,21 @@ import { progressAt } from "./helpers.js";
 
 const BASE = DEFAULT_CONFIG.combat;
 const LIMITS = DEFAULT_CONFIG.combatLimits;
-// 合わせの輪(hook)は hook.test.js で確かめるので、ここでは戦闘の 5 項目だけを比べる。
+// 合わせの輪(hook)は hook.test.js で確かめるので、ここでは戦闘の 6 項目だけを比べる。
 const norm = (stats) => {
   const { hook, ...rest } = normalizeCombat(stats, BASE, LIMITS);
   return rest;
 };
 
 test("基本の表:ダメージ 10・確率 10%・倍率 2・回復 10・時間の増減 0", () => {
-  assert.deepEqual(norm(BASE), { damage: 10, critChance: 0.1, critMultiplier: 2, missHeal: 10, timeLimitBonusMs: 0 });
+  assert.deepEqual(norm(BASE), {
+    damage: 10,
+    critChance: 0.1,
+    critMultiplier: 2,
+    missHeal: 10,
+    timeLimitBonusMs: 0,
+    missBonusDamage: 0,
+  });
   assert.deepEqual(norm(undefined), norm(BASE), "表がなければ基本の表");
 });
 
@@ -30,6 +37,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     critMultiplier: 10,
     missHeal: 0,
     timeLimitBonusMs: 0,
+    missBonusDamage: 0,
   });
   assert.deepEqual(norm({ damage: 0, critChance: -0.2, critMultiplier: 0.5, missHeal: 0, timeLimitBonusMs: 0 }), {
     damage: 1,
@@ -37,6 +45,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     critMultiplier: 1,
     missHeal: 0,
     timeLimitBonusMs: 0,
+    missBonusDamage: 0,
   });
   // 境目ちょうどはそのまま。
   assert.deepEqual(norm({ damage: 1, critChance: 1, critMultiplier: 10, missHeal: 0, timeLimitBonusMs: 0 }).critChance, 1);
@@ -46,6 +55,18 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
   assert.deepEqual(odd, norm(BASE));
   assert.equal(norm({ ...BASE, damage: 12.5 }).damage, 13);
   assert.equal(norm({ ...BASE, damage: 12.4 }).damage, 12);
+});
+
+test("安全上限:とても大きな値は、計算が壊れない範囲で止める(ゲームデザイン上の上限は置かない:D-145)", () => {
+  const big = norm({ ...BASE, damage: 1e12, missHeal: 1e12, timeLimitBonusMs: 1e12, missBonusDamage: 1e12 });
+  assert.deepEqual(
+    [big.damage, big.missHeal, big.timeLimitBonusMs, big.missBonusDamage],
+    [LIMITS.maxDamage, LIMITS.maxMissHeal, LIMITS.maxTimeLimitBonusMs, LIMITS.maxMissBonusDamage],
+  );
+  assert.equal(norm({ ...BASE, missBonusDamage: -3 }).missBonusDamage, 0);
+  assert.equal(norm({ ...BASE, missBonusDamage: 4.6 }).missBonusDamage, 5);
+  // 装備でふつうに届く大きさ(ダメージ 500 など)は、そのまま使う。
+  assert.equal(norm({ ...BASE, damage: 500 }).damage, 500);
 });
 
 test("ダメージ:通常は表のまま、クリティカルは「ダメージ × 倍率」を四捨五入", () => {
@@ -129,7 +150,15 @@ test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より�
   const weird = { damage: -100, critChance: 99, critMultiplier: -1, missHeal: 1e9, timeLimitBonusMs: -1e9 };
   const game = untilFight("maguro", { combat: weird });
   const { hook, ...combat } = game.combat;
-  assert.deepEqual(combat, { damage: 1, critChance: 1, critMultiplier: 1, missHeal: 1e9, timeLimitBonusMs: -1e9 });
+  // 回復と時間の増減は、計算が壊れないための安全上限で止まる(D-145)。
+  assert.deepEqual(combat, {
+    damage: 1,
+    critChance: 1,
+    critMultiplier: 1,
+    missHeal: LIMITS.maxMissHeal,
+    timeLimitBonusMs: -LIMITS.maxTimeLimitBonusMs,
+    missBonusDamage: 0,
+  });
   assert.equal(game.fight.timeLimitMs, LIMITS.minTimeLimitMs);
   const rng = createRng(3);
   let t = 0;
