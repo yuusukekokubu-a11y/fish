@@ -1,6 +1,9 @@
 // 手応えの演出(D-042・D-051・D-092)。見た目だけで、計算本体の結果には触れない。
 // 時刻 now(ミリ秒)を受け取り、演出ごとの残り時間で描く。
 
+import { scaleName } from "../core/fish.js";
+import { formatCount } from "./format.js";
+
 const FLASH_MS = 350;
 const SHAKE_MS = 300;
 const FLOAT_MS = 1100;
@@ -24,8 +27,8 @@ export function addResultEffects(effects, result, now) {
     return;
   }
   const lines = [];
-  if (result.reward.coins > 0) lines.push(`+${result.reward.coins} ウロコイン`);
-  if (result.reward.material > 0) lines.push(`+${result.reward.material} 素材`);
+  if (result.reward.coins > 0) lines.push(`+${formatCount(result.reward.coins)} ウロコイン`);
+  if (result.reward.scales > 0) lines.push(`+${formatCount(result.reward.scales)} ${scaleName(result.fishId)}`);
   // 報酬の文字は空のあたりに出す(ダメージや「CRITICAL!」と重ならないように)。
   lines.forEach((text, i) => effects.floats.push({ text, start: now + i * 120, ms: FLOAT_MS, y: 0.32 + i * 0.05 }));
 }
@@ -69,10 +72,10 @@ export function addMissEffects(effects, miss, now) {
   effects.floats.push({ text: `+${miss.heal}`, start: now, ms: 650, y: 0.58, size: 24, color: "#ff8fa3" });
 }
 
-/** 竿を強化したときの演出を足す。 */
-export function addUpgradeEffects(effects, rodStage, now) {
+/** 竿を製作・進化したときの演出を足す(text は帯に出す文)。 */
+export function addRodEffects(effects, text, now) {
   effects.flash = { color: "255,209,102", start: now, ms: FLASH_MS };
-  effects.banner = { text: `竿が段階${rodStage}に!`, start: now, ms: BANNER_MS };
+  effects.banner = { text, start: now, ms: BANNER_MS };
 }
 
 function progressOf(item, now) {
@@ -117,6 +120,8 @@ export function drawEffects(ctx, w, h, effects, now) {
     ctx.fillRect(0, h * 0.24, w, 48);
     ctx.fillStyle = "#ffd166";
     ctx.font = "bold 26px system-ui, sans-serif";
+    // 長い文(竿の名前など)は、画面の幅に収まるように小さくする。
+    if (ctx.measureText(effects.banner.text).width > w - 24) ctx.font = "bold 19px system-ui, sans-serif";
     ctx.fillText(effects.banner.text, w / 2, h * 0.24 + 33);
     ctx.globalAlpha = 1;
   }

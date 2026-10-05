@@ -16,7 +16,7 @@ import {
   update,
 } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
-import { hookGood, hookJust, makeAimCenter, makePlayer, mean } from "./helpers.js";
+import { hookGood, hookJust, makeAimCenter, makePlayer, mean, progressAt } from "./helpers.js";
 
 const play = makePlayer({ update, tap, PHASES });
 const aimCenter = makeAimCenter(currentMarker);
@@ -48,24 +48,30 @@ test("待ち時間は決めた幅の中に収まる", () => {
   }
 });
 
-test("強い魚:100 回の試行で出現は 10〜30 回(シード固定)", () => {
+test("強い魚:シード固定で 2000 回引くと、出現の割合が 10% ±2 ポイントの中", () => {
+  assert.equal(DEFAULT_CONFIG.strongChance, 0.1);
   for (const seed of [1, 2, 3, 12345]) {
     const rng = createRng(seed);
     let strong = 0;
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 2000; i++) {
       if (drawCast(rng).kind === FISH_KINDS.STRONG) strong += 1;
     }
-    assert.ok(strong >= 10 && strong <= 30, `seed ${seed}:${strong} 回`);
+    assert.ok(Math.abs(strong / 2000 - 0.1) <= 0.02, `seed ${seed}:${strong} 回`);
   }
 });
 
-test("操作がなければ、釣果(ウロコイン・素材)は増えない", () => {
+test("ヌシはランダムには出ない", () => {
+  const rng = createRng(8);
+  for (let i = 0; i < 5000; i++) assert.notEqual(drawCast(rng, DEFAULT_CONFIG, 5).kind, FISH_KINDS.BOSS);
+});
+
+test("操作がなければ、釣果(ウロコイン・鱗)は増えない", () => {
   for (const seed of [1, 4, 777]) {
     for (const rodStage of [1, 3, 5]) {
-      const progress = { coins: 3, material: 2, rodStage, seen: [] };
+      const progress = progressAt(rodStage, "none", { coins: 3, scales: { kurodai: 2 } });
       const game = play(createGame(seed, { progress }), 600000);
       assert.equal(game.progress.coins, 3);
-      assert.equal(game.progress.material, 2);
+      assert.deepEqual(game.progress.scales, { kurodai: 2 });
       assert.ok(game.results.length > 0);
       assert.ok(game.results.every((r) => r.outcome === OUTCOMES.ESCAPED && r.reason === REASONS.LATE));
     }
@@ -118,16 +124,16 @@ test("合わせに成功すると、逃した回数の数え直しになる", ()
   assert.equal(game.missStreak, 0);
 });
 
-test("掛かったらすぐ合わせ、真ん中を狙えば、普通も強いも釣れる", () => {
+test("掛かったらすぐ合わせ、真ん中を狙えば、弱いも強いも釣れる", () => {
   const game = play(createGame(4), 300000, { hook: hookJust, fight: aimCenter });
-  assert.ok(game.counts.normal > 0);
+  assert.ok(game.counts.weak > 0);
   assert.ok(game.counts.strong > 0);
   assert.equal(game.counts.escaped, 0);
 });
 
 test("合わせだけしてミニゲームで何もしないと、強い魚は時間切れで逃げる", () => {
   const game = play(createGame(4), 300000, { hook: hookJust });
-  assert.ok(game.counts.normal > 0);
+  assert.ok(game.counts.weak > 0);
   assert.equal(game.counts.strong, 0);
   for (const r of game.results.filter((x) => x.kind === FISH_KINDS.STRONG)) {
     assert.equal(r.outcome, OUTCOMES.ESCAPED);

@@ -9,6 +9,7 @@ import { FISH_KINDS, FISH_LIST } from "../src/core/fish.js";
 import { createGame, OUTCOMES, PHASES, REASONS, tap, update } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
 import { untilFight, waitForCenter, waitForOutside } from "./fight_helpers.js";
+import { progressAt } from "./helpers.js";
 
 const STRONG = FISH_LIST.filter((f) => f.kind === FISH_KINDS.STRONG).sort((a, b) => a.stage - b.stage);
 const NO_CRIT = { ...DEFAULT_CONFIG.combat, critChance: 0 };
@@ -98,7 +99,7 @@ test("制限時間を過ぎたら逃げる(境界:1 ミリ秒前はまだ続く)
     update(game, 1);
     assert.equal(game.phase, PHASES.RESULT, fish.name);
     assert.equal(game.lastResult.reason, REASONS.TIMEOUT);
-    assert.deepEqual(game.lastResult.reward, { coins: 0, material: 0 });
+    assert.deepEqual(game.lastResult.reward, { coins: 0, scales: 0 });
   }
 });
 
@@ -107,7 +108,7 @@ test("どんな操作でも、掛かってから 受付時間+制限時間 の�
   for (const seed of [1, 2, 3]) {
     const rng = createRng(seed + 100);
     for (const tapChance of [0, 0.01, 0.1, 0.5, 1]) {
-      const game = createGame(seed, { progress: { coins: 0, material: 0, rodStage: 5, seen: [] } });
+      const game = createGame(seed, { progress: progressAt(5) });
       let biteAt = null;
       for (let t = 0; t < 600000; t += 10) {
         update(game, 10);

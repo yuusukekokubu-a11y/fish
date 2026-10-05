@@ -31,14 +31,24 @@
         touch-action: manipulation;
       }
       #hud {
-        display: flex;
-        justify-content: space-around;
-        padding: calc(env(safe-area-inset-top) + 10px) 8px 8px;
+        padding: calc(env(safe-area-inset-top) + 8px) 8px 6px;
         background: rgba(0, 0, 0, 0.35);
         font-size: 15px;
       }
+      #hud-row {
+        display: flex;
+        justify-content: space-around;
+        gap: 8px;
+        white-space: nowrap;
+      }
       #hud b {
-        font-size: 20px;
+        font-size: 19px;
+      }
+      #rod-name {
+        margin-top: 2px;
+        text-align: center;
+        font-size: 11px;
+        opacity: 0.75;
       }
       #stage {
         position: relative;
@@ -175,8 +185,11 @@
   <body>
     <div id="app">
       <div id="hud">
-        <span>ウロコイン <b id="coins">0</b></span>
-        <span>素材 <b id="material">0</b></span>
+        <div id="hud-row">
+          <span>ウロコイン <b id="coins">0</b></span>
+          <span id="need"></span>
+        </div>
+        <div id="rod-name"></div>
       </div>
       <div id="stage">
         <canvas id="scene"></canvas>

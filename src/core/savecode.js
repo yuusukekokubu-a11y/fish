@@ -1,13 +1,18 @@
-// セーブコード(D-059・D-065):進み具合を 1 行の文字列に書き出し、読み込む。
-// 形:FISH2-(中身)-(印)
-// - 中身:保存の形(版 2)の JSON を base64url(英数字と「-」「_」だけの書き方)にしたもの。
+// セーブコード(D-059・D-065・D-117):進み具合を 1 行の文字列に書き出し、読み込む。
+// 形:FISH3-(中身)-(印)
+// - 中身:保存の形(版 3)の JSON を base64url(英数字と「-」「_」だけの書き方)にしたもの。
+//   前に書き出した FISH2 のコードも読める(版 3 に読み替える)。
 // - 印:中身から計算する 8 けたの 16 進数(FNV-1a)。壊れたコードを見つけるためのもの。
 // 暗号化はしない。改ざんの防止は目的にしない。
 
+import { DEFAULT_CONTENT } from "./fish.js";
 import { readSaveData, SAVE_VERSION, toSaveData } from "./save.js";
 
 const PREFIX = "FISH";
-const MAX_LENGTH = 4000;
+// 長さの上限。魚が 60 種類ほどに増えても 2000 文字ほどなので、十分に余裕がある。
+const MAX_LENGTH = 20000;
+// 読めるコードの版(FISH2 から)。
+const MIN_CODE_VERSION = 2;
 const PATTERN = /^FISH(\d+)-([A-Za-z0-9_-]+)-([0-9a-f]{8})$/;
 
 // 読み込みに失敗したときの短い文(画面に出す)。
@@ -51,7 +56,7 @@ function fail(error) {
  * セーブコードを読む。成功:{ ok: true, progress }。失敗:{ ok: false, error, message }。
  * 前後の空白や途中の改行は取り除いてから読む。エラーは投げない。
  */
-export function decodeSaveCode(text, rodConfig) {
+export function decodeSaveCode(text, content = DEFAULT_CONTENT) {
   if (typeof text !== "string") return fail("empty");
   const code = text.replace(/\s+/g, "");
   if (code === "") return fail("empty");
@@ -60,14 +65,16 @@ export function decodeSaveCode(text, rodConfig) {
   if (!m) return fail("format");
   const [, codeVersion, body, sum] = m;
   if (checksum(body) !== sum) return fail("checksum");
-  if (Number(codeVersion) !== SAVE_VERSION) return fail("version");
+  const version = Number(codeVersion);
+  if (version < MIN_CODE_VERSION || version > SAVE_VERSION) return fail("version");
   let data;
   try {
     data = JSON.parse(fromBase64Url(body));
   } catch {
     return fail("format");
   }
-  if (data?.version !== SAVE_VERSION) return fail("version");
-  const result = readSaveData(data, rodConfig);
+  // 先頭の版と、中身の版がそろっていること。
+  if (data?.version !== version) return fail("version");
+  const result = readSaveData(data, content);
   return result.ok ? { ok: true, progress: result.progress } : fail(result.error);
 }

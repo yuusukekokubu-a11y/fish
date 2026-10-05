@@ -8,7 +8,7 @@ import { playRecorded } from "./hookring_play.js";
 
 const FIXTURE = JSON.parse(readText("tests/fixtures/hookring_plays.json"));
 
-test("同じシードと同じ操作で、合わせ・釣果・ウロコイン・素材・竿の段階が記録と完全に一致する", () => {
+test("同じシードと同じ操作で、合わせ・釣果・ウロコイン・鱗・竿の段階が記録と完全に一致する", () => {
   for (const [key, expected] of Object.entries(FIXTURE.plays)) {
     const [stage, seed, way] = key.split("-");
     assert.deepEqual(playRecorded(Number(seed), Number(stage), way), expected, key);

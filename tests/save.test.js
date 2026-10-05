@@ -1,45 +1,78 @@
-// 保存の形式のテスト(受け入れ条件 9 の一部:版 1 から版 2 への読み替え)。
+// 保存の形式のテスト(受け入れ条件 11:版 1・版 2 → 版 3 の読み替え、壊れたデータ)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_CONFIG } from "../src/core/config.js";
+import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { createGame } from "../src/core/fishing.js";
-import { initialProgress, parseSave, readSaveData, SAVE_VERSION, toSaveData } from "../src/core/save.js";
+import { COUNT_MAX, ROD_STEPS } from "../src/core/rod.js";
+import { initialProgress, MIGRATIONS, migrate, parseSave, readSaveData, SAVE_VERSION, toSaveData } from "../src/core/save.js";
+import { progressAt } from "./helpers.js";
 
-const ROD = DEFAULT_CONFIG.rod;
-
-test("保存の形は版 2 で、progress の下に進み具合を置く", () => {
-  const progress = { coins: 123, material: 45, rodStage: 3, seen: ["aji", "saba"] };
-  assert.equal(SAVE_VERSION, 2);
-  assert.deepEqual(toSaveData(progress), { version: 2, progress });
+const SAMPLE = progressAt(3, ROD_STEPS.CRAFTED, {
+  coins: 123,
+  scales: { kurodai: 2, buri: 1, "nushi-kurodai": 1 },
+  seen: ["aji", "saba"],
 });
 
-test("保存して読むと、同じ値に戻る", () => {
-  const progress = { coins: 123, material: 45, rodStage: 3, seen: ["aji", "saba"] };
-  assert.deepEqual(parseSave(JSON.stringify(toSaveData(progress)), ROD), progress);
+test("保存の形は版 3:鱗は魚の id をキーにした表、竿は段階と工程", () => {
+  assert.equal(SAVE_VERSION, 3);
+  assert.deepEqual(toSaveData(SAMPLE), {
+    version: 3,
+    progress: {
+      coins: 123,
+      scales: { kurodai: 2, buri: 1, "nushi-kurodai": 1 },
+      rod: { stage: 3, step: "crafted" },
+      seen: ["aji", "saba"],
+    },
+  });
 });
 
-test("版 1 の保存データは、版 2 に読み替えて読める", () => {
-  const v1 = { version: 1, coins: 50, material: 7, rodStage: 2, seen: ["aji", "kurodai"] };
-  const expected = { coins: 50, material: 7, rodStage: 2, seen: ["aji", "kurodai"] };
-  assert.deepEqual(parseSave(JSON.stringify(v1), ROD), expected);
-  assert.deepEqual(readSaveData(v1, ROD), { ok: true, progress: expected });
-  // 読み替えたものを保存し直すと版 2 になる。
-  assert.equal(JSON.parse(JSON.stringify(toSaveData(parseSave(JSON.stringify(v1), ROD)))).version, 2);
+test("保存して読むと、同じ値に戻る(全部の工程)", () => {
+  assert.deepEqual(parseSave(JSON.stringify(toSaveData(SAMPLE))), SAMPLE);
+  for (const step of [ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED]) {
+    const p = progressAt(2, step);
+    assert.deepEqual(parseSave(JSON.stringify(toSaveData(p))), p);
+  }
+  const last = progressAt(DEFAULT_CONTENT.maxStage, ROD_STEPS.EVOLVED);
+  assert.deepEqual(parseSave(JSON.stringify(toSaveData(last))), last);
 });
 
-test("保存したものからゲームを作ると、続きから遊べる", () => {
-  const progress = parseSave(JSON.stringify(toSaveData({ coins: 5, material: 6, rodStage: 2, seen: [] })), ROD);
+test("版 2 から読むと、ウロコインと竿の段階はそのまま(段階 n の未製作)、前の素材は同じ数のウロコインに換える", () => {
+  const v2 = { version: 2, progress: { coins: 50, material: 7, rodStage: 4, seen: ["aji", "kurodai"] } };
+  assert.deepEqual(parseSave(JSON.stringify(v2)), progressAt(4, ROD_STEPS.NONE, { coins: 57, seen: ["aji", "kurodai"] }));
+  // ウロコインの上限はこえない。
+  const big = { version: 2, progress: { coins: COUNT_MAX, material: 10, rodStage: 1, seen: [] } };
+  assert.equal(parseSave(JSON.stringify(big)).coins, COUNT_MAX);
+});
+
+test("版 1 から読むと、版 2 を経て版 3 になる", () => {
+  const v1 = { version: 1, coins: 50, material: 7, rodStage: 2, seen: ["aji"] };
+  assert.deepEqual(migrate(v1).version, 3);
+  assert.deepEqual(readSaveData(v1), { ok: true, progress: progressAt(2, ROD_STEPS.NONE, { coins: 57, seen: ["aji"] }) });
+  assert.deepEqual(Object.keys(MIGRATIONS), ["1", "2"], "版ごとの小さな関数");
+});
+
+test("保存したものからゲームを作ると、続きから遊べる(読んだものは書き換えない)", () => {
+  const progress = parseSave(JSON.stringify(toSaveData(SAMPLE)));
   const game = createGame(1, { progress });
-  assert.deepEqual(game.progress, { coins: 5, material: 6, rodStage: 2, seen: [] });
+  assert.deepEqual(game.progress, SAMPLE);
   game.progress.coins = 999;
-  assert.equal(progress.coins, 5, "読んだものは書き換えない");
+  game.progress.scales.kurodai = 0;
+  assert.equal(progress.coins, 123);
+  assert.equal(progress.scales.kurodai, 2);
 });
 
-test("壊れた・形のちがう保存データは、エラーにせず初めの状態にする", () => {
-  const p = { coins: 1, material: 1, rodStage: 1, seen: [] };
-  const v2 = (over) => JSON.stringify({ version: 2, progress: { ...p, ...over } });
+test("表にない魚の鱗や id が残っていても、エラーにならず、消さずに持ち続ける", () => {
+  const data = toSaveData(progressAt(1, ROD_STEPS.NONE, { scales: { "old-fish": 4, kurodai: 1 }, seen: ["old-fish", "aji", "aji"] }));
+  const p = parseSave(JSON.stringify(data));
+  assert.deepEqual(p.scales, { "old-fish": 4, kurodai: 1 });
+  assert.deepEqual(p.seen, ["old-fish", "aji"], "重なりは除く");
+});
+
+test("壊れた・形のちがう・範囲外の保存データは、エラーにせず初めの状態にする", () => {
+  const good = toSaveData(SAMPLE);
+  const v3 = (over) => JSON.stringify({ version: 3, progress: { ...good.progress, ...over } });
   const broken = [
     null,
     undefined,
@@ -48,35 +81,35 @@ test("壊れた・形のちがう保存データは、エラーにせず初め�
     "null",
     "[]",
     "42",
-    '"text"',
-    JSON.stringify({ version: 3, progress: p }),
-    JSON.stringify({ progress: p }),
-    JSON.stringify({ version: 2 }),
-    JSON.stringify({ version: 2, progress: [] }),
-    JSON.stringify({ version: 1, coins: -1, material: 0, rodStage: 1, seen: [] }),
-    v2({ coins: -1 }),
-    v2({ coins: 1.5 }),
-    v2({ coins: "10" }),
-    v2({ material: null }),
-    v2({ rodStage: 0 }),
-    v2({ rodStage: 6 }),
-    v2({ rodStage: 2.5 }),
-    v2({ seen: "aji" }),
-    v2({ seen: [3] }),
+    JSON.stringify({ version: 4, progress: good.progress }),
+    JSON.stringify({ progress: good.progress }),
+    JSON.stringify({ version: 3 }),
+    JSON.stringify({ version: 3, progress: [] }),
+    JSON.stringify({ version: 2, progress: { coins: -1, material: 0, rodStage: 1, seen: [] } }),
+    JSON.stringify({ version: 2, progress: { coins: 1, material: 0, rodStage: 9, seen: [] } }),
+    v3({ coins: -1 }),
+    v3({ coins: 1.5 }),
+    v3({ coins: COUNT_MAX + 1 }),
+    v3({ scales: [] }),
+    v3({ scales: { kurodai: -1 } }),
+    v3({ scales: { kurodai: "3" } }),
+    v3({ scales: { "Bad Id": 1 } }),
+    v3({ rod: { stage: 0, step: "none" } }),
+    v3({ rod: { stage: DEFAULT_CONTENT.maxStage + 1, step: "none" } }),
+    v3({ rod: { stage: 2, step: "unknown" } }),
+    v3({ rod: { stage: 2, step: "evolved" } }),
+    v3({ rod: { stage: 2.5, step: "none" } }),
+    v3({ rod: null }),
+    v3({ seen: "aji" }),
+    v3({ seen: [3] }),
   ];
   for (const text of broken) {
-    assert.deepEqual(parseSave(text, ROD), initialProgress(), String(text));
+    assert.deepEqual(parseSave(text), initialProgress(), String(text).slice(0, 80));
   }
 });
 
-test("知らない魚の id や重なりは捨てる", () => {
-  const text = JSON.stringify({ version: 2, progress: { coins: 0, material: 0, rodStage: 1, seen: ["aji", "nazo", "aji"] } });
-  assert.deepEqual(parseSave(text, ROD).seen, ["aji"]);
-});
-
-test("段階の境界(1 と上限)は読める", () => {
-  for (const rodStage of [1, ROD.maxStage]) {
-    const text = JSON.stringify(toSaveData({ coins: 0, material: 0, rodStage, seen: [] }));
-    assert.equal(parseSave(text, ROD).rodStage, rodStage);
-  }
+test("鱗の種類が多すぎるデータは拒否する(1000 種類まで)", () => {
+  const scales = Object.fromEntries(Array.from({ length: 1001 }, (_, i) => [`f${i}`, 1]));
+  const text = JSON.stringify({ version: 3, progress: { coins: 0, scales, rod: { stage: 1, step: "none" }, seen: [] } });
+  assert.deepEqual(parseSave(text), initialProgress());
 });
