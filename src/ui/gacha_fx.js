@@ -31,7 +31,7 @@ function card(v, big) {
   c.style.setProperty("--rarity", v.color);
   c.dataset.rarity = v.rarityId;
   const top = el("div", "fx-card-top");
-  top.append(el("span", "fx-rarity", v.rarity));
+  top.append(el("span", "fx-rarity", `${v.stars} ${v.rarity}`));
   if (v.better) top.append(el("span", "fx-better", "▲"));
   c.append(top, el("div", "fx-name", v.name), el("div", "fx-effect", v.effect));
   return c;
@@ -39,10 +39,11 @@ function card(v, big) {
 
 /**
  * 演出を出す。閉じたら onClose を呼ぶ。返り値の skip() で、結果まで飛ばせる。
+ * link を渡すと、結果の下にそのボタン(例:「装備を見る」)を出す。押すと閉じてから link.onClick を呼ぶ。
  * @param {HTMLElement} root 画面全体の要素 @param {PullResult} result @param {string} crateName
- * @param {() => void} onClose
+ * @param {() => void} onClose @param {{ label: string, onClick: () => void } | null} [link]
  */
-export function playPull(root, result, crateName, onClose) {
+export function playPull(root, result, crateName, onClose, link = null) {
   const overlay = el("div", "fx-overlay");
   overlay.dataset.best = result.best;
   const bestColor = result.items.find((v) => v.rarityId === result.best)?.color ?? "#ffffff";
@@ -77,6 +78,17 @@ export function playPull(root, result, crateName, onClose) {
       list.append(c);
     }
     stage.append(title, list);
+    if (link) {
+      const go = el("button", "fx-link", link.label);
+      go.setAttribute("type", "button");
+      go.addEventListener("click", (event) => {
+        event.stopPropagation();
+        overlay.remove();
+        onClose();
+        link.onClick();
+      });
+      stage.append(go);
+    }
     hint.textContent = "タップで閉じる";
     overlay.classList.add("done");
   }

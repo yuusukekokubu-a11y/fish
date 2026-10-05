@@ -16,5 +16,5 @@
     "noImplicitReturns": true,
     "skipLibCheck": true
   },
-  "files": ["src/core/gear.js", "src/core/gear_save.js", "src/ui/gear_view.js", "src/ui/gear_tabs.js", "src/ui/gacha_fx.js"]
+  "files": ["src/core/gear.js", "src/core/gear_save.js", "src/ui/gear_view.js", "src/ui/gacha_fx.js", "src/ui/screens.js", "src/ui/screen_shell.js", "src/ui/drawer.js", "src/ui/list_view.js", "src/ui/sheet.js", "src/ui/equip_screen.js", "src/ui/crate_screen.js"]
 }

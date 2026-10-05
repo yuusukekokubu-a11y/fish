@@ -1,6 +1,5 @@
-// ドロワーメニューのタブの表と、タブの中身を作る部品(D-130・D-135)。
-// タブは表の 1 行(名前と、中身を作る部品)。装備タブ(②-4a)を足すときは、表に 1 行足して部品を作るだけでよい。
-// 一覧のタブの部品は、画面に触らずに { header, sections: [{ title, rows }] } を返す(テストで確かめられる)。
+// 素材とステータスの画面の中身を作る部品(D-130・D-152・D-163)。
+// 部品は、画面に触らずに { header, sections: [{ title, rows }] } を返す(テストで確かめられる)。描き方は list_view.js。
 // 行は { label, value, detail }。detail は押すと出る詳細の [見出し, 中身] の一覧(null なら押せない)。
 
 import { DEFAULT_CONFIG } from "../core/config.js";
@@ -8,8 +7,6 @@ import { normalizeCombat } from "../core/combat.js";
 import { DEFAULT_CONTENT, FISH_KINDS, scaleName } from "../core/fish.js";
 import { rodName, scaleCount, stageRodNames } from "../core/rod.js";
 import { formatCount } from "./format.js";
-import { mountCrates, mountEquipment } from "./gear_tabs.js";
-import { mountSettings } from "./settings.js";
 
 const KIND_NAMES = Object.freeze({
   [FISH_KINDS.WEAK]: "弱い魚",
@@ -60,22 +57,29 @@ const seconds = (ms) => `${Math.round(ms) / 1000} 秒`;
 const signedSeconds = (ms) => `${ms >= 0 ? "+" : "−"}${Math.abs(ms) / 1000} 秒`;
 
 /**
- * ステータスタブの項目の表。1 行が 1 項目:名前、戦闘の数値の表から値を取る関数、表示の形。
- * ②-4b のスキルレベルは、節(STATUS_SECTIONS)を 1 つ足して並べる。
+ * ステータスの項目の表(D-135・D-163)。1 行が 1 項目:名前、戦闘の数値の表から値を取る関数、表示の形。
+ * グループ(節)に分けて並べる。②-4b のスキルレベルは、節(STATUS_SECTIONS)を 1 つ足して並べる。
  */
-export const STATUS_ITEMS = Object.freeze([
-  { label: "通常ダメージ", value: (c) => c.damage, format: String },
-  { label: "クリティカルの確率", value: (c) => c.critChance, format: percent },
-  { label: "クリティカルの倍率", value: (c) => c.critMultiplier, format: times },
-  { label: "ジャストの倍率", value: (c) => c.hook.justMultiplier, format: times },
-  { label: "外したときの回復", value: (c) => c.missHeal, format: String },
-  { label: "制限時間の増減", value: (c) => c.timeLimitBonusMs, format: signedSeconds },
-  { label: "外したあとの次の当たり", value: (c) => c.missBonusDamage, format: (n) => `+${n}` },
-  { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
-  { label: "ジャスト帯(強い魚)", value: (c) => c.hook.strong.justMs, format: seconds },
+const ITEM = Object.freeze({
+  damage: { label: "通常ダメージ", value: (c) => c.damage, format: String },
+  critChance: { label: "クリティカルの確率", value: (c) => c.critChance, format: percent },
+  critMultiplier: { label: "クリティカルの倍率", value: (c) => c.critMultiplier, format: times },
+  missHeal: { label: "外したときの回復", value: (c) => c.missHeal, format: String },
+  missBonus: { label: "外したあとの次の当たり", value: (c) => c.missBonusDamage, format: (n) => `+${n}` },
+  timeBonus: { label: "制限時間の増減", value: (c) => c.timeLimitBonusMs, format: signedSeconds },
+  justMultiplier: { label: "ジャストの倍率", value: (c) => c.hook.justMultiplier, format: times },
+  success: { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
+  just: { label: "ジャスト帯(強い魚)", value: (c) => c.hook.strong.justMs, format: seconds },
+});
+
+export const STATUS_SECTIONS = Object.freeze([
+  { title: "戦闘", items: [ITEM.damage, ITEM.critChance, ITEM.critMultiplier, ITEM.missHeal, ITEM.missBonus] },
+  { title: "時間", items: [ITEM.timeBonus] },
+  { title: "合わせ", items: [ITEM.success, ITEM.just, ITEM.justMultiplier] },
 ]);
 
-export const STATUS_SECTIONS = Object.freeze([{ title: "戦闘", items: STATUS_ITEMS }]);
+/** 全部の項目(節の順)。 */
+export const STATUS_ITEMS = Object.freeze(STATUS_SECTIONS.flatMap((s) => s.items));
 
 /** 装備なしの表(点検・丸め済み)。詳細で「基本の値」として並べる(D-151)。 */
 function baseCombat(game) {
@@ -102,16 +106,3 @@ export function statusView({ game }) {
     })),
   };
 }
-
-/**
- * タブの表(D-135)。1 行に、id・名前と、中身を作る部品を 1 つ持つ。
- * - view:一覧のタブ。(ctx) => { header, sections } を返す。開くたび・中身が変わるたびに作り直す。
- * - mount:自由な中身のタブ。(container, ctx) で中身を作る(設定タブ)。
- */
-export const MENU_TABS = Object.freeze([
-  { id: "crates", name: "クレート", mount: mountCrates },
-  { id: "equipment", name: "装備", mount: mountEquipment },
-  { id: "materials", name: "素材", view: materialsView },
-  { id: "status", name: "ステータス", view: statusView },
-  { id: "settings", name: "設定", mount: mountSettings },
-]);

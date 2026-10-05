@@ -4,9 +4,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { canChallengeBoss, challengeBoss, craftGameRod, createGame, currentMarker, FISH_KINDS, PHASES } from "../src/core/fishing.js";
+import {
+  canChallengeBoss,
+  challengeBoss,
+  craftGameRod,
+  createGame,
+  currentMarker,
+  FISH_KINDS,
+  PHASES,
+  refreshCombat,
+} from "../src/core/fishing.js";
 import { ROD_STEPS } from "../src/core/rod.js";
 import { createRng } from "../src/core/rng.js";
+import { equipItem, makeCrates, pullCrate } from "../src/core/gear.js";
+import { initialNav, isPaused, setDrawer, showScreen } from "../src/ui/screens.js";
 import { act, advance, createSession, setPaused, tapSession } from "../src/ui/session.js";
 import { hookJust, progressAt } from "./helpers.js";
 
@@ -138,4 +149,62 @@ test("1 回に進める時間は上限まで(裏に回って戻ったとき)", (
   const session = createSession(game, { maxStepMs: 100 });
   advance(session, 5000);
   assert.equal(game.phaseMs, 100);
+});
+
+/**
+ * 全画面の行き来(目次 → 画面 → 別の画面 → 戻る)を入れて遊ぶ(②-4a2 の受け入れ条件 3、D-153)。
+ * ガチャを引く・付ける操作は、決まったゲームの時間に、全画面を開いている間(止めている間)に行う。
+ * route(frame, game) が返す画面の並びのとおりに移り、そのあいだは止まる。
+ */
+function playWithScreens(route) {
+  const game = createGame(21, {
+    progress: progressAt(3, ROD_STEPS.NONE, { coins: 5000, gear: { items: [], equipped: {}, draws: 0, seed: 99, nextId: 1 } }),
+  });
+  const crates = makeCrates(game.content, game.config);
+  const session = createSession(game, { maxStepMs: 100 });
+  let nav = initialNav();
+  const go = (next) => {
+    nav = next;
+    setPaused(session, isPaused(nav));
+  };
+  let played = 0;
+  let nextShop = 30000;
+  for (let frame = 0; played < 300000; frame++) {
+    const steps = route(frame, game);
+    if (steps) {
+      // 目次を開いて、画面を順に移り、そのあいだのタップは数えない。
+      go(setDrawer(nav, true));
+      for (const screen of steps) {
+        go(showScreen(nav, screen));
+        assert.equal(tapSession(session), null);
+        assert.equal(advance(session, 16), false);
+      }
+    }
+    // 決まったゲームの時間に、クレートの画面で引いて、装備の画面で付ける(止めている間に行う)。
+    if (played >= nextShop) {
+      nextShop += 30000;
+      go(showScreen(nav, "crates"));
+      const r = pullCrate(game.progress, crates[2], 1, game.content.equipKinds, game.config.gacha);
+      go(showScreen(nav, "equipment"));
+      if (r.ok) equipItem(game.progress.gear, r.items[0].id);
+      refreshCombat(game);
+    }
+    go(showScreen(nav, null));
+    advance(session, FRAME_MS);
+    played += FRAME_MS;
+    if (wantsTap(game)) tapSession(session);
+  }
+  return game;
+}
+
+test("全画面の行き来の場所と回数を変えても、結果(釣果・ウロコイン・鱗・竿・装備・ガチャ)は完全に同じ", () => {
+  const base = playWithScreens(() => null);
+  assert.ok(base.progress.gear.items.length >= 5, "ガチャを引いている");
+  assert.ok(Object.keys(base.progress.gear.equipped).length > 0, "装備を付けている");
+  for (const seed of [1, 2]) {
+    const rng = createRng(seed);
+    const routes = [["equipment"], ["crates", "equipment"], ["materials", "status", "settings"], ["status"]];
+    const run = playWithScreens(() => (rng() < 0.01 ? routes[Math.floor(rng() * routes.length)] : null));
+    assert.deepEqual({ progress: run.progress, results: run.results }, { progress: base.progress, results: base.results }, `行き来 ${seed}`);
+  }
 });

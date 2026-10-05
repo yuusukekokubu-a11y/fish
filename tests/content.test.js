@@ -22,7 +22,7 @@ import { ROD_STEPS } from "../src/core/rod.js";
 import { createRng } from "../src/core/rng.js";
 import { parseSave, toSaveData } from "../src/core/save.js";
 import { decodeSaveCode, encodeSaveCode } from "../src/core/savecode.js";
-import { materialsView } from "../src/ui/menu_tabs.js";
+import { materialsView } from "../src/ui/screen_views.js";
 import { hookJust, makeAimCenter, makePlayer, progressAt } from "./helpers.js";
 
 const play = makePlayer({ update, tap, PHASES });
