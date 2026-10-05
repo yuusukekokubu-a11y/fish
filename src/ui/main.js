@@ -7,7 +7,7 @@ import {
   createGame,
   currentMarker,
   FISH_KINDS,
-  hookWindowMs,
+  currentHookTiming,
   OUTCOMES,
   PHASES,
   phaseDuration,
@@ -20,6 +20,7 @@ import {
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { parseSave, SAVE_KEY, toSaveData } from "../core/save.js";
 import { decodeSaveCode, encodeSaveCode } from "../core/savecode.js";
+import { versionLabel } from "../version.js";
 import { drawScene } from "./draw.js";
 import {
   addHitEffects,
@@ -48,7 +49,7 @@ function readSeed() {
 }
 
 /**
- * 確認用:`?debug&crit=100` のように付けたときだけ、クリティカルの確率(%)を変える(D-081)。
+ * 確認用:`?debug&crit=100` のように付けたときだけ、クリティカルの確率(%)を変える(D-092)。
  * `?debug` がないときは、いつも基本の表を使う。
  */
 function readDebugCombat() {
@@ -93,7 +94,8 @@ function messageFor(game) {
       return game.cast.kind === FISH_KINDS.STRONG ? "強い魚だ!" : "掛かった!";
     case PHASES.RESULT: {
       const r = game.lastResult;
-      if (r.reason === REASONS.NO_HOOK) return "逃げられた…";
+      if (r.reason === REASONS.EARLY) return "早すぎ…";
+      if (r.reason === REASONS.LATE) return "遅すぎ…";
       const name = fishById(r.fishId).name;
       if (r.outcome === OUTCOMES.ESCAPED) return `${name}に逃げられた…`;
       return r.kind === FISH_KINDS.STRONG ? `${name}を釣り上げた!` : `${name}が釣れた`;
@@ -122,12 +124,14 @@ function main() {
     upgrade: document.getElementById("upgrade"),
     reset: document.getElementById("reset"),
     seed: document.getElementById("seed"),
+    version: document.getElementById("version"),
   };
 
   const progress = parseSave(loadText(), DEFAULT_CONFIG.rod);
   const game = createGame(readSeed(), { progress, combat: readDebugCombat() });
   const effects = createEffects();
   el.seed.textContent = `seed ${game.seed}`;
+  el.version.textContent = versionLabel();
 
   function resize() {
     const ratio = window.devicePixelRatio || 1;
@@ -143,7 +147,7 @@ function main() {
     event.preventDefault();
     const result = tap(game);
     const now = performance.now();
-    if (result?.action === "hook") addHookEffects(effects, now);
+    if (result?.action === "hook") addHookEffects(effects, result.grade, now);
     else if (result?.action === "hit") addHitEffects(effects, result, now);
     else if (result?.action === "miss") addMissEffects(effects, result, now);
   });
@@ -193,7 +197,7 @@ function main() {
       hp: game.fight?.hp ?? 0,
       maxHp: game.fight?.maxHp ?? 0,
       timeLeft: game.phase === PHASES.MINIGAME ? 1 - game.phaseMs / phaseDuration(game) : 0,
-      hookLeft: game.phase === PHASES.BITE ? 1 - game.phaseMs / hookWindowMs(game) : 0,
+      hook: game.phase === PHASES.BITE ? { t: game.phaseMs, timing: currentHookTiming(game) } : null,
       caught: game.lastResult?.outcome === OUTCOMES.CAUGHT,
     };
     ctx.save();
@@ -216,7 +220,7 @@ function main() {
 }
 
 /**
- * セーブコードの小さな窓(D-059・D-065・D-081)。
+ * セーブコードの小さな窓(D-059・D-065・D-092)。
  * 読み込みは、コードが正しく、上書きの確認に「はい」と答えたときだけ保存を書き換える。
  */
 function setupSaveCode(game) {

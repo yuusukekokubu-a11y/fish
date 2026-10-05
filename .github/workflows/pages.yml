@@ -1,5 +1,6 @@
-# GitHub Pages への公開の設定(D-043・D-052)。
+# GitHub Pages への公開の設定(D-043・D-052・D-091)。
 # - main への取り込みと手動の実行で、index.html と src/ だけを公開する(ビルドなし)。
+# - 公開用の src/version.js にだけ、取り込みの識別番号を書き込む(リポジトリのファイルは変えない)。
 # - オーナーが Pages の設定(Source を「GitHub Actions」)をする前は、公開の手順を飛ばして成功で終わる。
 name: pages
 
@@ -49,6 +50,7 @@ jobs:
           mkdir _site
           cp index.html _site/
           cp -r src _site/
+          node scripts/stamp_version.mjs _site/src/version.js "$GITHUB_SHA"
       - if: steps.check.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

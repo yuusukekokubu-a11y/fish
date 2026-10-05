@@ -11,7 +11,11 @@ import { NO_CRIT, untilFight, waitForCenter, waitForOutside } from "./fight_help
 
 const BASE = DEFAULT_CONFIG.combat;
 const LIMITS = DEFAULT_CONFIG.combatLimits;
-const norm = (stats) => normalizeCombat(stats, BASE, LIMITS);
+// 合わせの輪(hook)は hook.test.js で確かめるので、ここでは戦闘の 5 項目だけを比べる。
+const norm = (stats) => {
+  const { hook, ...rest } = normalizeCombat(stats, BASE, LIMITS);
+  return rest;
+};
 
 test("基本の表:ダメージ 10・確率 10%・倍率 2・回復 10・時間の増減 0", () => {
   assert.deepEqual(norm(BASE), { damage: 10, critChance: 0.1, critMultiplier: 2, missHeal: 10, timeLimitBonusMs: 0 });
@@ -123,7 +127,8 @@ test("表を書き換えると、回復と制限時間にも反映される", ()
 test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より短くしない)", () => {
   const weird = { damage: -100, critChance: 99, critMultiplier: -1, missHeal: 1e9, timeLimitBonusMs: -1e9 };
   const game = untilFight("maguro", { combat: weird });
-  assert.deepEqual(game.combat, { damage: 1, critChance: 1, critMultiplier: 1, missHeal: 1e9, timeLimitBonusMs: -1e9 });
+  const { hook, ...combat } = game.combat;
+  assert.deepEqual(combat, { damage: 1, critChance: 1, critMultiplier: 1, missHeal: 1e9, timeLimitBonusMs: -1e9 });
   assert.equal(game.fight.timeLimitMs, LIMITS.minTimeLimitMs);
   const rng = createRng(3);
   let t = 0;

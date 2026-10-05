@@ -7,6 +7,7 @@ import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { availableFish, effectiveMinigame, FISH_KINDS, FISH_LIST, fishWeight, pickWeighted } from "../src/core/fish.js";
 import { createGame, currentMarker, drawCast, PHASES, tap, update } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
+import { hookGood } from "./helpers.js";
 
 const LIMITS = DEFAULT_CONFIG.minigame;
 
@@ -75,7 +76,7 @@ test("強い魚ごとの設定が、当たり範囲の幅と印の動きに反�
   // マグロが掛かったときだけ合わせる。ほかは逃がし、休みになったら再開する。
   for (let i = 0; i < 1000000 && !(game.phase === PHASES.MINIGAME && game.cast.fish.id === "maguro"); i++) {
     update(game, 10);
-    if (game.phase === PHASES.BITE && game.cast.fish.id === "maguro") tap(game);
+    if (game.phase === PHASES.BITE && game.cast.fish.id === "maguro" && hookGood(game)) tap(game);
     if (game.phase === PHASES.RESTING) tap(game);
   }
   assert.equal(game.cast.fish.id, "maguro");

@@ -57,7 +57,7 @@ function drawTimeBar(ctx, x, y, width, ratio, color) {
 
 /**
  * ミニゲームのゲージ:当たり範囲(緑)と、往復する印(白)。
- * 上に数値つきの体力のバー、下に制限時間の残りの細いバーを出す(D-081)。
+ * 上に数値つきの体力のバー、下に制限時間の残りの細いバーを出す(D-092)。
  */
 function drawGauge(ctx, w, h, view) {
   const gx = w * 0.1;
@@ -71,7 +71,7 @@ function drawGauge(ctx, w, h, view) {
   ctx.fillStyle = COLORS.marker;
   ctx.fillRect(gx + gw * view.marker - 3, gy - 8, 6, gh + 16);
 
-  // 体力:数値つきの横長のバー(D-081)。
+  // 体力:数値つきの横長のバー(D-092)。
   const by = gy - 40;
   const bh = 20;
   ctx.fillStyle = "rgba(0,0,0,0.55)";
@@ -88,13 +88,43 @@ function drawGauge(ctx, w, h, view) {
   drawTimeBar(ctx, gx, gy + gh + 10, gw, view.timeLeft, "#ffd166");
 }
 
-/** 掛かった合図:浮きの上の大きな「!」と、合わせの受付の残りのバー。 */
-function drawBiteSign(ctx, bobber, hookLeft) {
+// 縮む輪の大きさ(半径、ピクセル)。「!」のときに最大で、輪の時間が終わると最小になる。
+const RING_MAX = 96;
+const RING_MIN = 14;
+
+/** 「!」からの時間 t の、輪の半径。 */
+function ringRadius(t, ringMs) {
+  const p = Math.min(1, Math.max(0, t / ringMs));
+  return RING_MAX - (RING_MAX - RING_MIN) * p;
+}
+
+/** 2 つの半径のあいだを塗る(帯の目印)。 */
+function fillBand(ctx, center, outer, inner, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(center.x, center.y, outer, 0, Math.PI * 2);
+  ctx.arc(center.x, center.y, inner, 0, Math.PI * 2, true);
+  ctx.fill();
+}
+
+/**
+ * 掛かった合図:浮きの上の大きな「!」と、浮きに向かって縮む輪(D-082)。
+ * 成功帯(緑)とジャスト帯(金)は、輪が重なるべき位置を帯で示す。
+ */
+function drawHookRing(ctx, bobber, hook) {
+  const { t, timing } = hook;
+  const r = (ms) => ringRadius(ms, timing.ringMs);
+  fillBand(ctx, bobber, r(timing.successStart), r(timing.ringMs), "rgba(82,183,136,0.45)");
+  fillBand(ctx, bobber, r(timing.justStart), r(timing.justEnd), "rgba(255,209,102,0.85)");
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(bobber.x, bobber.y, r(t), 0, Math.PI * 2);
+  ctx.stroke();
   ctx.fillStyle = "#ffd166";
   ctx.font = "bold 44px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("!", bobber.x, bobber.y - 26);
-  drawTimeBar(ctx, bobber.x - 30, bobber.y - 18, 60, hookLeft, "#ffd166");
+  ctx.fillText("!", bobber.x, bobber.y - RING_MAX - 8);
 }
 
 /**
@@ -158,7 +188,7 @@ export function drawScene(ctx, w, h, view, timeMs) {
   if (view.phase === PHASES.REELING) {
     drawFish(ctx, bobber.x, bobber.y + fishSize, fishSize, fishColor);
   } else if (view.phase === PHASES.BITE) {
-    drawBiteSign(ctx, bobber, view.hookLeft);
+    drawHookRing(ctx, bobber, view.hook);
   } else if (view.phase === PHASES.MINIGAME) {
     drawFish(ctx, target.x + Math.sin(timeMs / 120) * 20, target.y + 60, fishSize, fishColor);
     drawGauge(ctx, w, h, view);

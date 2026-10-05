@@ -5,8 +5,9 @@ import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { createGame, currentMarker, PHASES, tap, update } from "../../src/core/fishing.js";
+import { hookGood } from "../helpers.js";
 
-/** 掛かったらすぐ合わせ、印が真ん中付近でタップして、当たりとクリティカルの回数を数える。 */
+/** 成功帯で合わせ、印が真ん中付近でタップして、当たりとクリティカルの回数を数える。 */
 function countCrits(seed, critChance, minutes) {
   const game = createGame(seed, {
     progress: { coins: 0, material: 0, rodStage: 5, seen: [] },
@@ -16,7 +17,7 @@ function countCrits(seed, critChance, minutes) {
   let crits = 0;
   for (let t = 0; t < minutes * 60000; t += 16) {
     update(game, 16);
-    if (game.phase === PHASES.BITE || game.phase === PHASES.RESTING) tap(game);
+    if ((game.phase === PHASES.BITE && hookGood(game)) || game.phase === PHASES.RESTING) tap(game);
     else if (game.phase === PHASES.MINIGAME) {
       const z = game.fight.zone;
       if (Math.abs(currentMarker(game) - (z.start + z.end) / 2) < 0.02) {

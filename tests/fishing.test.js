@@ -16,7 +16,7 @@ import {
   update,
 } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
-import { hookAlways, makeAimCenter, makePlayer, mean } from "./helpers.js";
+import { hookGood, hookJust, makeAimCenter, makePlayer, mean } from "./helpers.js";
 
 const play = makePlayer({ update, tap, PHASES });
 const aimCenter = makeAimCenter(currentMarker);
@@ -67,7 +67,7 @@ test("操作がなければ、釣果(ウロコイン・素材)は増えない", 
       assert.equal(game.progress.coins, 3);
       assert.equal(game.progress.material, 2);
       assert.ok(game.results.length > 0);
-      assert.ok(game.results.every((r) => r.outcome === OUTCOMES.ESCAPED && r.reason === REASONS.NO_HOOK));
+      assert.ok(game.results.every((r) => r.outcome === OUTCOMES.ESCAPED && r.reason === REASONS.LATE));
     }
   }
 });
@@ -111,22 +111,22 @@ test("合わせに成功すると、逃した回数の数え直しになる", ()
     update(game, 5000);
   }
   assert.equal(game.missStreak, 4);
-  while (game.phase !== PHASES.BITE) update(game, 5);
-  tap(game);
+  while (!(game.phase === PHASES.BITE && hookGood(game))) update(game, 5);
+  assert.equal(tap(game).grade, "good");
   const before = game.results.length;
   while (game.results.length === before) update(game, 5);
   assert.equal(game.missStreak, 0);
 });
 
 test("掛かったらすぐ合わせ、真ん中を狙えば、普通も強いも釣れる", () => {
-  const game = play(createGame(4), 300000, { hook: hookAlways, fight: aimCenter });
+  const game = play(createGame(4), 300000, { hook: hookJust, fight: aimCenter });
   assert.ok(game.counts.normal > 0);
   assert.ok(game.counts.strong > 0);
   assert.equal(game.counts.escaped, 0);
 });
 
 test("合わせだけしてミニゲームで何もしないと、強い魚は時間切れで逃げる", () => {
-  const game = play(createGame(4), 300000, { hook: hookAlways });
+  const game = play(createGame(4), 300000, { hook: hookJust });
   assert.ok(game.counts.normal > 0);
   assert.equal(game.counts.strong, 0);
   for (const r of game.results.filter((x) => x.kind === FISH_KINDS.STRONG)) {
@@ -136,8 +136,8 @@ test("合わせだけしてミニゲームで何もしないと、強い魚は�
 });
 
 test("ちがうシードなら釣果の並びも変わる", () => {
-  const a = play(createGame(1), 300000, { hook: hookAlways, fight: aimCenter });
-  const b = play(createGame(2), 300000, { hook: hookAlways, fight: aimCenter });
+  const a = play(createGame(1), 300000, { hook: hookJust, fight: aimCenter });
+  const b = play(createGame(2), 300000, { hook: hookJust, fight: aimCenter });
   assert.notDeepEqual(a.results, b.results);
 });
 
@@ -157,7 +157,7 @@ test("場面は 投げる → 待つ → 掛かる → 巻く/ミニゲーム �
   while (game.castCount < 30) {
     update(game, 5);
     if (seen.at(-1) !== game.phase) seen.push(game.phase);
-    if (game.phase === PHASES.BITE) tap(game);
+    if (game.phase === PHASES.BITE && hookGood(game)) tap(game);
     if (seen.at(-1) !== game.phase) seen.push(game.phase);
   }
   const next = {

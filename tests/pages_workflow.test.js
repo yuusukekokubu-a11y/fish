@@ -30,7 +30,12 @@ test("公開するのは index.html と src/ だけ(ビルドなし、テスト�
   const collect = PAGES.match(/name: 公開するファイルを集める\n {8}run: \|\n((?: {10}.*\n)+)/);
   assert.ok(collect, "集める手順がない");
   const commands = collect[1].split("\n").map((s) => s.trim()).filter(Boolean);
-  assert.deepEqual(commands, ["mkdir _site", "cp index.html _site/", "cp -r src _site/"]);
+  assert.deepEqual(commands, [
+    "mkdir _site",
+    "cp index.html _site/",
+    "cp -r src _site/",
+    'node scripts/stamp_version.mjs _site/src/version.js "$GITHUB_SHA"',
+  ]);
   assert.match(PAGES, /uses: actions\/upload-pages-artifact@\S+.*\n {8}with:\n {10}path: _site/);
   assert.doesNotMatch(PAGES, /npm (install|ci|run build)/);
 });
