@@ -1,10 +1,11 @@
 // 戦闘の数値の表と、クリティカルの判定(D-068〜D-071・D-078〜D-080)。
-// 表の形:{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs }
+// 表の形:{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs, hook }
 // - damage:当たり 1 回で減る体力(通常ダメージ)
 // - critChance:クリティカルの確率(0〜1)
 // - critMultiplier:クリティカルのときの倍率
 // - missHeal:外したときに回復する体力
 // - timeLimitBonusMs:魚ごとの制限時間に足す時間(装備の糸などで増える)
+// - hook:合わせの縮む輪 { normal: { ringMs, successMs, justMs }, strong: {...}, justMultiplier }(D-084・D-087)
 // ②-4 では、装備がこの表を書き換えて createGame に渡す。
 
 function finiteOr(value, fallback) {
@@ -31,7 +32,65 @@ export function normalizeCombat(stats, base, limits) {
     ),
     missHeal: Math.max(limits.minMissHeal, Math.round(finiteOr(s.missHeal, base.missHeal))),
     timeLimitBonusMs: finiteOr(s.timeLimitBonusMs, base.timeLimitBonusMs),
+    hook: normalizeHook(s.hook, base.hook, limits),
   };
+}
+
+/** 輪 1 つぶん(普通か強い)を下限の中に直す。cap は「この幅をこえない」の上限(強い魚は普通の魚の帯まで)。 */
+function normalizeRing(ring, baseRing, limits, cap) {
+  const r = ring ?? {};
+  const ringMs = Math.max(limits.minHookRingMs, finiteOr(r.ringMs, baseRing.ringMs));
+  let successMs = finiteOr(r.successMs, baseRing.successMs);
+  successMs = clamp(successMs, limits.minHookSuccessMs, ringMs - limits.minHookEarlyMs);
+  if (cap) successMs = Math.min(successMs, cap.successMs);
+  let justMs = clamp(finiteOr(r.justMs, baseRing.justMs), limits.minHookJustMs, successMs);
+  if (cap) justMs = Math.min(justMs, cap.justMs);
+  return { ringMs, successMs, justMs };
+}
+
+/**
+ * 合わせの輪の数値を点検する(D-087)。輪は 1.0 秒以上、成功帯 0.25 秒以上、ジャスト帯 0.10 秒以上、
+ * 早すぎの区間 0.3 秒以上。ジャスト帯は成功帯以下、強い魚の帯は普通の魚の帯以下にする。
+ */
+export function normalizeHook(hook, base, limits) {
+  const h = hook ?? {};
+  const normal = normalizeRing(h.normal, base.normal, limits, null);
+  const strong = normalizeRing(h.strong, base.strong, limits, normal);
+  const justMultiplier = clamp(finiteOr(h.justMultiplier, base.justMultiplier), 1, limits.maxJustMultiplier);
+  return { normal, strong, justMultiplier };
+}
+
+/** 輪の時間の区切り(「!」からのミリ秒)。 */
+export function hookTiming(ring) {
+  const successStart = ring.ringMs - ring.successMs;
+  const justStart = successStart + (ring.successMs - ring.justMs) / 2;
+  return { ringMs: ring.ringMs, successStart, justStart, justEnd: justStart + ring.justMs };
+}
+
+export const HOOK_GRADES = Object.freeze({ EARLY: "early", GOOD: "good", JUST: "just" });
+
+/**
+ * 「!」からの経過時間 t で、合わせを判定する(D-088)。始まりを含み、終わりを含まない。
+ * t が輪の時間に達したら遅すぎ(これは時間の進みで決まるので、ここでは扱わない)。
+ */
+export function judgeHook(timing, t) {
+  if (t < timing.successStart) return HOOK_GRADES.EARLY;
+  if (t >= timing.justStart && t < timing.justEnd) return HOOK_GRADES.JUST;
+  return HOOK_GRADES.GOOD;
+}
+
+/**
+ * 戦闘中の一時的な上乗せ(D-089)。{ id, damageMultiplier, uses } の一覧。
+ * 当たりのダメージに、残っている上乗せの倍率を全部かけて四捨五入する。
+ */
+export function boostedDamage(damage, boosts) {
+  const multiplier = boosts.reduce((m, b) => m * b.damageMultiplier, 1);
+  return Math.max(damage, Math.round(damage * multiplier));
+}
+
+/** 当たったあと、上乗せの残り回数を 1 減らし、0 になったものを消す。 */
+export function consumeBoosts(boosts) {
+  return boosts.map((b) => ({ ...b, uses: b.uses - 1 })).filter((b) => b.uses > 0);
 }
 
 /** 魚ごとの制限時間に、表の増減を足す。下限より短くしない。 */

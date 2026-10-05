@@ -1,4 +1,4 @@
-// 手応えの演出(D-042・D-051・D-081)。見た目だけで、計算本体の結果には触れない。
+// 手応えの演出(D-042・D-051・D-092)。見た目だけで、計算本体の結果には触れない。
 // 時刻 now(ミリ秒)を受け取り、演出ごとの残り時間で描く。
 
 const FLASH_MS = 350;
@@ -30,14 +30,25 @@ export function addResultEffects(effects, result, now) {
   lines.forEach((text, i) => effects.floats.push({ text, start: now + i * 120, ms: FLOAT_MS, y: 0.32 + i * 0.05 }));
 }
 
-/** 合わせが成功したときの小さな演出(D-081)。 */
-export function addHookEffects(effects, now) {
-  effects.flash = { color: "255,255,255", start: now, ms: 200, strength: 0.25 };
-  effects.floats.push({ text: "合わせ!", start: now, ms: 700, y: 0.3, size: 20, color: "#ffffff" });
+/**
+ * 合わせたときの演出(D-082・D-092)。成功は「合わせ!」、ジャストは金色の「ジャスト!」と小さな特別な光。
+ * 早すぎは結果の文(「早すぎ…」)だけで、ここでは何もしない。
+ */
+export function addHookEffects(effects, grade, now) {
+  if (grade === "just") {
+    effects.flash = { color: "255,209,102", start: now, ms: 320, strength: 0.4 };
+    effects.shake = { start: now, ms: 160, amplitude: 5 };
+    effects.floats.push({ text: "ジャスト!", start: now, ms: 900, y: 0.3, size: 28, color: "#ffd166" });
+    return;
+  }
+  if (grade === "good") {
+    effects.flash = { color: "255,255,255", start: now, ms: 200, strength: 0.25 };
+    effects.floats.push({ text: "合わせ!", start: now, ms: 700, y: 0.3, size: 20, color: "#ffffff" });
+  }
 }
 
 /**
- * ミニゲームで当たったときの演出(D-081)。魚の近くにダメージの数字を浮かべる。
+ * ミニゲームで当たったときの演出(D-092)。魚の近くにダメージの数字を浮かべる。
  * クリティカルは、大きなオレンジの数字と「CRITICAL!」、大きめの揺れ。
  */
 export function addHitEffects(effects, hit, now) {

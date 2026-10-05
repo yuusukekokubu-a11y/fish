@@ -1,4 +1,4 @@
-// ゲームの数値(D-047・D-048・D-062・D-078)。時間の単位はミリ秒、位置と幅はゲージ全体を 1 とした割合。
+// ゲームの数値(D-047・D-048・D-078・D-087)。時間の単位はミリ秒、位置と幅はゲージ全体を 1 とした割合。
 // 魚ごとの数値(報酬・ミニゲームの重さ)は fish.js の設定表にある。
 
 export const DEFAULT_CONFIG = Object.freeze({
@@ -11,11 +11,6 @@ export const DEFAULT_CONFIG = Object.freeze({
   castMs: 700, // 投げる
   reelMs: 900, // 合わせたあと、普通の魚を巻き上げる
   resultMs: 1200, // 結果を見せる
-  // 合わせの受付時間(D-062)。スマホで反応できるよう、どちらも 1.0 秒を下回らない。
-  hook: Object.freeze({
-    normalMs: 1500,
-    strongMs: 1100,
-  }),
   // 合わせをこの回数続けて逃すと、投げ直しを止めて休む(タップで再開)。
   missStreakLimit: 5,
   minigame: Object.freeze({
@@ -31,6 +26,13 @@ export const DEFAULT_CONFIG = Object.freeze({
     critMultiplier: 2, // クリティカルの倍率
     missHeal: 10, // 外したときの回復
     timeLimitBonusMs: 0, // 魚ごとの制限時間に足す時間
+    // 合わせの縮む輪(D-084・D-087)。「!」と同時に縮み始め、ringMs で通り過ぎる。
+    // 成功帯は通り過ぎる直前の successMs、ジャスト帯は成功帯の真ん中の justMs。
+    hook: Object.freeze({
+      normal: Object.freeze({ ringMs: 1600, successMs: 600, justMs: 200 }),
+      strong: Object.freeze({ ringMs: 1200, successMs: 400, justMs: 140 }),
+      justMultiplier: 1.5, // ジャストのあとの強い魚への最初の一撃の倍率(D-089)
+    }),
   }),
   // 戦闘の数値の表の上限と下限。装備で上げるときも、ここをこえない。
   combatLimits: Object.freeze({
@@ -40,6 +42,12 @@ export const DEFAULT_CONFIG = Object.freeze({
     maxCritMultiplier: 10,
     minMissHeal: 0,
     minTimeLimitMs: 1000,
+    // 合わせの輪の下限(スマホで反応できる範囲と、連打を通用させないための早すぎの区間)。
+    minHookRingMs: 1000,
+    minHookSuccessMs: 250,
+    minHookJustMs: 100,
+    minHookEarlyMs: 300,
+    maxJustMultiplier: 5,
   }),
   rod: Object.freeze({
     maxStage: 5, // 竿の段階の上限

@@ -17,14 +17,14 @@ import {
   upgradeGameRod,
 } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
-import { hookAlways, makeAimCenter, makePlayer, mean, readText } from "./helpers.js";
+import { hookJust, makeAimCenter, makePlayer, mean, readText } from "./helpers.js";
 
 const play = makePlayer({ update, tap, PHASES });
 const aimCenter = makeAimCenter(currentMarker);
 const STAGES = [1, 2, 3, 4, 5];
 const FIXTURE = JSON.parse(readText("tests/fixtures/issue4_stage1.json"));
 const FIXTURE6 = JSON.parse(readText("tests/fixtures/issue6_casts.json"));
-const SKILLED = { hook: hookAlways, fight: aimCenter, resume: true };
+const SKILLED = { hook: hookJust, fight: aimCenter, resume: true };
 
 function progressAt(rodStage) {
   return { coins: 0, material: 0, rodStage, seen: [] };
@@ -103,8 +103,8 @@ function castsWhilePlaying(seed, rodStage, n, options) {
 test("待ち時間と魚の並びは、操作によらず Issue #6 と同じ(全段階・シード複数)", () => {
   const ways = {
     何もしない: { hook: () => false, fight: () => false },
-    上手に遊ぶ: { hook: hookAlways, fight: aimCenter },
-    連打する: { hook: hookAlways, fight: () => true },
+    上手に遊ぶ: { hook: hookJust, fight: aimCenter },
+    連打する: { hook: hookJust, fight: () => true },
     ときどき合わせる: { hook: (g) => g.castCount % 3 === 0, fight: (g) => g.phaseMs > 2000 },
   };
   for (const [key, expected] of Object.entries(FIXTURE6.casts)) {

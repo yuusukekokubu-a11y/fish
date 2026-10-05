@@ -103,7 +103,7 @@ test("制限時間を過ぎたら逃げる(境界:1 ミリ秒前はまだ続く)
 });
 
 test("どんな操作でも、掛かってから 受付時間+制限時間 の中で必ず終わる(基本の表)", () => {
-  const limit = (fish) => DEFAULT_CONFIG.hook.strongMs + fish.minigame.timeLimitMs;
+  const limit = (fish) => DEFAULT_CONFIG.combat.hook.strong.ringMs + fish.minigame.timeLimitMs;
   for (const seed of [1, 2, 3]) {
     const rng = createRng(seed + 100);
     for (const tapChance of [0, 0.01, 0.1, 0.5, 1]) {

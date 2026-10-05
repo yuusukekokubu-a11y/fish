@@ -3,7 +3,19 @@
 // 画面に関係しない計算だけを置く(D-028)。時間は update に渡したぶんだけ進む。
 // プレイヤーの操作がなければ、釣果は増えない(D-053)。
 
-import { critSeed, DEFAULT_CRIT_RULES, fightTimeLimit, hitDamage, isCritical, normalizeCombat } from "./combat.js";
+import {
+  boostedDamage,
+  consumeBoosts,
+  critSeed,
+  DEFAULT_CRIT_RULES,
+  fightTimeLimit,
+  hitDamage,
+  HOOK_GRADES,
+  hookTiming,
+  isCritical,
+  judgeHook,
+  normalizeCombat,
+} from "./combat.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { availableFish, effectiveMinigame, FISH_KINDS, pickWeighted } from "./fish.js";
 import { drawZone, isHit, markerPosition, zoneAt } from "./minigame.js";
@@ -16,7 +28,7 @@ export { FISH_KINDS };
 export const PHASES = Object.freeze({
   CASTING: "casting", // 投げる
   WAITING: "waiting", // 待つ
-  BITE: "bite", // 掛かった:合わせのタップを待つ
+  BITE: "bite", // 掛かった:輪が縮み、合わせのタップを待つ
   REELING: "reeling", // 合わせたあと、普通の魚を巻き上げる
   MINIGAME: "minigame", // 強い魚との体力制のミニゲーム
   RESULT: "result", // 結果を見せる
@@ -27,7 +39,8 @@ export const OUTCOMES = Object.freeze({ CAUGHT: "caught", ESCAPED: "escaped" });
 
 // 結果の理由。
 export const REASONS = Object.freeze({
-  NO_HOOK: "no-hook", // 合わせのタップがなかった
+  EARLY: "early", // 合わせが早すぎた(輪が成功帯より大きいうちにタップした)
+  LATE: "late", // 合わせが遅すぎた(輪が通り過ぎるまでタップしなかった)
   HOOKED: "hooked", // 普通の魚を合わせで釣り上げた
   HP_ZERO: "hp-zero", // 強い魚の体力をゼロにした
   TIMEOUT: "timeout", // 強い魚との制限時間が切れた
@@ -78,16 +91,19 @@ export function createGame(
     castCount: 1,
     fight: null,
     missStreak: 0,
+    hookGrade: null,
     counts: { normal: 0, strong: 0, escaped: 0 },
     results: [],
     lastResult: null,
   };
 }
 
-/** 今の魚の、合わせの受付時間(ミリ秒)。 */
-export function hookWindowMs(game) {
-  const { hook } = game.config;
-  return game.cast.kind === FISH_KINDS.STRONG ? hook.strongMs : hook.normalMs;
+export { HOOK_GRADES };
+
+/** 今の魚の、合わせの輪の時間の区切り(「!」からのミリ秒)(D-087)。 */
+export function currentHookTiming(game) {
+  const { hook } = game.combat;
+  return hookTiming(game.cast.kind === FISH_KINDS.STRONG ? hook.strong : hook.normal);
 }
 
 /** 今の場面の長さ(ミリ秒)。休みは終わりがない(タップで再開)。 */
@@ -99,7 +115,7 @@ export function phaseDuration(game) {
     case PHASES.WAITING:
       return game.cast.waitMs;
     case PHASES.BITE:
-      return hookWindowMs(game);
+      return currentHookTiming(game).ringMs;
     case PHASES.REELING:
       return c.reelMs;
     case PHASES.MINIGAME:
@@ -122,6 +138,7 @@ function nextCast(game) {
   game.cast = drawCast(game.rng, game.config, game.progress.rodStage);
   game.castCount += 1;
   game.fight = null;
+  game.hookGrade = null;
   enter(game, PHASES.CASTING);
 }
 
@@ -132,7 +149,7 @@ function finish(game, outcome, reason) {
   const caught = outcome === OUTCOMES.CAUGHT;
   const reward = caught ? fish.reward : NO_REWARD;
   const firstCatch = caught && !game.progress.seen.includes(fish.id);
-  const result = { fishId: fish.id, kind, outcome, reason, reward, firstCatch };
+  const result = { fishId: fish.id, kind, outcome, reason, reward, firstCatch, hook: game.hookGrade ?? null };
   if (game.fight) {
     result.hits = game.fight.hits;
     result.misses = game.fight.misses;
@@ -148,7 +165,8 @@ function finish(game, outcome, reason) {
   } else {
     game.counts.escaped += 1;
   }
-  game.missStreak = reason === REASONS.NO_HOOK ? game.missStreak + 1 : 0;
+  // 合わせを逃したとき(早すぎ・遅すぎ)だけ数え、それ以外は数え直す(D-082)。
+  game.missStreak = reason === REASONS.EARLY || reason === REASONS.LATE ? game.missStreak + 1 : 0;
   enter(game, PHASES.RESULT);
 }
 
@@ -160,7 +178,7 @@ function advance(game) {
     case PHASES.WAITING:
       return enter(game, PHASES.BITE);
     case PHASES.BITE:
-      return finish(game, OUTCOMES.ESCAPED, REASONS.NO_HOOK);
+      return finish(game, OUTCOMES.ESCAPED, REASONS.LATE);
     case PHASES.REELING:
       return finish(game, OUTCOMES.CAUGHT, REASONS.HOOKED);
     case PHASES.MINIGAME:
@@ -195,9 +213,14 @@ export function currentMarker(game) {
   return markerPosition(game.phaseMs, game.cast.minigame.sweepMs);
 }
 
-function startFight(game) {
+function startFight(game, grade) {
   const { minigame, zone, minigameSeed } = game.cast;
   game.fight = {
+    // 戦闘中の一時的な上乗せ(D-089)。ジャストなら、最初の当たりのダメージを上げる。
+    boosts:
+      grade === HOOK_GRADES.JUST
+        ? [{ id: "just", damageMultiplier: game.combat.hook.justMultiplier, uses: 1 }]
+        : [],
     hp: minigame.hp,
     maxHp: minigame.hp,
     timeLimitMs: fightTimeLimit(minigame.timeLimitMs, game.combat, game.config.combatLimits),
@@ -219,12 +242,14 @@ function fightTap(game) {
   if (isHit(position, fight.zone)) {
     const roll = fight.critRng();
     const critical = isCritical({ roll, stats: combat, position, zone: fight.zone }, game.critRules);
-    const damage = hitDamage(combat, critical);
+    const boosted = fight.boosts.length > 0;
+    const damage = boostedDamage(hitDamage(combat, critical), fight.boosts);
+    fight.boosts = consumeBoosts(fight.boosts);
     // 残りの体力より大きいダメージは、超過を切り捨てる(体力は 0 より下にしない)。
     fight.hp = Math.max(0, fight.hp - damage);
     fight.hits += 1;
     if (critical) fight.crits += 1;
-    const base = { action: "hit", damage, critical, hp: fight.hp, maxHp: fight.maxHp, position };
+    const base = { action: "hit", damage, critical, boosted, hp: fight.hp, maxHp: fight.maxHp, position };
     if (fight.hp === 0) {
       finish(game, OUTCOMES.CAUGHT, REASONS.HP_ZERO);
       return { ...base, caught: true };
@@ -245,17 +270,26 @@ function fightTap(game) {
 
 /**
  * タップしたときの処理。場面ごとに意味がちがう。
- * - 掛かった:合わせ。普通の魚は巻き上げへ、強い魚は体力制のミニゲームへ。
+ * - 掛かった:合わせ。輪が成功帯より前なら早すぎで逃げる。成功帯なら、普通の魚は巻き上げへ、
+ *   強い魚は体力制のミニゲームへ(ジャストなら最初の一撃が上がる)。
  * - ミニゲーム:印が当たり範囲の中なら体力が減り、外なら回復する。
  * - 休み:再開して、次の魚を投げる。
  * それ以外の場面では何もせず null を返す。
  */
 export function tap(game) {
   switch (game.phase) {
-    case PHASES.BITE:
-      if (game.cast.kind === FISH_KINDS.STRONG) startFight(game);
+    case PHASES.BITE: {
+      // 縮む輪の位置(「!」からの時間)で決める。乱数は使わない(D-088)。
+      const grade = judgeHook(currentHookTiming(game), game.phaseMs);
+      if (grade === HOOK_GRADES.EARLY) {
+        finish(game, OUTCOMES.ESCAPED, REASONS.EARLY);
+        return { action: "hook", grade };
+      }
+      game.hookGrade = grade;
+      if (game.cast.kind === FISH_KINDS.STRONG) startFight(game, grade);
       else enter(game, PHASES.REELING);
-      return { action: "hook" };
+      return { action: "hook", grade };
+    }
     case PHASES.MINIGAME:
       return fightTap(game);
     case PHASES.RESTING:

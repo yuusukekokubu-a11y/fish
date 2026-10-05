@@ -40,8 +40,25 @@ export function makePlayer({ update, tap, PHASES }) {
   };
 }
 
-/** 掛かったらすぐ合わせる。 */
-export const hookAlways = () => true;
+/** 今の魚の輪(普通か強い)。 */
+function ringOf(game) {
+  return game.cast.kind === "strong" ? game.combat.hook.strong : game.combat.hook.normal;
+}
+
+/** 輪がジャスト帯の真ん中あたりに来たら合わせる(16 ミリ秒ずつ進めても、必ずジャスト帯の中で押せる)。 */
+export function hookJust(game) {
+  const ring = ringOf(game);
+  return game.phaseMs >= ring.ringMs - ring.successMs / 2 - 8;
+}
+
+/** 輪が成功帯に入った直後(ジャスト帯より前)に合わせる。 */
+export function hookGood(game) {
+  const ring = ringOf(game);
+  return game.phaseMs >= ring.ringMs - ring.successMs + 1;
+}
+
+/** 掛かったらすぐタップする(輪が大きいうちなので、必ず早すぎになる)。 */
+export const hookMash = () => true;
 
 /** 印が当たり範囲の真ん中付近に来たらタップする遊び方。 */
 export function makeAimCenter(currentMarker) {

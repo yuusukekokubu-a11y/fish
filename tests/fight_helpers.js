@@ -2,16 +2,20 @@
 
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createGame, currentMarker, PHASES, tap, update } from "../src/core/fishing.js";
+import { hookGood, hookJust } from "./helpers.js";
 
 export const NO_CRIT = Object.freeze({ ...DEFAULT_CONFIG.combat, critChance: 0 });
 
 /** 魚 fishId と合わせて、ミニゲームが始まった瞬間まで進める。 */
-export function untilFight(fishId, { seed = 1, combat = NO_CRIT, critRules } = {}) {
+export function untilFight(fishId, { seed = 1, combat = NO_CRIT, critRules, grade = "good" } = {}) {
   const game = createGame(seed, { progress: { coins: 0, material: 0, rodStage: 5, seen: [] }, combat, critRules });
   for (let i = 0; i < 2000000; i++) {
     update(game, 5);
-    if (game.phase === PHASES.BITE && game.cast.fish.id === fishId) {
-      tap(game);
+    // 成功帯に入った直後(ジャストでない)で合わせる。ジャストの上乗せなしで戦闘の数値を確かめるため。
+    if (game.phase === PHASES.BITE && game.cast.fish.id === fishId && hookGood(game)) {
+      const r = tap(game);
+      if (grade === "just") throw new Error("ジャストは untilJustFight を使う");
+      if (r.grade !== "good") throw new Error(`合わせが ${r.grade}`);
       return game;
     }
     if (game.phase === PHASES.RESTING) tap(game);
@@ -38,4 +42,19 @@ export function waitForOutside(game) {
     update(game, 1);
   }
   return false;
+}
+
+/** 魚 fishId とジャストで合わせて、ミニゲームが始まった瞬間まで進める。 */
+export function untilJustFight(fishId, { seed = 1, combat = NO_CRIT } = {}) {
+  const game = createGame(seed, { progress: { coins: 0, material: 0, rodStage: 5, seen: [] }, combat });
+  for (let i = 0; i < 2000000; i++) {
+    update(game, 5);
+    if (game.phase === PHASES.BITE && game.cast.fish.id === fishId && hookJust(game)) {
+      const r = tap(game);
+      if (r.grade !== "just") throw new Error(`合わせが ${r.grade}`);
+      return game;
+    }
+    if (game.phase === PHASES.RESTING) tap(game);
+  }
+  throw new Error(`${fishId} が掛からない`);
 }
