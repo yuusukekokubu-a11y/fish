@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fish"
+version = "0.0.0"
+description = "fish(目的は未定。docs/SPEC.md を参照)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pyyaml>=6",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 何も指定しないときは、速いテストだけを回す(D-013)。
+# 重いテストは scripts/run_slow_tests.py で回す。
+addopts = "-m 'not slow'"
+markers = [
+    "slow: 重いテスト。計算本体が変わった PR と手動の実行でだけ回す",
+]

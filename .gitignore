@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# テストの道具
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 秘密の情報(D-008)
+.env
+.env.*
+*.pem
+*.key
+
+# エディタや OS
+.vscode/
+.idea/
+.DS_Store
