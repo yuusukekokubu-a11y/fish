@@ -153,12 +153,12 @@ test("ステータスの画面:スキル込みの値と基本の値、クリテ�
   };
   const game = createGame(1, { progress: progressAt(5, ROD_STEPS.NONE, { gear }) });
   const byLabel = Object.fromEntries(rowsOf(statusView({ game })).map((r) => [r.label, r]));
-  // 会心率 28 ポイント → Lv7 → +70%。基本 10% と合わせて 80%。
-  assert.equal(byLabel["クリティカルの確率"].value, "80%");
+  // 会心率 28 ポイント → Lv7 → +105%。基本 10% と合わせて 115%(追加クリティカルあり)。
+  assert.equal(byLabel["クリティカルの確率"].value, "115%");
   assert.deepEqual(byLabel["クリティカルの確率"].detail, [
-    ["今の値(装備・スキル込み)", "80%"],
+    ["今の値(装備・スキル込み)", "115%"],
     ["基本の値", "10%"],
-    ["段の内わけ", "なし 20% / 1 段 80%"],
+    ["段の内わけ", "1 段 85% / 2 段 15%"],
   ]);
   assert.equal(byLabel["ウロコイン"].value, "+30%");
   assert.equal(byLabel["鱗"].value, "+20%");

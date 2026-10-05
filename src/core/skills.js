@@ -45,7 +45,7 @@ export const SKILL_ROWS = Object.freeze([
     name: "会心率",
     type: "growth",
     target: { kind: "combat", stat: "critChance", op: "add" },
-    perLevel: 0.1,
+    perLevel: 0.15,
     display: { label: "会心率", scale: 0.01, unit: "%", sign: "+" },
     description: "クリティカルが出やすくなる。100% を超えると追加クリティカル。",
   },

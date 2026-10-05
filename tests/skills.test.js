@@ -115,7 +115,7 @@ test("効果の反映:10 個のスキルの、レベル 0〜最大", () => {
           assert.equal(c.damage, b.damage + 2 * level);
           break;
         case "crit-rate":
-          assert.ok(Math.abs(c.critChance - (b.critChance + 0.1 * level)) < 1e-9);
+          assert.ok(Math.abs(c.critChance - (b.critChance + 0.15 * level)) < 1e-9);
           break;
         case "crit-power":
           assert.ok(Math.abs(c.critMultiplier - (b.critMultiplier + 0.2 * level)) < 1e-9);
@@ -150,7 +150,7 @@ test("効果の反映:10 個のスキルの、レベル 0〜最大", () => {
       if (level === 0) assert.deepEqual(c, b);
     }
   }
-  assert.equal(formatSkillEffect(byId("crit-rate"), 2), "会心率 +20%");
+  assert.equal(formatSkillEffect(byId("crit-rate"), 2), "会心率 +30%");
   assert.equal(formatSkillEffect(byId("agility"), 3), "待ち時間 −30%");
   assert.equal(formatSkillEffect(byId("tenacity"), 4), "制限時間 +4 秒");
 });
@@ -244,11 +244,11 @@ test("追加クリティカルのダメージは倍率の段数乗。安全上�
   assert.ok(hitDamage({ damage: 1, critMultiplier: 100 }, 20, LIMITS) <= LIMITS.maxCritTotalMultiplier);
 });
 
-test("戦いの中:会心率 120% だと、当たりは 1 段か 2 段。当たりのたびに乱数 1 回(前と同じ回数)", () => {
-  const gear = gearWith({ "crit-rate": pts(11) }, { equipped: { reel: 1 } });
+test("戦いの中:会心率 115% だと、当たりは 1 段か 2 段。当たりのたびに乱数 1 回(前と同じ回数)", () => {
+  const gear = gearWith({ "crit-rate": pts(7) }, { equipped: { reel: 1 } });
   const game = createGame(3, { progress: progressAt(9, ROD_STEPS.NONE, { gear }), content: makeContent() });
-  // 段階 9 は表にないので、最大は段階で計算する(2 + 9 = 11)。会心率 10% + 110% = 120%。
-  assert.ok(Math.abs(game.combat.critChance - 1.2) < 1e-9);
+  // 段階 9 は表にないので、最大は段階で計算する(2 + 9 = 11)。会心率 10% + 105%(Lv7)= 115%。
+  assert.ok(Math.abs(game.combat.critChance - 1.15) < 1e-9);
   // 乱数の回数:当たりの数と、クリティカルの系統から引いた数が同じ(fight の critRng の呼び出しを数える)。
   for (let t = 0; t < 600000 && game.phase !== PHASES.MINIGAME; t += 5) {
     update(game, 5);
