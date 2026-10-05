@@ -123,7 +123,8 @@ export function refreshCombat(game) {
 /**
  * 新しいゲームの状態を作る。
  * - progress:保存から読んだ進み具合(なければ初めから)。複製して使う(呼んだ側のものは変えない)。
- * - combat:戦闘の数値の表(なければ config.combat の基本の表)。点検して丸めてから使う(D-080)。
+ * - combat:装備なしの戦闘の数値の表(なければ config.combat の基本の表)。progress.gear の装着中の装備を足し算し、
+ *   点検して丸めてから game.combat に置く(D-080・D-145)。装着が変わったら refreshCombat を呼ぶ。
  * - critRules:クリティカルの判定の規則の一覧(なければ確率だけ)。
  * - content:魚と段階の設定表(なければ基本の表)。段階や魚を足すときは、ここに別の表を渡せる(D-093)。
  * - strongChance:強い魚の出現率(なければ config の値)。将来のスキル(大物狙い)で上げられる(D-096)。

@@ -9,45 +9,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { STAGE_LIST } from "../../src/core/fish.js";
-import { createGame, currentMarker, PHASES, tap, update } from "../../src/core/fishing.js";
-import { createRng } from "../../src/core/rng.js";
+import { createGame, PHASES, update } from "../../src/core/fishing.js";
 import { progressAt } from "../helpers.js";
-
-function makePolicy(rate, hookOk, seed) {
-  const r = createRng(seed * 7919 + 13);
-  let hookPlan = null;
-  let fightPlan = null;
-  return (g) => {
-    if (g.phase === PHASES.BITE) {
-      if (hookPlan === null) hookPlan = r() < hookOk;
-      const ring = g.cast.kind === "strong" ? g.combat.hook.strong : g.combat.hook.normal;
-      if (hookPlan && g.phaseMs >= ring.ringMs - ring.successMs / 2 - 8) {
-        hookPlan = null;
-        tap(g);
-      }
-      return;
-    }
-    hookPlan = null;
-    if (g.phase === PHASES.MINIGAME) {
-      const z = g.fight.zone;
-      const p = currentMarker(g);
-      if (fightPlan === "miss") {
-        if (p < z.start - 0.03 || p > z.end + 0.03) {
-          tap(g);
-          fightPlan = null;
-        }
-      } else if (Math.abs(p - (z.start + z.end) / 2) < 0.02) {
-        if (fightPlan === null) fightPlan = r() < rate ? "hit" : "miss";
-        if (fightPlan === "hit") {
-          tap(g);
-          fightPlan = null;
-        }
-      }
-      return;
-    }
-    if (g.phase === PHASES.RESTING) tap(g);
-  };
-}
+import { makePolicy } from "./policy.js";
 
 function coinsPerSecond(stage, rate, hookOk) {
   const acc = { weak: [0, 0], strong: [0, 0] };
