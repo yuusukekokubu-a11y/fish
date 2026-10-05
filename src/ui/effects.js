@@ -1,4 +1,4 @@
-// 手応えの演出(D-042・D-051)。見た目だけで、計算本体の結果には触れない。
+// 手応えの演出(D-042・D-051・D-081)。見た目だけで、計算本体の結果には触れない。
 // 時刻 now(ミリ秒)を受け取り、演出ごとの残り時間で描く。
 
 const FLASH_MS = 350;
@@ -26,25 +26,36 @@ export function addResultEffects(effects, result, now) {
   const lines = [];
   if (result.reward.coins > 0) lines.push(`+${result.reward.coins} ウロコイン`);
   if (result.reward.material > 0) lines.push(`+${result.reward.material} 素材`);
-  lines.forEach((text, i) => effects.floats.push({ text, start: now + i * 120, ms: FLOAT_MS }));
+  // 報酬の文字は空のあたりに出す(ダメージや「CRITICAL!」と重ならないように)。
+  lines.forEach((text, i) => effects.floats.push({ text, start: now + i * 120, ms: FLOAT_MS, y: 0.32 + i * 0.05 }));
 }
 
-/** 合わせが成功したときの小さな演出(D-066)。 */
+/** 合わせが成功したときの小さな演出(D-081)。 */
 export function addHookEffects(effects, now) {
   effects.flash = { color: "255,255,255", start: now, ms: 200, strength: 0.25 };
   effects.floats.push({ text: "合わせ!", start: now, ms: 700, y: 0.3, size: 20, color: "#ffffff" });
 }
 
-/** ミニゲームで当たった(体力が減った)ときの小さな演出。 */
-export function addHitEffects(effects, now) {
+/**
+ * ミニゲームで当たったときの演出(D-081)。魚の近くにダメージの数字を浮かべる。
+ * クリティカルは、大きなオレンジの数字と「CRITICAL!」、大きめの揺れ。
+ */
+export function addHitEffects(effects, hit, now) {
+  if (hit.critical) {
+    effects.shake = { start: now, ms: 260, amplitude: 9 };
+    effects.flash = { color: "255,140,0", start: now, ms: 220, strength: 0.25 };
+    effects.floats.push({ text: "CRITICAL!", start: now, ms: 800, y: 0.5, size: 22, color: "#ffd166" });
+    effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 800, y: 0.58, size: 34, color: "#ff8c00" });
+    return;
+  }
   effects.shake = { start: now, ms: 150, amplitude: 4 };
-  effects.floats.push({ text: "-1", start: now, ms: 600, y: 0.72, size: 22, color: "#ffd166" });
+  effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 650, y: 0.58, size: 24, color: "#ffd166" });
 }
 
-/** ミニゲームで外した(体力が回復した)ときの小さな演出。 */
-export function addMissEffects(effects, now) {
+/** ミニゲームで外したときの演出。回復した数を別の色で出す。 */
+export function addMissEffects(effects, miss, now) {
   effects.flash = { color: "230,57,70", start: now, ms: 200, strength: 0.2 };
-  effects.floats.push({ text: "+1", start: now, ms: 600, y: 0.72, size: 22, color: "#ff8fa3" });
+  effects.floats.push({ text: `+${miss.heal}`, start: now, ms: 650, y: 0.58, size: 24, color: "#ff8fa3" });
 }
 
 /** 竿を強化したときの演出を足す。 */

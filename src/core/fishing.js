@@ -3,6 +3,7 @@
 // 画面に関係しない計算だけを置く(D-028)。時間は update に渡したぶんだけ進む。
 // プレイヤーの操作がなければ、釣果は増えない(D-053)。
 
+import { critSeed, DEFAULT_CRIT_RULES, fightTimeLimit, hitDamage, isCritical, normalizeCombat } from "./combat.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { availableFish, effectiveMinigame, FISH_KINDS, pickWeighted } from "./fish.js";
 import { drawZone, isHit, markerPosition, zoneAt } from "./minigame.js";
@@ -53,16 +54,23 @@ export function drawCast(rng, config = DEFAULT_CONFIG, rodStage = 1) {
 }
 
 /**
- * 新しいゲームの状態を作る。progress は保存から読んだ進み具合(なければ初めから)。
- * progress は複製して使う(呼んだ側のものは変えない)。
+ * 新しいゲームの状態を作る。
+ * - progress:保存から読んだ進み具合(なければ初めから)。複製して使う(呼んだ側のものは変えない)。
+ * - combat:戦闘の数値の表(なければ config.combat の基本の表)。点検して丸めてから使う(D-080)。
+ * - critRules:クリティカルの判定の規則の一覧(なければ確率だけ)。
  */
-export function createGame(seed, { config = DEFAULT_CONFIG, progress = initialProgress() } = {}) {
+export function createGame(
+  seed,
+  { config = DEFAULT_CONFIG, progress = initialProgress(), combat = config.combat, critRules = DEFAULT_CRIT_RULES } = {},
+) {
   const rng = createRng(seed);
   const own = { ...progress, seen: [...progress.seen] };
   return {
     seed: normalizeSeed(seed),
     config,
     rng,
+    combat: normalizeCombat(combat, config.combat, config.combatLimits),
+    critRules,
     progress: own,
     phase: PHASES.CASTING,
     phaseMs: 0,
@@ -95,7 +103,7 @@ export function phaseDuration(game) {
     case PHASES.REELING:
       return c.reelMs;
     case PHASES.MINIGAME:
-      return game.cast.minigame.timeLimitMs;
+      return game.fight.timeLimitMs;
     case PHASES.RESULT:
       return c.resultMs;
     case PHASES.RESTING:
@@ -128,6 +136,7 @@ function finish(game, outcome, reason) {
   if (game.fight) {
     result.hits = game.fight.hits;
     result.misses = game.fight.misses;
+    result.crits = game.fight.crits;
   }
   game.results.push(result);
   game.lastResult = result;
@@ -191,35 +200,47 @@ function startFight(game) {
   game.fight = {
     hp: minigame.hp,
     maxHp: minigame.hp,
+    timeLimitMs: fightTimeLimit(minigame.timeLimitMs, game.combat, game.config.combatLimits),
     zone,
     // 「ミニゲームの系統」の乱数。魚の系統とは別なので、ここで何回引いても魚の並びは変わらない(D-064)。
     rng: createRng(minigameSeed),
+    // クリティカル専用の小さな系統。当たりのたびに必ず 1 回引く(D-079)。
+    critRng: createRng(critSeed(minigameSeed)),
     hits: 0,
     misses: 0,
+    crits: 0,
   };
   enter(game, PHASES.MINIGAME);
 }
 
 function fightTap(game) {
-  const { fight, config } = game;
+  const { fight, config, combat } = game;
   const position = currentMarker(game);
   if (isHit(position, fight.zone)) {
-    fight.hp = Math.max(0, fight.hp - config.minigame.damagePerHit);
+    const roll = fight.critRng();
+    const critical = isCritical({ roll, stats: combat, position, zone: fight.zone }, game.critRules);
+    const damage = hitDamage(combat, critical);
+    // 残りの体力より大きいダメージは、超過を切り捨てる(体力は 0 より下にしない)。
+    fight.hp = Math.max(0, fight.hp - damage);
     fight.hits += 1;
+    if (critical) fight.crits += 1;
+    const base = { action: "hit", damage, critical, hp: fight.hp, maxHp: fight.maxHp, position };
     if (fight.hp === 0) {
       finish(game, OUTCOMES.CAUGHT, REASONS.HP_ZERO);
-      return { action: "hit", hp: 0, position, caught: true };
+      return { ...base, caught: true };
     }
-    // 当たったら、当たり範囲の位置が変わる(D-063)。
+    // 当たったら、当たり範囲の位置が変わる。
     fight.zone = drawZone(fight.rng, {
       zoneWidth: game.cast.minigame.zoneWidth,
       zoneMargin: config.minigame.zoneMargin,
     });
-    return { action: "hit", hp: fight.hp, position, caught: false };
+    return { ...base, caught: false };
   }
-  fight.hp = Math.min(fight.maxHp, fight.hp + config.minigame.missHeal);
+  // 外したら回復する。最大の体力はこえない。
+  const before = fight.hp;
+  fight.hp = Math.min(fight.maxHp, fight.hp + combat.missHeal);
   fight.misses += 1;
-  return { action: "miss", hp: fight.hp, position };
+  return { action: "miss", heal: fight.hp - before, hp: fight.hp, maxHp: fight.maxHp, position };
 }
 
 /**
