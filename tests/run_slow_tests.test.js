@@ -35,8 +35,8 @@ test("npm test は速いテストだけ、test:slow は重いテストを回す"
   assert.equal(scripts["test:slow"], "node scripts/run_slow_tests.mjs");
 });
 
-test("外部の部品(npm の package)を入れていない", () => {
+test("遊ぶ画面とテストが使う外部の部品(npm の package)はない。開発用は型チェックの typescript だけ(D-144)", () => {
   const pkg = JSON.parse(readText("package.json"));
   assert.equal(pkg.dependencies, undefined);
-  assert.equal(pkg.devDependencies, undefined);
+  assert.deepEqual(Object.keys(pkg.devDependencies), ["typescript"]);
 });

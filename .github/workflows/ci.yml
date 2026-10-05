@@ -1,6 +1,6 @@
 # GitHub のテストの設定(D-005・D-015・D-026〜D-028)。
-# - PR:速いテスト。計算本体が変わったときだけ重いテストも。
-# - main への取り込み後:速いテストだけ。
+# - PR:速いテストと型チェック。計算本体が変わったときだけ重いテストも。
+# - main への取り込み後:速いテストと型チェック。
 # - 手動の実行(workflow_dispatch):重いテスト。
 name: ci
 
@@ -32,8 +32,23 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-      # 外部の部品がないので、npm install は要らない。テストのファイルは並列で回る。
+      # テストは外部の部品を使わないので、npm install は要らない。テストのファイルは並列で回る。
       - run: npm test
+
+  # 型チェック(D-144)。JSDoc で型を書いたファイルを tsc で確かめる(ファイルは作らない)。
+  # 外部の部品は型チェックの道具 typescript の 1 つだけで、版は package-lock.json で固定している。
+  typecheck:
+    name: 型チェック
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm ci
+      - run: npm run typecheck
 
   changes:
     name: 重いテストが要るかの判定
@@ -78,7 +93,7 @@ jobs:
   # ほかのジョブの結果をまとめる。取り込みの可否はこのジョブで判断する(D-015)。
   ci-result:
     name: ci-result
-    needs: [fast, changes, slow]
+    needs: [fast, typecheck, changes, slow]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
