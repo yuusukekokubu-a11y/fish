@@ -1,9 +1,13 @@
 // 画面の入り口:ゲームの状態を時間で進め、絵と数を描き、タップとボタンを受け取る。
 // 保存とセーブコードの読み書きも、ここ(画面の側)で行う。
 
-import { fishById } from "../core/fish.js";
+import { fishById, scaleName } from "../core/fish.js";
 import {
-  canUpgradeRod,
+  canChallengeBoss,
+  canCraftRod,
+  canEvolveRod,
+  challengeBoss,
+  craftGameRod,
   createGame,
   currentMarker,
   FISH_KINDS,
@@ -12,12 +16,14 @@ import {
   PHASES,
   phaseDuration,
   REASONS,
-  rodUpgradeCost,
   tap,
   update,
-  upgradeGameRod,
+  evolveGameRod,
+  gameStage,
 } from "../core/fishing.js";
+import { nextNeed, ROD_STEPS, rodName, stageRodNames } from "../core/rod.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
+import { formatCount } from "./format.js";
 import { parseSave, SAVE_KEY, toSaveData } from "../core/save.js";
 import { decodeSaveCode, encodeSaveCode } from "../core/savecode.js";
 import { versionLabel } from "../version.js";
@@ -27,7 +33,7 @@ import {
   addHookEffects,
   addMissEffects,
   addResultEffects,
-  addUpgradeEffects,
+  addRodEffects,
   createEffects,
   drawEffects,
   shakeOffset,
@@ -92,13 +98,15 @@ function messageFor(game) {
       return "待っています…";
     case PHASES.BITE:
       return game.cast.kind === FISH_KINDS.STRONG ? "強い魚だ!" : "掛かった!";
+    case PHASES.MINIGAME:
+      return game.cast.kind === FISH_KINDS.BOSS ? `${game.cast.fish.name}との勝負!` : "";
     case PHASES.RESULT: {
       const r = game.lastResult;
       if (r.reason === REASONS.EARLY) return "早すぎ…";
       if (r.reason === REASONS.LATE) return "遅すぎ…";
       const name = fishById(r.fishId).name;
       if (r.outcome === OUTCOMES.ESCAPED) return `${name}に逃げられた…`;
-      return r.kind === FISH_KINDS.STRONG ? `${name}を釣り上げた!` : `${name}が釣れた`;
+      return r.kind === FISH_KINDS.WEAK ? `${name}が釣れた` : `${name}を釣り上げた!`;
     }
     case PHASES.RESTING:
       return "タップで再開";
@@ -107,11 +115,34 @@ function messageFor(game) {
   }
 }
 
-function upgradeLabel(game) {
-  const stage = game.progress.rodStage;
-  const cost = rodUpgradeCost(game);
-  if (cost === null) return `竿 段階${stage}(最大)`;
-  return `竿 段階${stage}→${stage + 1} | 素材 ${cost} | 新しい魚が釣れる`;
+/**
+ * 下のボタンの中身(D-118)。工程で 1 つのボタンが切り替わる。
+ * { label, enabled, run } を返す。run は押したときの処理で、できたら演出の文字を返す。
+ */
+function rodButton(game) {
+  const p = game.progress;
+  const stage = gameStage(game);
+  if (!stage || p.rodStep === ROD_STEPS.EVOLVED) return { label: "次の魚はまだいない", enabled: false };
+  const names = stageRodNames(stage);
+  if (p.rodStep === ROD_STEPS.NONE) {
+    const need = nextNeed(p);
+    if (!canCraftRod(game)) {
+      return { label: `${names.craft}を製作 ${formatCount(need.have)}/${formatCount(need.need)}`, enabled: false };
+    }
+    return { label: `${names.craft}を製作`, enabled: true, run: () => craftGameRod(game) && `${names.craft}ができた!` };
+  }
+  if (p.rodStep === ROD_STEPS.CRAFTED) {
+    const boss = fishById(stage.boss);
+    return { label: `${boss.name}に挑む`, enabled: canChallengeBoss(game), run: () => challengeBoss(game) && null };
+  }
+  return { label: `${names.evolve}に進化`, enabled: canEvolveRod(game), run: () => evolveGameRod(game) && `${names.evolve}に進化!` };
+}
+
+/** 上の表示:今の工程で要る鱗(「クロダイの鱗 2/3」)。要るものがなければ空。 */
+function needLabel(game) {
+  const need = nextNeed(game.progress);
+  if (!need) return "";
+  return `${scaleName(need.id)} ${formatCount(need.have)}/${formatCount(need.need)}`;
 }
 
 function main() {
@@ -119,7 +150,8 @@ function main() {
   const ctx = canvas.getContext("2d");
   const el = {
     coins: document.getElementById("coins"),
-    material: document.getElementById("material"),
+    need: document.getElementById("need"),
+    rodName: document.getElementById("rod-name"),
     message: document.getElementById("message"),
     upgrade: document.getElementById("upgrade"),
     reset: document.getElementById("reset"),
@@ -127,7 +159,7 @@ function main() {
     version: document.getElementById("version"),
   };
 
-  const progress = parseSave(loadText(), DEFAULT_CONFIG.rod);
+  const progress = parseSave(loadText());
   const game = createGame(readSeed(), { progress, combat: readDebugCombat() });
   const effects = createEffects();
   el.seed.textContent = `seed ${game.seed}`;
@@ -153,10 +185,12 @@ function main() {
   });
 
   el.upgrade.addEventListener("click", () => {
-    if (upgradeGameRod(game)) {
-      saveProgress(game.progress);
-      addUpgradeEffects(effects, game.progress.rodStage, performance.now());
-    }
+    const button = rodButton(game);
+    if (!button.enabled) return;
+    const text = button.run();
+    if (text === false) return;
+    saveProgress(game.progress);
+    if (text) addRodEffects(effects, text, performance.now());
   });
 
   let resetArmedUntil = 0;
@@ -206,11 +240,13 @@ function main() {
     ctx.restore();
     drawEffects(ctx, rect.width, rect.height, effects, now);
 
-    el.coins.textContent = game.progress.coins;
-    el.material.textContent = game.progress.material;
+    el.coins.textContent = formatCount(game.progress.coins);
+    el.need.textContent = needLabel(game);
+    el.rodName.textContent = rodName(game.progress);
     el.message.textContent = messageFor(game);
-    el.upgrade.textContent = upgradeLabel(game);
-    el.upgrade.disabled = !canUpgradeRod(game);
+    const button = rodButton(game);
+    el.upgrade.textContent = button.label;
+    el.upgrade.disabled = !button.enabled;
     const armed = now < resetArmedUntil;
     el.reset.classList.toggle("armed", armed);
     el.reset.textContent = armed ? "もう一度押すと消えます" : "データを消す";
@@ -263,7 +299,7 @@ function setupSaveCode(game) {
     }
   });
   el.importButton.addEventListener("click", () => {
-    const result = decodeSaveCode(el.text.value, DEFAULT_CONFIG.rod);
+    const result = decodeSaveCode(el.text.value);
     if (!result.ok) {
       show(result.message, true);
       return;

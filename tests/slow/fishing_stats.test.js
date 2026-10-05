@@ -4,13 +4,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
-import { availableFish, fishWeight } from "../../src/core/fish.js";
+import { availableFish, fishWeight, STAGE_LIST } from "../../src/core/fish.js";
 import { drawCast, FISH_KINDS } from "../../src/core/fishing.js";
 import { createRng } from "../../src/core/rng.js";
 
 test("全段階で、200 個のシード × 2000 回の統計が決めた値に近い", () => {
   const expectedWait = (DEFAULT_CONFIG.waitMinMs + DEFAULT_CONFIG.waitMaxMs) / 2;
-  for (let stage = 1; stage <= DEFAULT_CONFIG.rod.maxStage; stage++) {
+  for (const { stage } of STAGE_LIST) {
     let waitSum = 0;
     let strong = 0;
     let total = 0;
@@ -28,7 +28,7 @@ test("全段階で、200 個のシード × 2000 回の統計が決めた値に�
     assert.ok(Math.abs(waitSum / total - expectedWait) < 20, `段階 ${stage}:平均 ${waitSum / total}`);
     assert.ok(Math.abs(strong / total - DEFAULT_CONFIG.strongChance) < 0.003, `段階 ${stage}:割合 ${strong / total}`);
     // 区分の中での出やすさは、重み(段階ごとに 2 倍)の比に近い。
-    for (const kind of Object.values(FISH_KINDS)) {
+    for (const kind of [FISH_KINDS.WEAK, FISH_KINDS.STRONG]) {
       const list = availableFish(stage, kind);
       const weightSum = list.reduce((s, f) => s + fishWeight(f), 0);
       const share = kind === FISH_KINDS.STRONG ? DEFAULT_CONFIG.strongChance : 1 - DEFAULT_CONFIG.strongChance;

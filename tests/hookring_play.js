@@ -5,10 +5,10 @@
 
 import { createGame, currentMarker, PHASES, tap, update } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
-import { hookGood, hookJust } from "./helpers.js";
+import { hookGood, hookJust, progressAt } from "./helpers.js";
 
 export function playRecorded(seed, stage, way) {
-  const g = createGame(seed, { progress: { coins: 0, material: 0, rodStage: stage, seen: [] } });
+  const g = createGame(seed, { progress: progressAt(stage) });
   const r = createRng(999);
   const rows = [];
   let n = 0;

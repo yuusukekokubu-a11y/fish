@@ -8,6 +8,7 @@ import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createGame, drawCast, PHASES, REASONS, tap, update } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
 import { NO_CRIT, untilFight, waitForCenter, waitForOutside } from "./fight_helpers.js";
+import { progressAt } from "./helpers.js";
 
 const BASE = DEFAULT_CONFIG.combat;
 const LIMITS = DEFAULT_CONFIG.combatLimits;
@@ -143,7 +144,7 @@ test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より�
 
 test("クリティカルの確率を変えても、魚の抽選の乱数の並びは変わらない", () => {
   function fishOrder(critChance) {
-    const game = createGame(42, { progress: { coins: 0, material: 0, rodStage: 5, seen: [] }, combat: { ...BASE, critChance } });
+    const game = createGame(42, { progress: progressAt(5), combat: { ...BASE, critChance } });
     const order = [game.cast.fish.id];
     let last = game.castCount;
     for (let t = 0; order.length < 60 && t < 3600000; t += 16) {

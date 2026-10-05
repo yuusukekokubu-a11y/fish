@@ -67,3 +67,8 @@ export function makeAimCenter(currentMarker) {
     return Math.abs(currentMarker(game) - (z.start + z.end) / 2) < 0.02;
   };
 }
+
+/** 竿の段階 rodStage・工程 rodStep の、鱗もウロコインもない進み具合(テスト用)。 */
+export function progressAt(rodStage, rodStep = "none", extra = {}) {
+  return { coins: 0, scales: {}, rodStage, rodStep, seen: [], ...extra };
+}

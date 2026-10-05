@@ -4,29 +4,60 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../src/core/config.js";
-import { availableFish, effectiveMinigame, FISH_KINDS, FISH_LIST, fishWeight, pickWeighted } from "../src/core/fish.js";
+import {
+  availableFish,
+  checkContent,
+  DEFAULT_CONTENT,
+  effectiveMinigame,
+  FISH_KINDS,
+  FISH_LIST,
+  fishWeight,
+  pickWeighted,
+  STAGE_LIST,
+} from "../src/core/fish.js";
 import { createGame, currentMarker, drawCast, PHASES, tap, update } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
-import { hookGood } from "./helpers.js";
+import { hookGood, progressAt } from "./helpers.js";
 
 const LIMITS = DEFAULT_CONFIG.minigame;
 
-test("各段階に、普通と強いの魚が 1 種類ずつある", () => {
-  for (let stage = 1; stage <= DEFAULT_CONFIG.rod.maxStage; stage++) {
+test("各段階に、弱い魚・強い魚・ヌシが 1 種類ずつあり、設定表の点検に問題がない", () => {
+  assert.deepEqual(checkContent(DEFAULT_CONTENT), []);
+  for (const { stage } of STAGE_LIST) {
     const at = FISH_LIST.filter((f) => f.stage === stage);
-    assert.deepEqual(at.map((f) => f.kind).sort(), [FISH_KINDS.NORMAL, FISH_KINDS.STRONG]);
+    assert.deepEqual(at.map((f) => f.kind).sort(), [FISH_KINDS.BOSS, FISH_KINDS.STRONG, FISH_KINDS.WEAK]);
   }
+  assert.equal(DEFAULT_CONTENT.maxStage, STAGE_LIST.length);
 });
 
-test("id は重ならず、強い魚だけがミニゲームの重さを持つ", () => {
+test("魚の名前(D-099)", () => {
+  const names = (kind) => FISH_LIST.filter((f) => f.kind === kind).map((f) => f.name);
+  assert.deepEqual(names(FISH_KINDS.WEAK), ["アジ", "サバ", "カワハギ", "タチウオ", "ヒラメ"]);
+  assert.deepEqual(names(FISH_KINDS.STRONG), ["クロダイ", "スズキ", "ブリ", "カツオ", "マグロ"]);
+  assert.deepEqual(names(FISH_KINDS.BOSS), ["ヌシ・クロダイ", "ヌシ・スズキ", "ヌシ・ブリ", "ヌシ・カツオ", "ヌシ・マグロ"]);
+});
+
+test("id は重ならず、強い魚とヌシだけがミニゲームの重さを持ち、弱い魚は鱗を落とさない", () => {
   assert.equal(new Set(FISH_LIST.map((f) => f.id)).size, FISH_LIST.length);
   for (const f of FISH_LIST) {
-    assert.equal(f.minigame !== null, f.kind === FISH_KINDS.STRONG, f.name);
+    assert.equal(f.minigame !== null, f.kind !== FISH_KINDS.WEAK, f.name);
+    assert.equal(f.reward.scales > 0, f.kind !== FISH_KINDS.WEAK, f.name);
   }
 });
 
-test("段階 1 の魚は Issue #4 と同じ設定", () => {
-  const [normal, strong] = [availableFish(1, FISH_KINDS.NORMAL), availableFish(1, FISH_KINDS.STRONG)];
+test("ヌシの体力は同じ段階の強い魚の 3〜4 倍で、制限時間は長く、印と幅は同じか厳しい(限界の中)", () => {
+  for (const { stage, craft, boss } of STAGE_LIST) {
+    const s = FISH_LIST.find((f) => f.id === craft.scale).minigame;
+    const b = FISH_LIST.find((f) => f.id === boss).minigame;
+    assert.ok(b.hp >= 3 * s.hp && b.hp <= 4 * s.hp, `段階 ${stage}`);
+    assert.ok(b.timeLimitMs > s.timeLimitMs);
+    assert.ok(b.sweepMs <= s.sweepMs && b.zoneWidth <= s.zoneWidth);
+    assert.deepEqual(effectiveMinigame({ minigame: b }, LIMITS), { ...b }, "限界で直されない");
+  }
+});
+
+test("段階 1 の魚のミニゲームの手触りは前のまま", () => {
+  const [normal, strong] = [availableFish(1, FISH_KINDS.WEAK), availableFish(1, FISH_KINDS.STRONG)];
   assert.equal(normal.length, 1);
   assert.equal(strong.length, 1);
   // 印の速さと当たり範囲の幅は Issue #4 のまま。体力と制限時間は体力制で足した(D-063)。
@@ -72,7 +103,7 @@ test("強い魚ごとの設定が、当たり範囲の幅と印の動きに反�
     assert.equal(cast.minigame.sweepMs, cast.fish.minigame.sweepMs);
   }
   // マグロ(0.52 秒)のミニゲームで、0.52 秒たつと印は反対側の対称の位置に来る。
-  const game = createGame(1, { progress: { coins: 0, material: 0, rodStage: 5, seen: [] } });
+  const game = createGame(1, { progress: progressAt(5) });
   // マグロが掛かったときだけ合わせる。ほかは逃がし、休みになったら再開する。
   for (let i = 0; i < 1000000 && !(game.phase === PHASES.MINIGAME && game.cast.fish.id === "maguro"); i++) {
     update(game, 10);
@@ -87,7 +118,7 @@ test("強い魚ごとの設定が、当たり範囲の幅と印の動きに反�
 });
 
 test("重みは段階ごとに 2 倍で、境界の値で正しく選ぶ", () => {
-  const list = availableFish(3, FISH_KINDS.NORMAL);
+  const list = availableFish(3, FISH_KINDS.WEAK);
   assert.deepEqual(list.map(fishWeight), [1, 2, 4]);
   // 合計 7 のうち、[0, 1/7) は段階 1、[1/7, 3/7) は段階 2、[3/7, 1) は段階 3。
   assert.equal(pickWeighted(list, 0).stage, 1);

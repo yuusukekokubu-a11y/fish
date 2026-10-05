@@ -1,12 +1,12 @@
-// ゲームの数値(D-047・D-048・D-078・D-087)。時間の単位はミリ秒、位置と幅はゲージ全体を 1 とした割合。
+// ゲームの数値(D-048・D-078・D-087・D-096)。魚と段階の設定表は fish.js にある。時間の単位はミリ秒、位置と幅はゲージ全体を 1 とした割合。
 // 魚ごとの数値(報酬・ミニゲームの重さ)は fish.js の設定表にある。
 
 export const DEFAULT_CONFIG = Object.freeze({
   // 掛かるまでの待ち時間の幅(一様な乱数。平均は 2 つの真ん中の 4.5 秒)。竿の段階では変えない(D-033)。
   waitMinMs: 1500,
   waitMaxMs: 7500,
-  // 強い魚が掛かる確率の合計。竿の段階では変えない(D-033)。
-  strongChance: 0.2,
+  // 強い魚が掛かる確率の合計(D-096)。竿の段階では変えない(D-033)。将来のスキル(大物狙い)で上げられる。
+  strongChance: 0.1,
   // 各場面の長さ。
   castMs: 700, // 投げる
   reelMs: 900, // 合わせたあと、普通の魚を巻き上げる
@@ -48,10 +48,5 @@ export const DEFAULT_CONFIG = Object.freeze({
     minHookJustMs: 100,
     minHookEarlyMs: 300,
     maxJustMultiplier: 5,
-  }),
-  rod: Object.freeze({
-    maxStage: 5, // 竿の段階の上限
-    // 段階 1→2、2→3、3→4、4→5 に必要な素材の数(D-047)。
-    upgradeCosts: Object.freeze([10, 30, 80, 200]),
   }),
 });

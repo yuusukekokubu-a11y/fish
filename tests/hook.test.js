@@ -16,13 +16,14 @@ import {
   tap,
   update,
 } from "../src/core/fishing.js";
+import { progressAt } from "./helpers.js";
 
 const BASE_HOOK = DEFAULT_CONFIG.combat.hook;
 const LIMITS = DEFAULT_CONFIG.combatLimits;
 
 /** 竿の段階 rodStage で、魚 fishId が掛かった瞬間(「!」の 0 ミリ秒)まで進める。ほかの魚は逃がす。 */
 function untilBite(fishId, { rodStage = 5, seed = 1, combat } = {}) {
-  const game = createGame(seed, { progress: { coins: 0, material: 0, rodStage, seen: [] }, combat });
+  const game = createGame(seed, { progress: progressAt(rodStage), combat });
   for (let i = 0; i < 2000000; i++) {
     if (game.phase === PHASES.WAITING && game.cast.fish.id === fishId) {
       // 待ちの残りぴったりだけ進めると、掛かった瞬間(経過 0 ミリ秒)で止まる。
@@ -45,7 +46,7 @@ function tapAt(fishId, t, options) {
   return { game, result: tap(game) };
 }
 
-test("基本の輪:普通の魚はゆっくりで帯が広く、強い魚は速くて帯が狭い", () => {
+test("基本の輪:弱い魚はゆっくりで帯が広く、強い魚は速くて帯が狭い", () => {
   const n = hookTiming(BASE_HOOK.normal);
   const s = hookTiming(BASE_HOOK.strong);
   assert.deepEqual(n, { ringMs: 1600, successStart: 1000, justStart: 1200, justEnd: 1400 });
@@ -63,7 +64,7 @@ test("下限:輪 1.0 秒以上・成功帯 0.25 秒以上・ジャスト帯 0.10
   }
 });
 
-test("範囲外の輪の値は丸める(下限・成功帯 ≤ 輪 − 0.3 秒・ジャスト帯 ≤ 成功帯・強い魚 ≤ 普通の魚)", () => {
+test("範囲外の輪の値は丸める(下限・成功帯 ≤ 輪 − 0.3 秒・ジャスト帯 ≤ 成功帯・強い魚 ≤ 弱い魚)", () => {
   const h = normalizeHook(
     {
       normal: { ringMs: -5, successMs: 99999, justMs: 99999 },
@@ -74,7 +75,7 @@ test("範囲外の輪の値は丸める(下限・成功帯 ≤ 輪 − 0.3 秒�
     LIMITS,
   );
   assert.deepEqual(h.normal, { ringMs: 1000, successMs: 700, justMs: 700 });
-  assert.deepEqual(h.strong, { ringMs: 5000, successMs: 700, justMs: 700 }, "強い魚の帯は普通の魚の帯まで");
+  assert.deepEqual(h.strong, { ringMs: 5000, successMs: 700, justMs: 700 }, "強い魚の帯は弱い魚の帯まで");
   assert.equal(h.justMultiplier, 5);
   const low = normalizeHook({ normal: { ringMs: 1600, successMs: 10, justMs: 0 }, justMultiplier: 0.2 }, BASE_HOOK, LIMITS);
   assert.deepEqual(low.normal, { ringMs: 1600, successMs: 250, justMs: 100 });
@@ -96,7 +97,7 @@ test("判定の境界(関数):始まりを含み、終わりを含まない", ()
 });
 
 for (const [fishId, kind] of [
-  ["aji", FISH_KINDS.NORMAL],
+  ["aji", FISH_KINDS.WEAK],
   ["kurodai", FISH_KINDS.STRONG],
 ]) {
   test(`判定の境界(ゲームの中、${kind}):早すぎ/成功/ジャスト/遅すぎ`, () => {
@@ -118,7 +119,7 @@ for (const [fishId, kind] of [
         assert.equal(game.phase, PHASES.RESULT);
         assert.deepEqual([game.lastResult.outcome, game.lastResult.reason], [OUTCOMES.ESCAPED, REASONS.EARLY]);
       } else {
-        assert.equal(game.phase, kind === FISH_KINDS.NORMAL ? PHASES.REELING : PHASES.MINIGAME);
+        assert.equal(game.phase, kind === FISH_KINDS.WEAK ? PHASES.REELING : PHASES.MINIGAME);
       }
     }
     // 輪の時間ちょうどで、タップしていなければ遅すぎ。
@@ -126,7 +127,7 @@ for (const [fishId, kind] of [
     assert.equal(result, null);
     assert.deepEqual([game.lastResult.outcome, game.lastResult.reason], [OUTCOMES.ESCAPED, REASONS.LATE]);
     assert.equal(tap(game), null, "逃げたあとのタップは何もしない");
-    assert.deepEqual(game.progress, { coins: 0, material: 0, rodStage: 1, seen: [] });
+    assert.deepEqual(game.progress, progressAt(1));
   });
 }
 
@@ -143,7 +144,8 @@ test("「!」が出る前のタップは、何も変えない(逃げない・数
 });
 
 test("連打は成功しない:「!」の直後からタップし続けると、全部の魚で最初のタップが早すぎ", () => {
-  for (const fish of FISH_LIST) {
+  // ヌシは掛からない(挑戦ボタンで、合わせなしで始まる)ので、弱い魚と強い魚の全種類で確かめる。
+  for (const fish of FISH_LIST.filter((f) => f.kind !== FISH_KINDS.BOSS)) {
     const game = untilBite(fish.id);
     update(game, 16);
     const r = tap(game);
@@ -154,7 +156,7 @@ test("連打は成功しない:「!」の直後からタップし続けると、
       update(game, 16);
       assert.equal(tap(game), null);
     }
-    assert.deepEqual(game.lastResult.reward, { coins: 0, material: 0 });
+    assert.deepEqual(game.lastResult.reward, { coins: 0, scales: 0 });
   }
 });
 
@@ -188,8 +190,8 @@ test("早すぎ・遅すぎは、どちらも「続けて逃した数」に入�
   assert.equal(game.phase, PHASES.RESTING);
 });
 
-test("普通の魚は、どの段階でも成功帯の合わせで釣り上げ。ジャストでも報酬は同じ(表示だけ)", () => {
-  for (const fish of FISH_LIST.filter((f) => f.kind === FISH_KINDS.NORMAL)) {
+test("弱い魚は、どの段階でも成功帯の合わせで釣り上げ。ジャストでも報酬は同じ(表示だけ)", () => {
+  for (const fish of FISH_LIST.filter((f) => f.kind === FISH_KINDS.WEAK)) {
     for (const [at, grade] of [
       ["successStart", "good"],
       ["justStart", "just"],
