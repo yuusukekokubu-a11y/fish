@@ -5,7 +5,7 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 ## 1. 作業の始めに読む順番
 
 1. `docs/ACTIVE_DECISIONS.md`(今有効な決定の一覧)
-2. 必要な番号だけ `docs/DECISIONS.md`(くわしい理由。置き換えられた古い決定・完了した段取りは `docs/decisions/archive.md`:D-110)
+2. 必要な番号だけ `docs/DECISIONS.md`(D-093 から)か `docs/decisions/vol1.md`(D-001〜D-092)で、くわしい理由を読む(D-133)。置き換えられた古い決定・完了した段取りは `docs/decisions/archive.md`(D-110)
 3. `docs/SPEC.md`(何をするか)と `docs/DESIGN.md`(どう作るか)
 
 ## 2. 依頼の進め方
@@ -13,7 +13,7 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 - 1 つの依頼で 1 つの PR を作る(D-001)。
 - 依頼の【0】にある決定は、作業の最初に `docs/DECISIONS.md` に D 番号で記録し、`docs/ACTIVE_DECISIONS.md` も直す(D-004)。
 - 実装中に細部を決めたときは、自分で決めて DECISIONS に記録し、報告の「実装中に決めたこと」に書く(D-004)。
-- 決定を足す・変えるたびに ACTIVE_DECISIONS を直す。置き換えた古い決定は、全文を `docs/decisions/archive.md` へ移す(D-110)。`docs/DECISIONS.md` が 800 行に近づいたら、分け方を決定として決め直す。
+- 決定を足す・変えるたびに ACTIVE_DECISIONS を直す。置き換えた古い決定は、全文を `docs/decisions/archive.md` へ移す(D-110)。新しい決定は `docs/DECISIONS.md` の最後に足す。700 行をこえたら、古いほうの番号をまとめて次の巻(`docs/decisions/vol2.md` など)へ移す(D-133)。
 - オーナーのスクリーンショットは Code に届かないことがある。依頼文の文章を正とする。
 - 文章は平易な日本語で書き、専門用語に短い説明を付ける。英語は単語だけ(D-007)。
 - ファイルは 800 行以内が目安。超えるなら分けるか、理由を DESIGN の「800 行を超えるファイル」に書く(D-006)。
@@ -41,7 +41,8 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 - 演出は `src/ui/` だけで行い、計算本体の結果を書き換えない(D-051)。
 - 戦闘の数値は「戦闘の数値の表」(`config.combat`、合わせの輪は `config.combat.hook`)を通して変える。戦闘のコードに数を直接書かない(D-071・D-080・D-084)。
 - 戦闘中だけの一時的な変化は、表を書き換えず「上乗せの一覧」(`fight.boosts`)に足す(D-089)。
-- 魚と段階は `src/core/fish.js` の表(`FISH_LIST`・`STAGE_LIST`)に行を足して増やす。コードに魚の id や段階の数を直接書かない(D-093・D-111。手順は DESIGN の「段階や魚を足す手順」)。
+- 画面は、時間とタップを窓口 `src/ui/session.js` を通して計算本体に渡す。メニューを開いている間は止める(D-134)。メニューのタブは `src/ui/menu_tabs.js` の表に足す(D-135)。
+- 魚と段階は `src/core/fish.js` の表(`FISH_ROWS`・`STAGE_ROWS`、項目名つきの行:D-136)に行を足して増やす。コードに魚の id や段階の数を直接書かない(D-093・D-111・D-136。手順は DESIGN の「段階や魚を足す手順」)。
 
 ## 3.5 バージョン(D-085・D-091)
 

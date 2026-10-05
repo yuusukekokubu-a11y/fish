@@ -8,12 +8,17 @@ import {
   availableFish,
   checkContent,
   DEFAULT_CONTENT,
+  defineFish,
+  defineStage,
   effectiveMinigame,
   FISH_KINDS,
   FISH_LIST,
+  FISH_ROWS,
   fishWeight,
+  makeContent,
   pickWeighted,
   STAGE_LIST,
+  STAGE_ROWS,
 } from "../src/core/fish.js";
 import { createGame, currentMarker, drawCast, PHASES, tap, update } from "../src/core/fishing.js";
 import { createRng } from "../src/core/rng.js";
@@ -127,4 +132,43 @@ test("重みは段階ごとに 2 倍で、境界の値で正しく選ぶ", () =>
   assert.equal(pickWeighted(list, 2.9999 / 7).stage, 2);
   assert.equal(pickWeighted(list, 3 / 7).stage, 3);
   assert.equal(pickWeighted(list, 0.99999).stage, 3);
+});
+
+test("表の行は項目名つきで、区分は読める名前(D-136)", () => {
+  for (const row of FISH_ROWS) {
+    assert.deepEqual(
+      Object.keys(row).filter((k) => k !== "minigame"),
+      ["id", "name", "kind", "stage", "coins", "scales", "color", "size"],
+      row.id,
+    );
+    assert.ok(["weak", "strong", "boss"].includes(row.kind), row.id);
+  }
+  for (const row of STAGE_ROWS) assert.deepEqual(Object.keys(row), ["stage", "craft", "boss", "evolve"]);
+  // 行から作った中の形は、整理の前と同じ(報酬は reward にまとまる、進化の鱗はヌシ)。
+  assert.deepEqual(FISH_LIST[1].reward, { coins: 5, scales: 1 });
+  assert.deepEqual(STAGE_LIST[0].evolve, { scale: "nushi-kurodai", count: 1 });
+});
+
+test("表の点検は、形のまちがいを見つける", () => {
+  const broken = (fishPatch, stagePatch = {}) => {
+    const fish = FISH_ROWS.map((r) => (r.id === "aji" ? { ...r, ...fishPatch } : r));
+    const stages = STAGE_ROWS.map((r) => (r.stage === 1 ? { ...r, ...stagePatch } : r));
+    return checkContent(makeContent(fish.map(defineFish), stages.map(defineStage)));
+  };
+  assert.deepEqual(broken({}), []);
+  const cases = [
+    [{ id: "Aji" }, "id の形"],
+    [{ name: "" }, "名前"],
+    [{ kind: "W" }, "区分"],
+    [{ stage: 9 }, "段階"],
+    [{ coins: -1 }, "報酬"],
+    [{ scales: 1 }, "鱗"],
+    [{ size: 0 }, "見た目"],
+    [{ minigame: { sweepMs: 900, zoneWidth: 0.2, hp: 20, timeLimitMs: 8000 } }, "ミニゲーム"],
+  ];
+  for (const [patch, word] of cases) assert.ok(broken(patch).some((p) => p.includes(word)), `${word}:${broken(patch)}`);
+  assert.ok(broken({}, { craft: { scale: "aji", count: 3 } }).some((p) => p.includes("製作の鱗")));
+  assert.ok(broken({}, { craft: { scale: "kurodai", count: 0 } }).some((p) => p.includes("1 以上")));
+  const badMinigame = FISH_ROWS.map((r) => (r.id === "kurodai" ? { ...r, minigame: { ...r.minigame, hp: 0 } } : r));
+  assert.ok(checkContent(makeContent(badMinigame.map(defineFish), STAGE_LIST)).some((p) => p.includes("ミニゲームの数")));
 });

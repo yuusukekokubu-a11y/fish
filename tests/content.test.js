@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../src/core/config.js";
-import { checkContent, defineFish, defineStage, FISH_KINDS, FISH_LIST, makeContent, STAGE_LIST } from "../src/core/fish.js";
+import { checkContent, defineFish, defineStage, FISH_ROWS, makeContent, STAGE_ROWS } from "../src/core/fish.js";
 import {
   challengeBoss,
   craftGameRod,
@@ -22,29 +22,30 @@ import { ROD_STEPS } from "../src/core/rod.js";
 import { createRng } from "../src/core/rng.js";
 import { parseSave, toSaveData } from "../src/core/save.js";
 import { decodeSaveCode, encodeSaveCode } from "../src/core/savecode.js";
+import { materialsView } from "../src/ui/menu_tabs.js";
 import { hookJust, makeAimCenter, makePlayer, progressAt } from "./helpers.js";
 
 const play = makePlayer({ update, tap, PHASES });
 const aimCenter = makeAimCenter(currentMarker);
 const SKILLED = { hook: hookJust, fight: aimCenter, resume: true };
 
-// 足すのは、この 4 行だけ(魚 3 種類と段階 1 つ)。
-const EXTRA_FISH = [
-  defineFish("kisu", "キス", FISH_KINDS.WEAK, 6, 120, 0, "#fefae0", 26),
-  defineFish("kanpachi", "カンパチ", FISH_KINDS.STRONG, 6, 600, 1, "#bc6c25", 46, {
-    sweepMs: 480,
-    zoneWidth: 0.1,
-    hp: 70,
-    timeLimitMs: 13000,
-  }),
-  defineFish("nushi-kanpachi", "ヌシ・カンパチ", FISH_KINDS.BOSS, 6, 6000, 1, "#7f4f24", 62, {
-    sweepMs: 460,
-    zoneWidth: 0.1,
-    hp: 245,
-    timeLimitMs: 55000,
-  }),
+// 足すのは、表の行だけ(魚 3 種類と段階 1 つ)。項目名つきの行(D-136)。
+const EXTRA_FISH_ROWS = [
+  { id: "kisu", name: "キス", kind: "weak", stage: 6, coins: 120, scales: 0, color: "#fefae0", size: 26 },
+  {
+    id: "kanpachi", name: "カンパチ", kind: "strong", stage: 6, coins: 600, scales: 1, color: "#bc6c25", size: 46,
+    minigame: { sweepMs: 480, zoneWidth: 0.1, hp: 70, timeLimitMs: 13000 },
+  },
+  {
+    id: "nushi-kanpachi", name: "ヌシ・カンパチ", kind: "boss", stage: 6, coins: 6000, scales: 1, color: "#7f4f24", size: 62,
+    minigame: { sweepMs: 460, zoneWidth: 0.1, hp: 245, timeLimitMs: 55000 },
+  },
 ];
-const CONTENT = makeContent([...FISH_LIST, ...EXTRA_FISH], [...STAGE_LIST, defineStage(6, "kanpachi", 2, "nushi-kanpachi", 1)]);
+const EXTRA_STAGE_ROW = { stage: 6, craft: { scale: "kanpachi", count: 2 }, boss: "nushi-kanpachi", evolve: { count: 1 } };
+const CONTENT = makeContent(
+  [...FISH_ROWS, ...EXTRA_FISH_ROWS].map(defineFish),
+  [...STAGE_ROWS, EXTRA_STAGE_ROW].map(defineStage),
+);
 
 test("足した表の形に問題がなく、段階の数は表の行の数で決まる", () => {
   assert.deepEqual(checkContent(CONTENT), []);
@@ -99,4 +100,23 @@ test("段階 6 の進み具合も、保存とセーブコードで往復でき�
   assert.deepEqual(parseSave(JSON.stringify(toSaveData(p)), CONTENT), p);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p), CONTENT), { ok: true, progress: p });
   assert.equal(decodeSaveCode(encodeSaveCode(p)).ok, false, "元の表には段階 6 がない");
+});
+
+test("素材タブ:表に段階 6 の魚を足すだけで、一覧に自動で出る(未入手は「?」、入手すると名前と使い道)", () => {
+  const game = createGame(1, { content: CONTENT, progress: progressAt(6, ROD_STEPS.NONE) });
+  const view = materialsView({ game });
+  assert.deepEqual(view.sections.map((s) => s.title).at(-1), "段階 6");
+  assert.deepEqual(view.sections.at(-1).rows, [
+    { label: "?", value: "", detail: null },
+    { label: "?", value: "", detail: null },
+  ]);
+  game.progress.scales.kanpachi = 1;
+  game.progress.seen.push("nushi-kanpachi");
+  const [kanpachi, nushi] = materialsView({ game }).sections.at(-1).rows;
+  assert.deepEqual([kanpachi.label, kanpachi.value], ["カンパチの鱗", "1"]);
+  assert.deepEqual(kanpachi.detail.at(-1), ["使い道", "カンパチの釣竿の製作に使う(2 枚)"]);
+  assert.deepEqual(nushi.detail, [
+    ["入手元", "ヌシ・カンパチ(段階 6 のヌシ)"],
+    ["使い道", "ヌシ・カンパチの釣竿への進化に使う(1 枚)"],
+  ]);
 });

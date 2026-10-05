@@ -6,12 +6,17 @@
 
 export const FISH_KINDS = Object.freeze({ WEAK: "weak", STRONG: "strong", BOSS: "boss" });
 
-const W = FISH_KINDS.WEAK;
-const S = FISH_KINDS.STRONG;
-const B = FISH_KINDS.BOSS;
-
-/** 魚 1 種類。reward.scales は、釣り上げたときに落とす「その魚の鱗」の数(弱い魚は 0)。 */
-export function defineFish(id, name, kind, stage, coins, scales, color, size, minigame = null) {
+/**
+ * 魚 1 種類を、表の 1 行(項目名つき)から作る(D-136)。
+ * 行の項目:
+ * - id:小文字の英数字とハイフン。保存の鱗のキーになるので、あとから変えない。
+ * - name:画面に出す名前。kind:"weak"(弱い魚)・"strong"(強い魚)・"boss"(ヌシ)。stage:解放される段階。
+ * - coins:釣り上げたときのウロコイン。scales:釣り上げたときに落とす「その魚の鱗」の数(弱い魚は 0)。
+ * - color・size:見た目(色と大きさ)。
+ * - minigame:強い魚とヌシだけ。{ sweepMs(印が端から端まで), zoneWidth(当たり範囲の幅), hp(体力), timeLimitMs(制限時間) }。
+ * 中では、報酬を reward: { coins, scales } にまとめた形で持つ。
+ */
+export function defineFish({ id, name, kind, stage, coins, scales, color, size, minigame = null }) {
   return Object.freeze({
     id,
     name,
@@ -20,50 +25,89 @@ export function defineFish(id, name, kind, stage, coins, scales, color, size, mi
     reward: Object.freeze({ coins, scales }),
     color,
     size,
-    minigame: minigame && Object.freeze(minigame),
+    minigame: minigame && Object.freeze({ ...minigame }),
   });
 }
 
-/** 段階 1 つ。craft は製作に使う鱗(魚の id)と数、evolve は進化に使う鱗と数。 */
-export function defineStage(stage, craftScale, craftCount, boss, evolveCount) {
+/**
+ * 段階 1 つを、表の 1 行(項目名つき)から作る(D-136)。
+ * 行の項目:stage(段階)、craft: { scale(製作に使う鱗の魚の id), count(数) }、boss(ヌシの id)、
+ * evolve: { count(進化に使うヌシの鱗の数) }。進化に使う鱗は、いつもその段階のヌシの鱗。
+ */
+export function defineStage({ stage, craft, boss, evolve }) {
   return Object.freeze({
     stage,
-    craft: Object.freeze({ scale: craftScale, count: craftCount }),
+    craft: Object.freeze({ scale: craft.scale, count: craft.count }),
     boss,
-    evolve: Object.freeze({ scale: boss, count: evolveCount }),
+    evolve: Object.freeze({ scale: boss, count: evolve.count }),
   });
 }
 
-export const FISH_LIST = Object.freeze([
+/** 魚の表(段階の順)。足すときは 1 行足す(DESIGN の「段階や魚を足す手順」)。 */
+export const FISH_ROWS = Object.freeze([
   // 段階 1
-  defineFish("aji", "アジ", W, 1, 1, 0, "#a8dadc", 22),
-  defineFish("kurodai", "クロダイ", S, 1, 5, 1, "#f4a261", 34, { sweepMs: 900, zoneWidth: 0.22, hp: 20, timeLimitMs: 8000 }),
-  defineFish("nushi-kurodai", "ヌシ・クロダイ", B, 1, 50, 1, "#9c4f1c", 52, { sweepMs: 800, zoneWidth: 0.19, hp: 70, timeLimitMs: 30000 }),
+  { id: "aji", name: "アジ", kind: "weak", stage: 1, coins: 1, scales: 0, color: "#a8dadc", size: 22 },
+  {
+    id: "kurodai", name: "クロダイ", kind: "strong", stage: 1, coins: 5, scales: 1, color: "#f4a261", size: 34,
+    minigame: { sweepMs: 900, zoneWidth: 0.22, hp: 20, timeLimitMs: 8000 },
+  },
+  {
+    id: "nushi-kurodai", name: "ヌシ・クロダイ", kind: "boss", stage: 1, coins: 50, scales: 1, color: "#9c4f1c", size: 52,
+    minigame: { sweepMs: 800, zoneWidth: 0.19, hp: 70, timeLimitMs: 30000 },
+  },
   // 段階 2
-  defineFish("saba", "サバ", W, 2, 3, 0, "#90be6d", 24),
-  defineFish("suzuki", "スズキ", S, 2, 15, 1, "#e76f51", 36, { sweepMs: 800, zoneWidth: 0.19, hp: 30, timeLimitMs: 9000 }),
-  defineFish("nushi-suzuki", "ヌシ・スズキ", B, 2, 150, 1, "#9d2f17", 54, { sweepMs: 700, zoneWidth: 0.16, hp: 105, timeLimitMs: 35000 }),
+  { id: "saba", name: "サバ", kind: "weak", stage: 2, coins: 3, scales: 0, color: "#90be6d", size: 24 },
+  {
+    id: "suzuki", name: "スズキ", kind: "strong", stage: 2, coins: 15, scales: 1, color: "#e76f51", size: 36,
+    minigame: { sweepMs: 800, zoneWidth: 0.19, hp: 30, timeLimitMs: 9000 },
+  },
+  {
+    id: "nushi-suzuki", name: "ヌシ・スズキ", kind: "boss", stage: 2, coins: 150, scales: 1, color: "#9d2f17", size: 54,
+    minigame: { sweepMs: 700, zoneWidth: 0.16, hp: 105, timeLimitMs: 35000 },
+  },
   // 段階 3
-  defineFish("kawahagi", "カワハギ", W, 3, 8, 0, "#f9c74f", 25),
-  defineFish("buri", "ブリ", S, 3, 40, 1, "#b8c0ff", 38, { sweepMs: 700, zoneWidth: 0.16, hp: 40, timeLimitMs: 10000 }),
-  defineFish("nushi-buri", "ヌシ・ブリ", B, 3, 400, 1, "#5a63c8", 56, { sweepMs: 600, zoneWidth: 0.13, hp: 140, timeLimitMs: 40000 }),
+  { id: "kawahagi", name: "カワハギ", kind: "weak", stage: 3, coins: 8, scales: 0, color: "#f9c74f", size: 25 },
+  {
+    id: "buri", name: "ブリ", kind: "strong", stage: 3, coins: 40, scales: 1, color: "#b8c0ff", size: 38,
+    minigame: { sweepMs: 700, zoneWidth: 0.16, hp: 40, timeLimitMs: 10000 },
+  },
+  {
+    id: "nushi-buri", name: "ヌシ・ブリ", kind: "boss", stage: 3, coins: 400, scales: 1, color: "#5a63c8", size: 56,
+    minigame: { sweepMs: 600, zoneWidth: 0.13, hp: 140, timeLimitMs: 40000 },
+  },
   // 段階 4
-  defineFish("tachiuo", "タチウオ", W, 4, 20, 0, "#e9ecef", 28),
-  defineFish("katsuo", "カツオ", S, 4, 100, 1, "#c77dff", 40, { sweepMs: 600, zoneWidth: 0.13, hp: 50, timeLimitMs: 11000 }),
-  defineFish("nushi-katsuo", "ヌシ・カツオ", B, 4, 1000, 1, "#7b2cbf", 58, { sweepMs: 520, zoneWidth: 0.11, hp: 175, timeLimitMs: 45000 }),
+  { id: "tachiuo", name: "タチウオ", kind: "weak", stage: 4, coins: 20, scales: 0, color: "#e9ecef", size: 28 },
+  {
+    id: "katsuo", name: "カツオ", kind: "strong", stage: 4, coins: 100, scales: 1, color: "#c77dff", size: 40,
+    minigame: { sweepMs: 600, zoneWidth: 0.13, hp: 50, timeLimitMs: 11000 },
+  },
+  {
+    id: "nushi-katsuo", name: "ヌシ・カツオ", kind: "boss", stage: 4, coins: 1000, scales: 1, color: "#7b2cbf", size: 58,
+    minigame: { sweepMs: 520, zoneWidth: 0.11, hp: 175, timeLimitMs: 45000 },
+  },
   // 段階 5
-  defineFish("hirame", "ヒラメ", W, 5, 50, 0, "#ddb892", 30),
-  defineFish("maguro", "マグロ", S, 5, 250, 1, "#ef233c", 44, { sweepMs: 520, zoneWidth: 0.11, hp: 60, timeLimitMs: 12000 }),
-  defineFish("nushi-maguro", "ヌシ・マグロ", B, 5, 2500, 1, "#a4161a", 60, { sweepMs: 470, zoneWidth: 0.1, hp: 210, timeLimitMs: 50000 }),
+  { id: "hirame", name: "ヒラメ", kind: "weak", stage: 5, coins: 50, scales: 0, color: "#ddb892", size: 30 },
+  {
+    id: "maguro", name: "マグロ", kind: "strong", stage: 5, coins: 250, scales: 1, color: "#ef233c", size: 44,
+    minigame: { sweepMs: 520, zoneWidth: 0.11, hp: 60, timeLimitMs: 12000 },
+  },
+  {
+    id: "nushi-maguro", name: "ヌシ・マグロ", kind: "boss", stage: 5, coins: 2500, scales: 1, color: "#a4161a", size: 60,
+    minigame: { sweepMs: 470, zoneWidth: 0.1, hp: 210, timeLimitMs: 50000 },
+  },
 ]);
 
-export const STAGE_LIST = Object.freeze([
-  defineStage(1, "kurodai", 3, "nushi-kurodai", 1),
-  defineStage(2, "suzuki", 4, "nushi-suzuki", 1),
-  defineStage(3, "buri", 4, "nushi-buri", 1),
-  defineStage(4, "katsuo", 5, "nushi-katsuo", 1),
-  defineStage(5, "maguro", 6, "nushi-maguro", 1),
+/** 段階の表。足すときは 1 行足す。 */
+export const STAGE_ROWS = Object.freeze([
+  { stage: 1, craft: { scale: "kurodai", count: 3 }, boss: "nushi-kurodai", evolve: { count: 1 } },
+  { stage: 2, craft: { scale: "suzuki", count: 4 }, boss: "nushi-suzuki", evolve: { count: 1 } },
+  { stage: 3, craft: { scale: "buri", count: 4 }, boss: "nushi-buri", evolve: { count: 1 } },
+  { stage: 4, craft: { scale: "katsuo", count: 5 }, boss: "nushi-katsuo", evolve: { count: 1 } },
+  { stage: 5, craft: { scale: "maguro", count: 6 }, boss: "nushi-maguro", evolve: { count: 1 } },
 ]);
+
+export const FISH_LIST = Object.freeze(FISH_ROWS.map(defineFish));
+export const STAGE_LIST = Object.freeze(STAGE_ROWS.map(defineStage));
 
 /** 設定表 1 組(魚と段階)。テストや将来の追加では、別の組を作って渡せる。 */
 export function makeContent(fish = FISH_LIST, stages = STAGE_LIST) {
@@ -80,6 +124,11 @@ export function makeContent(fish = FISH_LIST, stages = STAGE_LIST) {
 
 export const DEFAULT_CONTENT = makeContent();
 
+// 魚の id の形(小文字の英数字とハイフン、40 字まで)。保存の点検でも使う。
+export const FISH_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const MINIGAME_KEYS = ["sweepMs", "zoneWidth", "hp", "timeLimitMs"];
+const isCountAtLeast = (n, min) => Number.isSafeInteger(n) && n >= min;
+
 /**
  * 設定表の点検(テストと、将来の追加の確かめに使う)。おかしなところの文の一覧を返す(空なら問題なし)。
  */
@@ -87,19 +136,29 @@ export function checkContent(content) {
   const problems = [];
   const ids = new Set();
   for (const f of content.fish) {
+    if (typeof f.id !== "string" || !FISH_ID_PATTERN.test(f.id)) problems.push(`id の形がおかしい:${f.id}`);
     if (ids.has(f.id)) problems.push(`id が重なっている:${f.id}`);
     ids.add(f.id);
+    if (typeof f.name !== "string" || f.name === "") problems.push(`名前がない:${f.id}`);
     if (!Object.values(FISH_KINDS).includes(f.kind)) problems.push(`区分がおかしい:${f.id}`);
-    if ((f.kind === W) !== (f.minigame === null)) problems.push(`ミニゲームの設定:${f.id}`);
-    if (f.kind === W && f.reward.scales !== 0) problems.push(`弱い魚は鱗を落とさない:${f.id}`);
+    if (!isCountAtLeast(f.stage, 1) || !content.stageByNumber.has(f.stage)) problems.push(`段階が表にない:${f.id}`);
+    if (!isCountAtLeast(f.reward.coins, 0) || !isCountAtLeast(f.reward.scales, 0)) problems.push(`報酬の数がおかしい:${f.id}`);
+    if (typeof f.color !== "string" || !(f.size > 0)) problems.push(`見た目の設定:${f.id}`);
+    if ((f.kind === FISH_KINDS.WEAK) !== (f.minigame === null)) problems.push(`ミニゲームの設定:${f.id}`);
+    if (f.minigame && !MINIGAME_KEYS.every((k) => Number.isFinite(f.minigame[k]) && f.minigame[k] > 0)) {
+      problems.push(`ミニゲームの数がおかしい:${f.id}`);
+    }
+    if (f.kind === FISH_KINDS.WEAK && f.reward.scales !== 0) problems.push(`弱い魚は鱗を落とさない:${f.id}`);
+    if (f.kind !== FISH_KINDS.WEAK && f.reward.scales < 1) problems.push(`強い魚とヌシは鱗を落とす:${f.id}`);
   }
   content.stages.forEach((s, i) => {
     if (s.stage !== i + 1) problems.push(`段階は 1 からの通し番号:${s.stage}`);
     const craft = content.byId.get(s.craft.scale);
     const boss = content.byId.get(s.boss);
-    if (!craft || craft.kind !== S || craft.stage !== s.stage) problems.push(`製作の鱗はその段階の強い魚:${s.stage}`);
-    if (!boss || boss.kind !== B || boss.stage !== s.stage) problems.push(`ヌシはその段階のヌシ:${s.stage}`);
-    if (!content.fish.some((f) => f.kind === W && f.stage === s.stage)) problems.push(`弱い魚がいない:${s.stage}`);
+    if (!craft || craft.kind !== FISH_KINDS.STRONG || craft.stage !== s.stage) problems.push(`製作の鱗はその段階の強い魚:${s.stage}`);
+    if (!boss || boss.kind !== FISH_KINDS.BOSS || boss.stage !== s.stage) problems.push(`ヌシはその段階のヌシ:${s.stage}`);
+    if (!isCountAtLeast(s.craft.count, 1) || !isCountAtLeast(s.evolve.count, 1)) problems.push(`製作と進化の数は 1 以上:${s.stage}`);
+    if (!content.fish.some((f) => f.kind === FISH_KINDS.WEAK && f.stage === s.stage)) problems.push(`弱い魚がいない:${s.stage}`);
   });
   return problems;
 }
@@ -122,7 +181,7 @@ export function availableFish(rodStage, kind, list = FISH_LIST) {
 
 /** 竿の段階 rodStage で新しく釣れるようになる魚(ヌシを除く)。 */
 export function fishUnlockedAt(rodStage, list = FISH_LIST) {
-  return list.filter((f) => f.stage === rodStage && f.kind !== B);
+  return list.filter((f) => f.stage === rodStage && f.kind !== FISH_KINDS.BOSS);
 }
 
 /** 抽選の重み:新しい魚ほど出やすい。段階が 1 上がるごとに 2 倍(D-046)。 */
