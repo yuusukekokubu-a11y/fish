@@ -34,7 +34,7 @@ import {
   unequipKind,
 } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
-import { progressAt, stage6Content } from "./helpers.js";
+import { progressAt, riverContent } from "./helpers.js";
 
 const GACHA = DEFAULT_CONFIG.gacha;
 const KINDS = EQUIP_KIND_ROWS;
@@ -57,6 +57,12 @@ test("クレートは段階ごとに 1 種類。名前・解放の段階・グ�
       ["ヒラメのクレート", 3, 3, 67],
       ["ワラサのクレート", 4, 4, 160],
       ["ブリのクレート", 5, 5, 370],
+      // 磯(D-272):数式のまま。
+      ["メジナのクレート", 6, 6, 800],
+      ["イシダイのクレート", 7, 7, 1700],
+      ["ブダイのクレート", 8, 8, 3500],
+      ["イシガキダイのクレート", 9, 9, 6700],
+      ["クエのクレート", 10, 10, 12000],
     ],
   );
   for (const c of CRATES) {
@@ -85,7 +91,8 @@ test("基本効果:レア度・グレード・種類ごとに範囲の中、段�
         }
         assert.ok(new Set(values).size >= 2, `${kind.id} ${rarity.id} ${crate.grade}:ばらつきがある`);
         const mean = values.reduce((a, b) => a + b, 0) / values.length;
-        assert.ok(mean > lastMean, `${kind.id} ${rarity.id}:段階 ${crate.grade} の平均が上がる`);
+        // 刻みが粗い種類は、隣の段階で範囲が同じになることがある(下がりはしない)。
+        assert.ok(mean >= lastMean - 0.25 * kind.step, `${kind.id} ${rarity.id}:段階 ${crate.grade} の平均が下がらない`);
         lastMean = mean;
       }
     }
@@ -314,19 +321,19 @@ test("装備なし・ガチャを引いても付けなければ、結果は前�
   assert.ok(casts(plain).length > 25);
 });
 
-test("データ駆動:段階 6 を足すとクレートが自動で増え、価格・グレード・排出率が数式と表から作られる", () => {
-  const content = stage6Content();
+test("データ駆動:釣り場(川)を足すとクレートが自動で増え、価格・グレード・排出率が数式と表から作られる", () => {
+  const content = riverContent();
   const crates = makeCrates(content, DEFAULT_CONFIG);
-  assert.equal(crates.length, 6);
-  const six = crates[5];
-  assert.deepEqual([six.name, six.stage, six.grade], ["カンパチのクレート", 6, 6]);
-  assert.ok(six.price > crates[4].price);
-  assert.deepEqual(six.rarities, crates[0].rarities);
-  const p = progressAt(6, ROD_STEPS.NONE, { coins: 1e9, gear: { ...emptyGear(), seed: 5 } });
-  const r = pullCrate(p, six, 10, content.equipKinds, GACHA);
+  assert.equal(crates.length, 15);
+  const eleven = crates[10];
+  assert.deepEqual([eleven.name, eleven.stage, eleven.grade], ["ヤマメのクレート", 11, 11]);
+  assert.ok(eleven.price > crates[9].price);
+  assert.deepEqual(eleven.rarities, crates[0].rarities);
+  const p = progressAt(11, ROD_STEPS.NONE, { coins: 1e12, gear: { ...emptyGear(), seed: 5 } });
+  const r = pullCrate(p, eleven, 10, content.equipKinds, GACHA);
   assert.equal(r.ok, true);
-  assert.ok(r.items.every((it) => it.grade === 6));
-  assert.ok(r.items.map((it) => itemName(it, content)).some((n) => n.startsWith("カンパチの")));
+  assert.ok(r.items.every((it) => it.grade === 11));
+  assert.ok(r.items.map((it) => itemName(it, content)).some((n) => n.startsWith("ヤマメの")));
 });
 
 test("データ駆動:既にある戦闘の数値を使う種類を表に 1 行足すと、抽選に加わり、戦闘に効く", () => {

@@ -49,16 +49,21 @@ test("竿の段階 n では、段階 n 以下の弱い魚・強い魚だけが�
 test("段階 n では、段階 n 以下の弱い魚・強い魚の全種類が出る", () => {
   for (const stage of STAGES) {
     const seen = new Set(castsAt(7, stage, 6000).map((c) => c.fish.id));
-    const expected = FISH_LIST.filter((f) => f.stage <= stage && f.kind !== FISH_KINDS.BOSS).map((f) => f.id);
+    // 竿の段階が属する釣り場の、最初の段階〜竿の段階の魚(D-275)。
+    const first = stage <= 5 ? 1 : 6;
+    const expected = FISH_LIST.filter((f) => f.stage >= first && f.stage <= stage && f.kind !== FISH_KINDS.BOSS).map((f) => f.id);
     assert.deepEqual([...seen].sort(), [...expected].sort(), `段階 ${stage}`);
   }
 });
 
-test("新しい魚ほど出やすい(区分ごとに、段階が上の魚の回数が多い)", () => {
-  const casts = castsAt(11, 5, 40000);
-  for (const kind of [FISH_KINDS.WEAK, FISH_KINDS.STRONG]) {
-    const counts = FISH_LIST.filter((f) => f.kind === kind).map((f) => casts.filter((c) => c.fish.id === f.id).length);
-    for (let i = 1; i < counts.length; i++) assert.ok(counts[i] > counts[i - 1], `${kind}:${counts}`);
+test("新しい魚ほど出やすい(区分ごとに、釣り場の中で段階が上の魚の回数が多い)", () => {
+  for (const [stage, first] of [[5, 1], [10, 6]]) {
+    const casts = castsAt(11, stage, 40000);
+    for (const kind of [FISH_KINDS.WEAK, FISH_KINDS.STRONG]) {
+      const counts = FISH_LIST.filter((f) => f.kind === kind && f.stage >= first && f.stage <= stage).map((f) => casts.filter((c) => c.fish.id === f.id).length);
+      assert.equal(counts.length, 5);
+      for (let i = 1; i < counts.length; i++) assert.ok(counts[i] > counts[i - 1], `${kind}:${counts}`);
+    }
   }
 });
 

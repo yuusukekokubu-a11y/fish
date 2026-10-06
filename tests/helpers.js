@@ -1,5 +1,6 @@
 // テストで共通に使う道具。
 
+import { AREA_ROWS } from "../src/core/areas.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,18 +79,28 @@ export function progressAt(rodStage, rodStep = "none", extra = {}) {
 }
 
 /**
- * 段階 6 を足した表(足すのは魚の表の行だけ:名前・区分・段階・見た目。数値は式から:D-225)。
- * 段階 6 の魚:カサゴ(弱い魚)・カンパチ(強い魚)・ヌシ・カンパチ。
+ * 釣り場を 1 つ足すときに足す行(釣り場の表 1 行と、魚の表 15 行だけ:D-272)。川(g=11〜15)。
+ * 名前は D-277 の候補。数値は式から作る(D-225)。
  */
-export const STAGE6_ROWS = Object.freeze([
-  { id: "kasago", name: "カサゴ", kind: "weak", stage: 6, color: "#fefae0", size: 26 },
-  { id: "kanpachi", name: "カンパチ", kind: "strong", stage: 6, color: "#bc6c25", size: 46 },
-  { id: "nushi-kanpachi", name: "ヌシ・カンパチ", kind: "boss", stage: 6, color: "#7f4f24", size: 62 },
-]);
+export const RIVER_AREA = Object.freeze({ id: "kawa", name: "川", firstStage: 11, stages: 5, sky: ["#a7c957", "#f2e8cf"], sea: ["#6a994e", "#386641"] });
+const RIVER_NAMES = [
+  ["oikawa", "オイカワ", "yamame", "ヤマメ"],
+  ["funa", "フナ", "ayu", "アユ"],
+  ["ugui", "ウグイ", "namazu", "ナマズ"],
+  ["nigoi", "ニゴイ", "nijimasu", "ニジマス"],
+  ["dojou", "ドジョウ", "itou", "イトウ"],
+];
+export const RIVER_ROWS = Object.freeze(
+  RIVER_NAMES.flatMap(([wid, wname, sid, sname], i) => [
+    { id: wid, name: wname, kind: "weak", stage: 11 + i, color: "#fefae0", size: 24 },
+    { id: sid, name: sname, kind: "strong", stage: 11 + i, color: "#bc6c25", size: 40 },
+    { id: `nushi-${sid}`, name: `ヌシ・${sname}`, kind: "boss", stage: 11 + i, color: "#7f4f24", size: 58 },
+  ]),
+);
 
-/** 段階 6 を足した表 1 組。equipKinds・skills を渡すと、それも差し替える。 */
-export function stage6Content(equipKinds = undefined, skills = undefined) {
-  return makeContent([...FISH_ROWS, ...STAGE6_ROWS].map((r) => defineFish(r)), undefined, equipKinds, skills);
+/** 川(g=11〜15)を足した表 1 組。equipKinds・skills を渡すと、それも差し替える。 */
+export function riverContent(equipKinds = undefined, skills = undefined) {
+  return makeContent([...FISH_ROWS, ...RIVER_ROWS].map((r) => defineFish(r)), undefined, equipKinds, skills, [...AREA_ROWS, RIVER_AREA]);
 }
 
 /**

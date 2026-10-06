@@ -16,7 +16,7 @@
     "noImplicitReturns": true,
     "skipLibCheck": true
   },
-  "files": ["src/core/bait.js", "src/ui/bait_view.js", "src/ui/shop_screen.js", "src/core/skills.js", "src/core/gear.js", "src/core/save.js", "src/core/savecode.js", "src/core/formula.js", "src/core/synthetic.js", "src/ui/gear_view.js", "src/ui/gacha_fx.js", "src/ui/screens.js", "src/ui/screen_shell.js", "src/ui/drawer.js", "src/ui/list_view.js", "src/ui/sheet.js", "src/ui/equip_screen.js",
+  "files": ["src/core/areas.js", "src/core/bait.js", "src/ui/bait_view.js", "src/ui/shop_screen.js", "src/core/skills.js", "src/core/gear.js", "src/core/save.js", "src/core/savecode.js", "src/core/formula.js", "src/core/synthetic.js", "src/ui/gear_view.js", "src/ui/gacha_fx.js", "src/ui/screens.js", "src/ui/screen_shell.js", "src/ui/drawer.js", "src/ui/list_view.js", "src/ui/sheet.js", "src/ui/equip_screen.js",
     "src/ui/skill_view.js",
     "src/ui/skill_screen.js",
     "src/ui/fight_view.js", "src/ui/crate_screen.js",

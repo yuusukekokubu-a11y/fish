@@ -74,7 +74,7 @@ const OLD = {
 const OLD_PRICE = [20, 46, 110, 260, 630];
 
 test("g=1〜5 の値は、②-4b4 のときの値から ±15% 以内(体力・報酬・製作の数・装備)。価格はおよそ半分", () => {
-  const prices = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG).map((c) => c.price);
+  const prices = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG).map((c) => c.price).slice(0, 5);
   const now = {
     weakCoins: [1, 2, 3, 4, 5].map((g) => fishCoins("weak", g)),
     strongCoins: [1, 2, 3, 4, 5].map((g) => fishCoins("strong", g)),

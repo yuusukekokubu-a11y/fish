@@ -22,6 +22,7 @@ import {
   strikeDamage,
   widenZone,
 } from "./combat.js";
+import { AREA_ROWS, areaOfStage, inNewestArea, makeAreas, poolRange, setArea } from "./areas.js";
 import { baitCount, baitFish, refundBait, setBait, willUseBait } from "./bait.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { applyGear, copyGear, emptyGear } from "./gear.js";
@@ -70,24 +71,37 @@ export const REASONS = Object.freeze({
 /**
  * 「魚の系統」の乱数で、竿の段階 rodStage の 1 回の投げを決める(D-046・D-064)。
  * 引く順番は固定:待ち時間 → 魚 →(強い魚なら)ミニゲームの種。引く回数は Issue #6 から同じ。
+ * 強い魚かどうかは魚の乱数だけで決まるので、釣り場(魚の候補)によらず、引く数は同じ(D-275)。
  * ミニゲームの種から、最初の命中範囲と「ミニゲームの系統」の乱数を作る。
- * options:{ fish: 魚の設定表, strongChance: 強い魚の出現率 }(なければ基本の表と config の値)。
+ * options:{ fish: 魚の設定表, strongChance: 強い魚の出現率, range: 出る魚の段階の範囲 { min, max } }
+ * (なければ基本の表・config の値・竿の段階が属する釣り場の最初の段階〜竿の段階)。
+ * 引いた数は raw に残す(釣り場を移ったとき、引き直さずに魚だけ決め直す:resolveCast)。
  */
 export function drawCast(rng, config = DEFAULT_CONFIG, rodStage = 1, options = {}) {
-  const list = options.fish ?? FISH_LIST;
   const strongChance = options.strongChance ?? config.strongChance;
   const waitMs = config.waitMinMs + rng() * (config.waitMaxMs - config.waitMinMs);
   const u = rng();
-  const strong = u < strongChance;
+  const seedValue = u < strongChance ? rng() : null;
+  const range = options.range ?? { min: areaOfStage({ areas: makeAreas(AREA_ROWS, rodStage) }, rodStage).firstStage, max: rodStage };
+  return resolveCast({ waitMs, u, seedValue, strongChance }, config, options.fish ?? FISH_LIST, range);
+}
+
+/**
+ * 引いた数(raw)から、段階の範囲 range の中で魚を決める(乱数は引かない)。重みは範囲の最初の段階から数える(D-275)。
+ * @param {{ waitMs: number, u: number, seedValue: number | null, strongChance: number }} raw
+ * @param {any} config @param {readonly any[]} list @param {{ min: number, max: number }} range
+ */
+export function resolveCast(raw, config, list, range) {
+  const { waitMs, u, seedValue, strongChance } = raw;
+  const strong = seedValue !== null;
   const kind = strong ? FISH_KINDS.STRONG : FISH_KINDS.WEAK;
   // 区分の中での位置を 0〜1 に引きのばし、その値で種類を選ぶ。
   const v = strong ? u / strongChance : (u - strongChance) / (1 - strongChance);
-  const fish = pickWeighted(availableFish(rodStage, kind, list), v);
+  const fish = pickWeighted(availableFish(range.max, kind, list, range.min), v, range.min);
   const minigame = effectiveMinigame(fish, config.minigame);
-  if (!minigame) return { waitMs, kind, fish, minigame: null, zone: null, minigameSeed: null };
-  const seedValue = rng();
+  if (!minigame || seedValue === null) return { waitMs, kind, fish, minigame: null, zone: null, minigameSeed: null, raw };
   const zone = zoneAt(seedValue, { zoneWidth: minigame.zoneWidth, zoneMargin: config.minigame.zoneMargin });
-  return { waitMs, kind, fish, minigame, zone, minigameSeed: Math.floor(seedValue * 4294967296) };
+  return { waitMs, kind, fish, minigame, zone, minigameSeed: Math.floor(seedValue * 4294967296), raw };
 }
 
 /** ヌシ戦の 1 回ぶん。乱数は、シードと「何回目の挑戦か」から作る(魚の系統は使わない:D-115)。 */
@@ -136,6 +150,7 @@ function ownProgress(progress) {
   if (progress.bait) own.bait = progress.bait;
   if (progress.useBait) own.useBait = true;
   if (progress.autoScrap) own.autoScrap = progress.autoScrap;
+  if (progress.area) own.area = progress.area;
   return own;
 }
 
@@ -212,7 +227,26 @@ function drawGameCast(game) {
   return drawCast(game.rng, game.config, game.progress.rodStage, {
     fish: game.content.fish,
     strongChance: game.strongChance,
+    range: poolRange(game.progress, game.content),
   });
+}
+
+/** いまの釣り場の魚で、引いた数から投を決め直す(乱数は引かない)。餌の投とヌシ戦は変えない。 */
+function reresolve(game, cast) {
+  if (!cast || !cast.raw || cast.bait || cast.kind === FISH_KINDS.BOSS) return cast;
+  return resolveCast(cast.raw, game.config, game.content.fish, poolRange(game.progress, game.content));
+}
+
+/**
+ * 釣り場を移る(解放済みの釣り場だけ:D-273)。移れたら true。
+ * 投げている・待っている投と、ヌシ戦の間に取っておいた投は、乱数を引き直さずに、新しい釣り場の魚に決め直す。
+ * 掛かったあと(合わせ・戦い・結果)の魚はそのまま。次の投から新しい釣り場の魚が出る。
+ */
+export function moveArea(game, id) {
+  if (!setArea(game.progress, id, game.content)) return false;
+  if (game.phase === PHASES.CASTING || game.phase === PHASES.WAITING) game.cast = reresolve(game, game.cast);
+  if (game.pendingCast) game.pendingCast = reresolve(game, game.pendingCast);
+  return true;
 }
 
 export { HOOK_GRADES };
@@ -318,7 +352,8 @@ export function justCoinRate(game) {
  */
 function applyBait(game) {
   const p = game.progress;
-  if (!willUseBait(p) || game.cast.bait) return;
+  // 餌は、いちばん新しい釣り場でだけ使える(D-274)。
+  if (!willUseBait(p) || game.cast.bait || !inNewestArea(p, game.content)) return;
   const fish = baitFish(game.content, p.rodStage);
   if (!fish) return;
   game.cast = makeBaitCast(fish, game.config, game.seed, game.castCount, game.cast.waitMs);
@@ -619,19 +654,24 @@ export function gameStage(game) {
   return currentStage(game.progress, game.content);
 }
 
-/** 竿を製作できるか。 */
+/** いちばん新しい釣り場にいるか(製作・ヌシ戦・進化・餌はここでだけ:D-274)。 */
+export function inNewestGameArea(game) {
+  return inNewestArea(game.progress, game.content);
+}
+
+/** 竿を製作できるか(いちばん新しい釣り場でだけ)。 */
 export function canCraftRod(game) {
-  return canCraft(game.progress, game.content);
+  return inNewestGameArea(game) && canCraft(game.progress, game.content);
 }
 
 /** 竿を製作する(鱗を使う)。 */
 export function craftGameRod(game) {
-  return craftRod(game.progress, game.content);
+  return canCraftRod(game) && craftRod(game.progress, game.content);
 }
 
-/** 竿を進化できるか。 */
+/** 竿を進化できるか(いちばん新しい釣り場でだけ)。 */
 export function canEvolveRod(game) {
-  return canEvolve(game.progress, game.content);
+  return inNewestGameArea(game) && canEvolve(game.progress, game.content);
 }
 
 /**
@@ -640,11 +680,21 @@ export function canEvolveRod(game) {
  */
 export function evolveGameRod(game) {
   const before = game.progress.rodStage;
-  const done = evolveRod(game.progress, game.content);
+  const done = canEvolveRod(game) && evolveRod(game.progress, game.content);
   game.baitRefund = null;
+  game.areaUnlocked = null;
   if (done && game.progress.rodStage !== before) {
     const refund = refundBait(game.progress, before, COUNT_MAX, game.config.formula);
     if (refund.count > 0) game.baitRefund = refund;
+    // 釣り場の最後のヌシのあと:次の釣り場が解放され、そのまま移る(古い釣り場の欄は持たない:D-273)。
+    const area = areaOfStage(game.content, game.progress.rodStage);
+    if (area !== areaOfStage(game.content, before)) {
+      delete game.progress.area;
+      game.areaUnlocked = area;
+      // 投げている・待っている投は、新しい釣り場の魚に決め直す(乱数は引き直さない)。
+      if (game.phase === PHASES.CASTING || game.phase === PHASES.WAITING) game.cast = reresolve(game, game.cast);
+      if (game.pendingCast) game.pendingCast = reresolve(game, game.pendingCast);
+    }
   }
   // 段階が上がると、成長型のスキルの最大レベルが伸びる(D-167)。
   if (done) refreshCombat(game);
@@ -656,7 +706,7 @@ export function evolveGameRod(game) {
  */
 export function canChallengeBoss(game) {
   const phaseOk = game.phase === PHASES.CASTING || game.phase === PHASES.WAITING;
-  return phaseOk && canChallengeStep(game.progress) && !!gameStage(game);
+  return phaseOk && inNewestGameArea(game) && canChallengeStep(game.progress) && !!gameStage(game);
 }
 
 /**

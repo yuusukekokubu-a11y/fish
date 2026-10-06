@@ -16,13 +16,14 @@ import {
   tap,
   update,
 } from "../src/core/fishing.js";
+import { areaEndFor } from "./fight_helpers.js";
 import { progressAt } from "./helpers.js";
 
 const BASE_HOOK = DEFAULT_CONFIG.combat.hook;
 const LIMITS = DEFAULT_CONFIG.combatLimits;
 
 /** 竿の段階 rodStage で、魚 fishId が掛かった瞬間(「!」の 0 ミリ秒)まで進める。ほかの魚は逃がす。 */
-function untilBite(fishId, { rodStage = 5, seed = 1, combat } = {}) {
+function untilBite(fishId, { rodStage = areaEndFor(fishId), seed = 1, combat } = {}) {
   const game = createGame(seed, { progress: progressAt(rodStage), combat });
   for (let i = 0; i < 2000000; i++) {
     if (game.phase === PHASES.WAITING && game.cast.fish.id === fishId) {
