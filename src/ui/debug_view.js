@@ -258,7 +258,7 @@ const QUICK_SEED_SALT = 0x6a09e667;
  * 選んだ合わせの結果(成功・ジャスト)のときにタップしたことにする。戦いのあとは、待っていた魚から釣りに戻る。
  * 魚の系統の乱数は引かない。投げる・待つ・休みのときだけ始められる。
  * @param {any} game @param {string} fishId @param {"good" | "just"} grade
- * @returns {{ ok: boolean, error?: string }}
+ * @returns {{ ok: boolean, error?: string, hook?: { grade: string, strike?: any } }}
  */
 export function startQuickFight(game, fishId, grade) {
   const okPhase = game.phase === PHASES.CASTING || game.phase === PHASES.WAITING || game.phase === PHASES.RESTING;
@@ -277,5 +277,6 @@ export function startQuickFight(game, fishId, grade) {
   if (grade === HOOK_GRADES.JUST) game.phaseMs = timing.justStart;
   else game.phaseMs = timing.successStart < timing.justStart ? timing.successStart : timing.justEnd;
   const result = tap(game);
-  return result && result.action === "hook" ? { ok: true } : { ok: false, error: "始められませんでした" };
+  // 強い魚のジャストなら、初撃が入る(体力以上なら、その場で釣り上げ:D-256)。hook は画面の演出に使う。
+  return result && result.action === "hook" ? { ok: true, hook: /** @type {any} */ (result) } : { ok: false, error: "始められませんでした" };
 }

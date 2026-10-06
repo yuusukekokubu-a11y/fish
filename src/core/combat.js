@@ -9,7 +9,8 @@ import { softCurve } from "./formula.js";
 // - timeLimitBonusMs:魚ごとの制限時間に足す時間(装備の糸などで増える)
 // - zoneWidthBonus:命中範囲の幅を広げる割合(%。装備のルアー:D-181)。幅 ×(1 + n / 100)
 // - penetration:貫通(魚の防御から引く割合。1 で 100%:D-235)
-// - hook:合わせの縮む輪 { normal: { ringMs, successMs, justMs }, strong: {...}, justMultiplier }(D-084・D-087)
+// - justMultiplier:ジャスト倍率。強い魚のジャストの初撃 = 1 命中の基本のダメージ × これ(D-256)
+// - hook:合わせの縮む輪 { normal: { ringMs, successMs, justMs }, strong: {...} }(D-084・D-087)
 // 装備は、基本の表に足し算した表を作り、ここで点検してから使う(gear.js の applyGear:D-181)。
 
 function finiteOr(value, fallback) {
@@ -42,6 +43,7 @@ export function normalizeCombat(stats, base, limits) {
     ),
     zoneWidthBonus: clamp(finiteOr(s.zoneWidthBonus, base.zoneWidthBonus ?? 0), 0, limits.maxZoneWidthBonus),
     penetration: clamp(finiteOr(s.penetration, base.penetration ?? 0), 0, limits.maxPenetration ?? Infinity),
+    justMultiplier: clamp(finiteOr(s.justMultiplier, base.justMultiplier ?? 1), 1, limits.maxJustMultiplier ?? Infinity),
     hook: normalizeHook(s.hook, base.hook, limits),
   };
 }
@@ -66,8 +68,7 @@ export function normalizeHook(hook, base, limits) {
   const h = hook ?? {};
   const normal = normalizeRing(h.normal, base.normal, limits, null);
   const strong = normalizeRing(h.strong, base.strong, limits, normal);
-  const justMultiplier = clamp(finiteOr(h.justMultiplier, base.justMultiplier), 1, limits.maxJustMultiplier);
-  return { normal, strong, justMultiplier };
+  return { normal, strong };
 }
 
 /** 輪の時間の区切り(「!」からのミリ秒)。 */
@@ -90,13 +91,16 @@ export function judgeHook(timing, t) {
 }
 
 /**
- * 戦闘中の一時的な上乗せ(D-089・D-186)。{ id, damageMultiplier?, when?, effects?, uses } の一覧。
- * - damageMultiplier:命中のダメージに掛ける倍率(ジャスト)。クリティカルのあとに掛けて四捨五入する。
- * - when・effects:条件発動型の「次の命中に効く」効果(先手・勢いなど)。fishing.js の triggeredStats が使う。
+ * 強い魚のジャストの初撃のダメージ(D-256)。1 命中の基本のダメージ × ジャスト倍率を四捨五入し、
+ * 安全上限で止めてから、実効防御で減らす(最小 1)。クリティカルの判定はしない(乱数を引かない)。
+ * @param {number} damage 1 命中の基本のダメージ(表の damage)
+ * @param {number} justMultiplier 逓減をかけたジャスト倍率
+ * @param {number} effDefense 実効防御
+ * @param {number} maxHitDamage 1 命中のダメージの安全上限
  */
-export function boostedDamage(damage, boosts) {
-  const multiplier = boosts.reduce((m, b) => m * (b.damageMultiplier ?? 1), 1);
-  return Math.max(damage, Math.round(damage * multiplier));
+export function strikeDamage(damage, justMultiplier, effDefense, maxHitDamage) {
+  const raw = Math.min(maxHitDamage, Math.max(damage, Math.round(damage * justMultiplier)));
+  return { raw, damage: defendedDamage(raw, effDefense) };
 }
 
 /**
@@ -120,7 +124,10 @@ export function widenZone(zone, width, margin) {
   return { start, end: start + width };
 }
 
-/** 命中したあと、上乗せの残り回数を 1 減らし、0 になったものを消す。 */
+/**
+ * 戦闘中の一時的な上乗せ(D-186)は { id, when, effects, uses } の一覧(先手・勢いなど)。fishing.js の triggeredStats が使う。
+ * 命中したあと、上乗せの残り回数を 1 減らし、0 になったものを消す。
+ */
 export function consumeBoosts(boosts) {
   return boosts.map((b) => ({ ...b, uses: b.uses - 1 })).filter((b) => b.uses > 0);
 }
@@ -173,15 +180,19 @@ export function hitDamage(stats, critical, limits = null) {
 }
 
 /**
- * 会心率・会心の倍率・貫通の合計に、逓減をかけた値(D-239・D-245)。knee までは そのまま、こえた分は log で緩やか(上限なし)。
+ * 会心率・会心の倍率・貫通・ジャスト倍率の合計に、逓減をかけた値(D-255・D-257・D-260)。knee までは そのまま、こえた分は log で緩やか(上限なし)。
  * curves がなければ、そのまま(前と同じ)。
- * @param {{ critChance: number, critMultiplier: number, penetration?: number }} stats
- * @param {{ critChanceCurve?: Curve, critMultiplierCurve?: Curve, penetrationCurve?: Curve } | null} curves
+ * @template {{ critChance: number, critMultiplier: number, penetration?: number, justMultiplier?: number }} T
+ * @param {T} stats
+ * @param {{ critChanceCurve?: Curve, critMultiplierCurve?: Curve, penetrationCurve?: Curve, justMultiplierCurve?: Curve } | null} curves
+ * @returns {T}
  */
 export function effectiveStats(stats, curves) {
   if (!curves) return stats;
   return {
     ...stats,
+    justMultiplier:
+      curves.justMultiplierCurve && stats.justMultiplier !== undefined ? softCurve(stats.justMultiplier, curves.justMultiplierCurve) : stats.justMultiplier,
     critChance: curves.critChanceCurve ? softCurve(stats.critChance, curves.critChanceCurve) : stats.critChance,
     critMultiplier: curves.critMultiplierCurve ? softCurve(stats.critMultiplier, curves.critMultiplierCurve) : stats.critMultiplier,
     penetration: curves.penetrationCurve ? softCurve(stats.penetration ?? 0, curves.penetrationCurve) : (stats.penetration ?? 0),

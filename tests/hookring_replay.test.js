@@ -15,13 +15,14 @@ test("同じシードと同じ操作で、合わせ・釣果・ウロコイン�
   }
 });
 
-test("記録には、ジャスト・成功・時間切れ・体力ゼロが含まれている", () => {
+test("記録には、ジャスト・成功・時間切れ・体力ゼロ・ジャストの初撃での釣り上げ(D-256)が含まれている", () => {
   const rows = Object.values(FIXTURE.plays).flatMap((p) => p.results);
   for (const [reason, hook] of [
     ["hp-zero", "just"],
     ["hooked", "just"],
     ["hooked", "good"],
     ["timeout", "good"],
+    ["strike", "just"],
   ]) {
     assert.ok(rows.some((r) => r[3] === reason && r[4] === hook), `${reason}/${hook}`);
   }

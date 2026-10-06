@@ -1,4 +1,4 @@
-// 重いテスト:限界の確かめ(段階 100・魚 300 種類:②-4c 土台の条件 4・5、D-204・D-226・D-227・D-233)。
+// 重いテスト:限界の確かめ(段階 100・魚 300 種類:②-4c 土台の条件 4・5、戦闘の調整の条件 8:D-204・D-226・D-233・D-253・D-259)。
 // 本番の表は変えず、テストの中で大きな表(synthetic.js)を作る。結果の数字は報告に使う(console.log)。
 
 import assert from "node:assert/strict";
@@ -17,7 +17,7 @@ import { crateCards, inventoryRows } from "../../src/ui/gear_view.js";
 import { materialsView, statusView } from "../../src/ui/screen_views.js";
 import { skillRows } from "../../src/ui/skill_view.js";
 import { progressAt } from "../helpers.js";
-import { makePolicy } from "./policy.js";
+import { policyOf, SKILLED, SLOPPY } from "./policy.js";
 
 const G_MAX = 100;
 const BIG = syntheticContent(G_MAX);
@@ -43,7 +43,7 @@ test("段階 100・魚 300 種類の表:形に問題がなく、数字は安全�
     };
     for (const [k, v] of Object.entries(row)) assert.ok(Number.isSafeInteger(v) && v > 0 && v < SAFE, `g=${g} ${k}=${v}`);
     if (prev) for (const k of Object.keys(row)) assert.ok(row[k] >= prev[k], `g=${g} ${k} が下がった:${prev[k]} → ${row[k]}`);
-    // ヌシの体力は、5 段階ごとの位置 s で上下する(s=1 で短い戦いに戻る:D-238)。同じ s の中で伸びる。
+    // ヌシの体力は、5 段階ごとの位置 s で上下する(s=1 で短い戦いに戻る:D-254)。同じ s の中で伸びる。
     const bossHp = fishHp("boss", g);
     assert.ok(Number.isSafeInteger(bossHp) && bossHp > 0 && bossHp < SAFE, `g=${g} ヌシの体力 ${bossHp}`);
     if (g > 5) assert.ok(bossHp >= fishHp("boss", g - 5), `g=${g} ヌシの体力が 5 段階前より下がった`);
@@ -87,9 +87,9 @@ function geared(g) {
 }
 
 /** 段階 g で、done(game) が true になるまでの時間(秒)。 */
-function secondsUntil(g, done, rate, hookOk, seed, limitMs = 3600000) {
+function secondsUntil(g, done, style, seed, limitMs = 3600000) {
   const game = createGame(seed, { content: BIG, progress: geared(g) });
-  const policy = makePolicy(rate, hookOk, seed);
+  const policy = policyOf(style, seed);
   for (let t = 16; t <= limitMs; t += 16) {
     update(game, 16);
     policy(game);
@@ -101,28 +101,28 @@ function secondsUntil(g, done, rate, hookOk, seed, limitMs = 3600000) {
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 const SEEDS = [1, 2, 3, 4, 5];
 
-test("時間:クレート 1 回分は 1〜3 分(ときどき失敗でも 4 分以内)、製作までは g=1 で約 4 分、g=100 でも 30 分以内(上手に、段階 g の平均的な装備で)", () => {
+test("時間:クレート 1 回分は上手で 30〜90 秒(ときどき失敗でも 120 秒以内)、製作までは g=1 で約 3 分、g=100 でも 30 分以内(段階 g の平均的な装備で)", () => {
   const crates = makeCrates(BIG, DEFAULT_CONFIG);
   const lines = [];
   const worst = { crate: 0, sloppy: 0, craft: 0 };
   const shown = [1, 2, 3, 4, 5, 10, 25, 50, 100];
   for (let g = 1; g <= G_MAX; g++) {
     const price = crates[g - 1].price;
-    const crateSkilled = median(SEEDS.map((s) => secondsUntil(g, (game) => game.progress.coins >= price, 1, 1, s)));
-    const crateSloppy = median(SEEDS.map((s) => secondsUntil(g, (game) => game.progress.coins >= price, 0.7, 0.8, s)));
+    const crateSkilled = median(SEEDS.map((s) => secondsUntil(g, (game) => game.progress.coins >= price, SKILLED, s)));
+    const crateSloppy = median(SEEDS.map((s) => secondsUntil(g, (game) => game.progress.coins >= price, SLOPPY, s)));
     const strong = BIG.fish.find((f) => f.kind === FISH_KINDS.STRONG && f.stage === g);
     const need = craftCount(g);
-    const craft = median(SEEDS.map((s) => secondsUntil(g, (game) => (game.progress.scales[strong.id] ?? 0) >= need, 1, 1, s)));
+    const craft = median(SEEDS.map((s) => secondsUntil(g, (game) => (game.progress.scales[strong.id] ?? 0) >= need, SKILLED, s)));
     worst.crate = Math.max(worst.crate, crateSkilled);
     worst.sloppy = Math.max(worst.sloppy, crateSloppy);
     worst.craft = Math.max(worst.craft, craft);
-    if (shown.includes(g)) lines.push(`g=${g}:クレート ${price}(上手 ${(crateSkilled / 60).toFixed(1)} 分・ときどき失敗 ${(crateSloppy / 60).toFixed(1)} 分)、製作 ${need} 枚 ${(craft / 60).toFixed(1)} 分`);
-    assert.ok(crateSkilled >= 60 && crateSkilled <= 180, `g=${g} クレート 上手 ${crateSkilled} 秒`);
-    assert.ok(crateSloppy <= 240, `g=${g} クレート ときどき失敗 ${crateSloppy} 秒`);
+    if (shown.includes(g)) lines.push(`g=${g}:クレート ${price}(上手 ${crateSkilled.toFixed(0)} 秒・ときどき失敗 ${crateSloppy.toFixed(0)} 秒)、製作 ${need} 枚 ${(craft / 60).toFixed(1)} 分`);
+    assert.ok(crateSkilled >= 30 && crateSkilled <= 90, `g=${g} クレート 上手 ${crateSkilled} 秒`);
+    assert.ok(crateSloppy <= 120, `g=${g} クレート ときどき失敗 ${crateSloppy} 秒`);
     assert.ok(craft <= 1800, `g=${g} 製作 ${craft} 秒`);
     if (g === 1) assert.ok(craft >= 120 && craft <= 330, `g=1 の製作 ${craft} 秒(約 3〜5 分)`);
   }
-  lines.push(`全ての g(1〜100)で一番長いもの:クレート 上手 ${(worst.crate / 60).toFixed(1)} 分・ときどき失敗 ${(worst.sloppy / 60).toFixed(1)} 分、製作 ${(worst.craft / 60).toFixed(1)} 分`);
+  lines.push(`全ての g(1〜100)で一番長いもの:クレート 上手 ${worst.crate.toFixed(0)} 秒・ときどき失敗 ${worst.sloppy.toFixed(0)} 秒、製作 ${(worst.craft / 60).toFixed(1)} 分`);
   console.log(lines.join("\n"));
 });
 

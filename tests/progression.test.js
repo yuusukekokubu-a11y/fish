@@ -132,7 +132,9 @@ test("報酬:釣れたら魚の報酬(強い魚は自分の鱗)、逃げられ�
   for (const r of game.results) {
     const fish = fishById(r.fishId);
     if (r.outcome === OUTCOMES.CAUGHT) {
-      assert.deepEqual(r.reward, fish.reward);
+      // 弱い魚のジャストはウロコイン × 1.5(D-258)。
+      const coins = fish.kind === FISH_KINDS.WEAK && r.hook === "just" ? Math.max(1, Math.round(fish.reward.coins * 1.5)) : fish.reward.coins;
+      assert.deepEqual(r.reward, { ...fish.reward, coins });
       if (fish.kind === FISH_KINDS.STRONG) scales[fish.id] = (scales[fish.id] ?? 0) + 1;
     } else {
       assert.deepEqual(r.reward, { coins: 0, scales: 0 });

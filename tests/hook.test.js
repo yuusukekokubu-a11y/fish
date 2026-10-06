@@ -69,18 +69,17 @@ test("範囲外の輪の値は丸める(下限・成功帯 ≤ 輪 − 0.3 秒�
     {
       normal: { ringMs: -5, successMs: 99999, justMs: 99999 },
       strong: { ringMs: 5000, successMs: 4000, justMs: 3000 },
-      justMultiplier: 99,
     },
     BASE_HOOK,
     LIMITS,
   );
   assert.deepEqual(h.normal, { ringMs: 1000, successMs: 700, justMs: 700 });
   assert.deepEqual(h.strong, { ringMs: 5000, successMs: 700, justMs: 700 }, "強い魚の帯は弱い魚の帯まで");
-  assert.equal(h.justMultiplier, 5);
-  const low = normalizeHook({ normal: { ringMs: 1600, successMs: 10, justMs: 0 }, justMultiplier: 0.2 }, BASE_HOOK, LIMITS);
+  // ジャスト倍率は輪ではなく、戦闘の数値の表の項目(D-256)。
+  assert.equal("justMultiplier" in h, false);
+  const low = normalizeHook({ normal: { ringMs: 1600, successMs: 10, justMs: 0 } }, BASE_HOOK, LIMITS);
   assert.deepEqual(low.normal, { ringMs: 1600, successMs: 250, justMs: 100 });
-  assert.equal(low.justMultiplier, 1);
-  const odd = normalizeHook({ normal: { ringMs: NaN, successMs: "x" }, strong: null, justMultiplier: undefined }, BASE_HOOK, LIMITS);
+  const odd = normalizeHook({ normal: { ringMs: NaN, successMs: "x" }, strong: null }, BASE_HOOK, LIMITS);
   assert.deepEqual(odd, normalizeHook(BASE_HOOK, BASE_HOOK, LIMITS), "数でない値は基本の値");
 });
 
@@ -96,12 +95,13 @@ test("判定の境界(関数):始まりを含み、終わりを含まない", ()
   assert.equal(judgeHook(t, 1599.999), "good");
 });
 
-for (const [fishId, kind] of [
-  ["aji", FISH_KINDS.WEAK],
-  ["kurodai", FISH_KINDS.STRONG],
+// 強い魚はブリ(段階 5):ジャストの初撃(10 × 3)では釣れないので、合わせのあとは必ず体力制になる(D-256)。
+for (const [fishId, kind, rodStage] of [
+  ["aji", FISH_KINDS.WEAK, 1],
+  ["buri", FISH_KINDS.STRONG, 5],
 ]) {
   test(`判定の境界(ゲームの中、${kind}):早すぎ/成功/ジャスト/遅すぎ`, () => {
-    const timing = currentHookTiming(untilBite(fishId, { rodStage: 1 }));
+    const timing = currentHookTiming(untilBite(fishId, { rodStage }));
     const cases = [
       [0, "early"],
       [timing.successStart - 1, "early"],
@@ -113,7 +113,7 @@ for (const [fishId, kind] of [
       [timing.ringMs - 1, "good"],
     ];
     for (const [t, grade] of cases) {
-      const { game, result } = tapAt(fishId, t, { rodStage: 1 });
+      const { game, result } = tapAt(fishId, t, { rodStage });
       assert.equal(result.grade, grade, `${t} ミリ秒`);
       if (grade === "early") {
         assert.equal(game.phase, PHASES.RESULT);
@@ -123,11 +123,11 @@ for (const [fishId, kind] of [
       }
     }
     // 輪の時間ちょうどで、タップしていなければ遅すぎ。
-    const { game, result } = tapAt(fishId, timing.ringMs, { rodStage: 1 });
+    const { game, result } = tapAt(fishId, timing.ringMs, { rodStage });
     assert.equal(result, null);
     assert.deepEqual([game.lastResult.outcome, game.lastResult.reason], [OUTCOMES.ESCAPED, REASONS.LATE]);
     assert.equal(tap(game), null, "逃げたあとのタップは何もしない");
-    assert.deepEqual(game.progress, progressAt(1));
+    assert.deepEqual(game.progress, progressAt(rodStage));
   });
 }
 
@@ -190,7 +190,7 @@ test("早すぎ・遅すぎは、どちらも「続けて逃した数」に入�
   assert.equal(game.phase, PHASES.RESTING);
 });
 
-test("弱い魚は、どの段階でも成功帯の合わせで釣り上げ。ジャストでも報酬は同じ(表示だけ)", () => {
+test("弱い魚は、どの段階でも成功帯の合わせで釣り上げ。ジャストならウロコイン × 1.5(四捨五入、最小 1:D-258)", () => {
   for (const fish of FISH_LIST.filter((f) => f.kind === FISH_KINDS.WEAK)) {
     for (const [at, grade] of [
       ["successStart", "good"],
@@ -204,7 +204,8 @@ test("弱い魚は、どの段階でも成功帯の合わせで釣り上げ。�
       assert.equal(game.lastResult.outcome, OUTCOMES.CAUGHT);
       assert.equal(game.lastResult.reason, REASONS.HOOKED);
       assert.equal(game.lastResult.hook, grade);
-      assert.deepEqual(game.lastResult.reward, fish.reward);
+      const coins = grade === "just" ? Math.max(1, Math.round(fish.reward.coins * 1.5)) : fish.reward.coins;
+      assert.deepEqual(game.lastResult.reward, { ...fish.reward, coins });
     }
   }
 });

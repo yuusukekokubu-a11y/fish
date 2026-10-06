@@ -17,11 +17,11 @@ import { growthMaxLevel } from "./formula.js";
  * - reward:報酬(coins)を、1 + レベル × perLevel 倍にする(鱗を増やすスキルは作らない:D-196)。
  * - wait:待ち時間を、1 − レベル × perLevel 倍にする(下限あり)。
  * - trigger:条件発動型(D-184〜D-187)。戦闘の流れの条件(when)を満たした命中にだけ、効果(effect)を足す。
- *   when:"combo"(連撃の段数 1 段ごと)・"firstHit"(合わせ成功のあとの最初の命中)・"just"(ジャストのあとの最初の命中)・
+ *   when:"combo"(連撃の段数 1 段ごと)・"firstHit"(合わせ成功のあとの最初の命中)・"just"(強い魚のジャストの初撃:D-256)・
  *   "lowHp"(体力が最大の一定割合以下)・"afterCrit"(クリティカルの次の命中)・"fullHp"(体力が満タンで、戦闘の最初の命中まで:D-192)・
  *   "core"(命中範囲の芯で命中)・"edge"(命中範囲の縁で命中:D-197)。
  *   effect:"damage"(ダメージを足す)・"critChance"(会心率を足す)・"damagePct"(ダメージを 1 + n 倍)・
- *   "justMultiplier"(ジャスト倍率を足す)・"penetration"(貫通を足す:D-236)。
+ *   "justMultiplier"(ジャストの初撃の倍率を足す:D-257)・"penetration"(貫通を足す:D-236)。
  * @typedef {{ kind: "combat", stat: string, op: "add" | "scale" } | { kind: "hook", band: "successMs" | "justMs" }
  *   | { kind: "reward", what: "coins" } | { kind: "wait" }
  *   | { kind: "trigger", when: TriggerWhen, effect: TriggerEffect }} SkillTarget
@@ -70,7 +70,7 @@ export const SKILL_ROWS = Object.freeze([
     name: "会心威力",
     type: "growth",
     target: { kind: "combat", stat: "critMultiplier", op: "add" },
-    perLevel: 0.1,
+    perLevel: 0.05,
     display: { label: "クリティカルの倍率", scale: 1, unit: " 倍", sign: "+" },
     description: "クリティカルのダメージが大きくなる。",
   },
@@ -161,9 +161,9 @@ export const SKILL_ROWS = Object.freeze([
     name: "ジャスト・ブースト",
     type: "growth",
     target: { kind: "trigger", when: "just", effect: "justMultiplier" },
-    perLevel: 0.15,
-    display: { label: "ジャスト倍率", scale: 1, unit: "", sign: "+", when: "ジャストのあとの最初の命中で" },
-    description: "合わせがジャストのとき、最初の命中の倍率が上がる。",
+    perLevel: 0.3,
+    display: { label: "ジャストの初撃", scale: 1, unit: " 倍", sign: "+", when: "強い魚の" },
+    description: "強い魚をジャストで合わせたときの初撃が強くなる(ジャストの初撃 +0.3 倍/レベル)。",
   },
   {
     id: "finisher",

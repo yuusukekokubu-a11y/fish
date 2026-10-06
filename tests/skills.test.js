@@ -137,7 +137,7 @@ test("効果の反映:20 個のスキルの、レベル 0〜最大(条件発動�
           assert.ok(Math.abs(c.critChance - (b.critChance + 0.15 * level)) < 1e-9);
           break;
         case "crit-power":
-          assert.ok(Math.abs(c.critMultiplier - (b.critMultiplier + 0.1 * level)) < 1e-9, "1 レベル +0.1(D-239)");
+          assert.ok(Math.abs(c.critMultiplier - (b.critMultiplier + 0.05 * level)) < 1e-9, "1 レベル +0.05(D-255)");
           break;
         case "penetration":
           assert.ok(Math.abs(c.penetration - (b.penetration + 0.1 * level)) < 1e-9, "1 レベル +10%");

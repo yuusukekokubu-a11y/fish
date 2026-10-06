@@ -1,5 +1,5 @@
 // @ts-check
-// 装備・クレート・ガチャ(D-120〜D-123・D-137〜D-143・D-146〜D-149・D-181)。
+// 装備・クレート・ガチャ(D-120〜D-123・D-137〜D-143・D-253〜D-149・D-181)。
 // - 装備の種類とレア度は、下の表(データ)で決まる。種類は「戦闘の数値の表」の項目 1 つに足し算する。
 //   既にある項目を使う種類なら、表に 1 行足すだけで抽選に加わり、戦闘に効く。
 // - クレートは、魚と段階の表から自動で作る(段階ごとに 1 種類)。価格は段階の稼ぎの数式で決める。
@@ -72,6 +72,7 @@ import { levelRange, SKILL_ROWS } from "./skills.js";
  * @typedef {object} GachaConfig
  * @property {number} targetSeconds クレート 1 回分が貯まる目標の時間(秒)
  * @property {number} secondsPerCast 1 回投げて結果が出るまでの平均の時間(秒。測った値)
+ * @property {number} [justRate] 価格の稼ぎを見積もるときの、ジャストの割合(D-259)
  * @property {number} gradeGrowth グレードが 1 上がるごとに、基本効果の範囲が増える割合
  * @property {number} inventoryMax 持ち物の上限
  * @property {number} pullMax 1 回に引ける最大の回数(10 連)
@@ -93,6 +94,7 @@ import { levelRange, SKILL_ROWS } from "./skills.js";
  * @typedef {object} FishingConfigLike
  * @property {number} strongChance
  * @property {GachaConfig} gacha
+ * @property {number} [weakJustCoins] 弱い魚のジャストのウロコインの倍率(D-258)
  */
 
 /** @type {readonly Rarity[]} */
@@ -172,26 +174,29 @@ export function niceRound(n) {
 /**
  * 段階 stage で、1 回投げたときに増えるウロコインの期待値(上手に遊んで全部釣れたとき)。
  * 区分ごとに、段階 stage 以下の魚を抽選の重み(段階ごとに 2 倍:D-046)で平均する。
- * @param {ContentLike} content @param {number} stage @param {number} strongChance
+ * weakFactor は、弱い魚のウロコインに掛ける見込みの倍率(ジャストの分:D-258。なければ 1)。
+ * @param {ContentLike} content @param {number} stage @param {number} strongChance @param {number} [weakFactor]
  */
-export function coinsPerCast(content, stage, strongChance) {
+export function coinsPerCast(content, stage, strongChance, weakFactor = 1) {
   /** @param {string} kind */
   const average = (kind) => {
     const list = content.fish.filter((f) => f.kind === kind && f.stage <= stage);
     const weight = list.reduce((sum, f) => sum + 2 ** (f.stage - 1), 0);
     return weight === 0 ? 0 : list.reduce((sum, f) => sum + 2 ** (f.stage - 1) * f.reward.coins, 0) / weight;
   };
-  return (1 - strongChance) * average("weak") + strongChance * average("strong");
+  return (1 - strongChance) * average("weak") * weakFactor + strongChance * average("strong");
 }
 
 /**
- * クレートの 1 回の価格(D-122・D-146)。
- * 価格 = 段階の毎秒の稼ぎ × 目標の時間。毎秒の稼ぎ = 1 回投げたときの期待値 ÷ 1 回の平均の時間。
+ * クレートの 1 回の価格(D-122・D-253)。
+ * 価格 = 段階の毎秒の稼ぎ × 目標の時間(60 秒)。毎秒の稼ぎ = 1 回投げたときの期待値 ÷ 1 回の平均の時間。
+ * 期待値は「上手」(ジャスト 70%:D-259)で見積もる(弱い魚のジャストの分を足す:D-258)。
  * 魚の表から作るので、段階を足しても手で決め直さずに済む。
  * @param {ContentLike} content @param {number} stage @param {FishingConfigLike} config
  */
 export function cratePrice(content, stage, config) {
-  const perSecond = coinsPerCast(content, stage, config.strongChance) / config.gacha.secondsPerCast;
+  const weakFactor = 1 + (config.gacha.justRate ?? 0) * ((config.weakJustCoins ?? 1) - 1);
+  const perSecond = coinsPerCast(content, stage, config.strongChance, weakFactor) / config.gacha.secondsPerCast;
   return niceRound(perSecond * config.gacha.targetSeconds);
 }
 

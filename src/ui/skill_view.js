@@ -32,7 +32,7 @@ export function currentStates(game, gear = game.progress.gear) {
   return skillStates(gear, game.progress.rodStage, config, skills);
 }
 
-/** 合計に逓減がかかる、戦闘の数値の項目と、その形の名前(D-239・D-245)。 */
+/** 合計に逓減がかかる、戦闘の数値の項目と、その形の名前(D-255・D-260)。 */
 const TAPERED_STATS = Object.freeze({ critChance: "critChanceCurve", critMultiplier: "critMultiplierCurve", penetration: "penetrationCurve" });
 
 /**
@@ -57,7 +57,7 @@ function effectiveAmount(skill, level) {
 }
 
 /**
- * 次のレベルでの増分の文(例:「Lv5→6:会心率 +15%」。逓減が始まっていれば「(増え方が少し緩やかです)」を付ける:D-239)。
+ * 次のレベルでの増分の文(例:「Lv5→6:会心率 +15%」。逓減が始まっていれば「(増え方が少し緩やかです)」を付ける:D-255)。
  * 最大なら null。
  * @param {SkillRow} skill @param {number} level @param {number} max
  */
@@ -114,7 +114,7 @@ export function skillRows(game) {
         .map((it) => ({ name: itemName(it, game.content), level: it.skills.find((x) => x.id === skill.id)?.level ?? 0 }))
         .filter((b) => b.level > 0),
       levels: Array.from({ length: s.max }, (_, i) => ({ level: i + 1, effect: formatSkillEffect(skill, i + 1, config, effectiveAmount(skill, i + 1)) })),
-      // 次のレベルでの増分(D-239)。最大なら null。
+      // 次のレベルでの増分(D-255)。最大なら null。
       next: nextLevelText(skill, s.level, s.max),
     };
   });

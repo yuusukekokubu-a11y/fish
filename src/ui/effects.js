@@ -27,7 +27,11 @@ export function addResultEffects(effects, result, now, content = undefined) {
     return;
   }
   const lines = [];
-  if (result.reward.coins > 0) lines.push(`+${formatCount(result.reward.coins)} ウロコイン`);
+  // 初撃で釣り上げたときは「一撃!」(D-256)。
+  if (result.reason === "strike") effects.floats.push({ text: "一撃!", start: now, ms: 1100, y: 0.24, size: 36, color: "#ffd166" });
+  // 弱い魚のジャストは、ウロコインの倍率の印を付ける(例:「+12 ウロコイン ×1.5」:D-258)。
+  const just = result.justCoinRate ? ` ×${result.justCoinRate}` : "";
+  if (result.reward.coins > 0) lines.push(`+${formatCount(result.reward.coins)} ウロコイン${just}`);
   if (result.reward.scales > 0) lines.push(`+${formatCount(result.reward.scales)} ${scaleName(result.fishId, content)}`);
   // 報酬の文字は空のあたりに出す(ダメージや「CRITICAL!」と重ならないように)。
   lines.forEach((text, i) => effects.floats.push({ text, start: now + i * 120, ms: FLOAT_MS, y: 0.32 + i * 0.05 }));
@@ -35,13 +39,15 @@ export function addResultEffects(effects, result, now, content = undefined) {
 
 /**
  * 合わせたときの演出(D-082・D-092)。成功は「合わせ!」、ジャストは金色の「ジャスト!」と小さな特別な光。
+ * 強い魚のジャストの初撃(strike:D-256)は、通常の命中より大きな数字と、大きめの光と揺れ。
  * 早すぎは結果の文(「早すぎ…」)だけで、ここでは何もしない。
  */
-export function addHookEffects(effects, grade, now) {
+export function addHookEffects(effects, grade, now, strike = null) {
   if (grade === "just") {
-    effects.flash = { color: "255,209,102", start: now, ms: 320, strength: 0.4 };
-    effects.shake = { start: now, ms: 160, amplitude: 5 };
-    effects.floats.push({ text: "ジャスト!", start: now, ms: 900, y: 0.3, size: 28, color: "#ffd166" });
+    effects.flash = { color: "255,209,102", start: now, ms: 320, strength: strike ? 0.55 : 0.4 };
+    effects.shake = { start: now, ms: strike ? 320 : 160, amplitude: strike ? 12 : 5 };
+    effects.floats.push({ text: "ジャスト!", start: now, ms: 900, y: 0.3, size: strike ? 34 : 28, color: "#ffd166" });
+    if (strike) effects.floats.push({ text: `-${formatCount(strike.damage)}`, start: now, ms: 1000, y: 0.58, size: STRIKE_SIZE, color: strike.defended ? DEFENDED_COLOR : "#ffd166" });
     return;
   }
   if (grade === "good") {
@@ -89,6 +95,9 @@ export function addHitEffects(effects, hit, now) {
   effects.shake = { start: now, ms: 150, amplitude: 4 };
   effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 650, y: 0.58, size: triggered ? 28 : 24, color: hit.defended ? DEFENDED_COLOR : band ? band.color : triggered ? "#8be9fd" : "#ffd166" });
 }
+
+/** 初撃の数字の大きさ(通常の命中 24、クリティカル 34 より大きい:D-256)。 */
+export const STRIKE_SIZE = 44;
 
 /** 防御で減ったダメージの数字の色(灰色がかった青)。 */
 export const DEFENDED_COLOR = "#9fb7d9";

@@ -102,14 +102,14 @@ test("縁:縁で命中したときだけ、ダメージ +20% × Lv。芯・通�
   assert.equal(game.fight.combo, 0);
 });
 
-test("計算の順:基本(表 + 連撃・攻)→(1 + とどめ + 縁)を掛けて四捨五入 → クリティカル → ジャスト。芯の会心率で乱数は増えない", () => {
-  const game = bossFight({ edge: 2, finisher: 1, "combo-power": 1 }, { ...noCrit, critChance: 1, critMultiplier: 2 });
+test("計算の順:基本(表 + 連撃・攻)→(1 + とどめ + 縁)を掛けて四捨五入 → クリティカル。芯の会心率で乱数は増えない", () => {
+  const game = bossFight({ edge: 2, finisher: 1, "combo-power": 1 }, { ...noCrit, critChance: 1, critMultiplier: 1.5 });
   game.fight.hp = 10;
   game.fight.combo = 2;
   game.fight.zone = { ...ZONE };
   game.fight.critRng = () => 0.5;
-  // (10 + 2) × (1 + 0.15 + 0.4) = 18.6 → 19、クリティカル 1 段 × 2 = 38。
-  assert.equal(tapAt(game, 0.6).damage, 38);
+  // (10 + 2) × (1 + 0.15 + 0.4) = 18.6 → 19、クリティカル 1 段 × 1.5 = 28.5 → 29(倍率は逓減の始まり 1.65 より下:D-255)。
+  assert.equal(tapAt(game, 0.6).damage, 29);
   // 乱数の回数:芯・縁があっても、命中 1 回につき 1 回。
   const g2 = bossFight({ core: 3, edge: 3 }, DEFAULT_CONFIG.combat);
   let calls = 0;

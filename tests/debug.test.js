@@ -198,11 +198,13 @@ test("すぐ戦う:選んだ魚と合わせの結果で始まり、戦いのあ�
   const plain = freshGame(1);
   const game = freshGame(1);
   const before = plain.cast;
-  assert.equal(startQuickFight(game, "kurodai", "just").ok, true);
+  // ジャストなら初撃が入る(D-256)。ブリは初撃(10 × 3)では釣れないので、減った体力で戦いになる。
+  const quick = startQuickFight(game, "buri", "just");
+  assert.equal(quick.ok, true);
   assert.equal(game.phase, PHASES.MINIGAME);
-  assert.equal(game.cast.fish.id, "kurodai");
+  assert.equal(game.cast.fish.id, "buri");
   assert.equal(game.hookGrade, "just");
-  assert.ok(game.fight.boosts.some((b) => b.id === "just"));
+  assert.ok(quick.hook.strike.damage > 0 && game.fight.hp === game.fight.maxHp - quick.hook.strike.damage);
   assert.equal(startQuickFight(game, "kurodai", "good").ok, false, "戦いの間は始められない");
   // 時間切れまで進めると、待っていた魚から続く。
   update(game, game.fight.timeLimitMs + game.config.resultMs + 1);

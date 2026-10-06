@@ -200,7 +200,7 @@ function main() {
     event.preventDefault();
     const result = tapSession(session);
     const now = performance.now();
-    if (result?.action === "hook") addHookEffects(effects, result.grade, now);
+    if (result?.action === "hook") addHookEffects(effects, result.grade, now, result.strike ?? null);
     else if (result?.action === "hit") addHitEffects(effects, result, now);
     else if (result?.action === "miss") addMissEffects(effects, result, now);
   });
@@ -247,6 +247,8 @@ function main() {
         refreshCombat(game);
         saveProgress(game.progress);
       },
+      // デバッグの「すぐ戦う」で合わせたときの演出(ジャストの初撃も:D-256)。
+      showHook: (hook) => addHookEffects(effects, hook.grade, performance.now(), hook.strike ?? null),
     },
     onChange: (screen) => applyNav(showScreen(nav, screen)),
   });

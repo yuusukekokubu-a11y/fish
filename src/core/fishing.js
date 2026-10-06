@@ -5,7 +5,6 @@
 // プレイヤーの操作がなければ、釣果は増えない(D-053)。
 
 import {
-  boostedDamage,
   consumeBoosts,
   critSeed,
   critStages,
@@ -20,6 +19,7 @@ import {
   judgeHook,
   lureZoneWidth,
   normalizeCombat,
+  strikeDamage,
   widenZone,
 } from "./combat.js";
 import { DEFAULT_CONFIG } from "./config.js";
@@ -62,6 +62,7 @@ export const REASONS = Object.freeze({
   HOOKED: "hooked", // 弱い魚を合わせで釣り上げた
   HP_ZERO: "hp-zero", // 強い魚・ヌシの体力をゼロにした
   TIMEOUT: "timeout", // 強い魚・ヌシとの制限時間が切れた
+  STRIKE: "strike", // 強い魚を、ジャストの初撃で釣り上げた(ミニゲームなし:D-256)
 });
 
 /**
@@ -244,10 +245,14 @@ function finish(game, outcome, reason) {
   const reward = caught ? scaledFishReward(game, fish) : NO_REWARD;
   const firstCatch = caught && !game.progress.seen.includes(fish.id);
   const result = { fishId: fish.id, kind, outcome, reason, reward, firstCatch, hook: game.hookGrade ?? null };
+  // 弱い魚のジャストのウロコインの倍率(D-258)。画面の「×1.5」に使う。
+  if (caught && justCoinRate(game) !== 1) result.justCoinRate = justCoinRate(game);
   if (game.fight) {
     result.hits = game.fight.hits;
     result.misses = game.fight.misses;
     result.crits = game.fight.crits;
+    // ジャストの初撃(D-256)。画面の「一撃!」や数字に使う。
+    if (game.fight.strike) result.strike = game.fight.strike;
   }
   game.results.push(result);
   game.lastResult = result;
@@ -269,11 +274,19 @@ function finish(game, outcome, reason) {
   enter(game, PHASES.RESULT);
 }
 
-/** 豊漁を効かせた報酬(ウロコインだけ。端数は四捨五入:D-196)。スキルがなければ、魚の表の報酬そのもの(前と同じ)。 */
+/**
+ * 豊漁と、弱い魚のジャストを効かせた報酬(ウロコインだけ)。順番は 基本 × ジャスト倍率 × 豊漁 で、
+ * まとめて四捨五入する(最小 1:D-196・D-258)。どちらもなければ、魚の表の報酬そのもの(前と同じ)。
+ */
 function scaledFishReward(game, fish) {
-  const { rates } = game;
-  if (rates.coins === 1) return fish.reward;
-  return { ...fish.reward, coins: scaledReward(fish.reward.coins, rates.coins) };
+  const rate = game.rates.coins * justCoinRate(game);
+  if (rate === 1) return fish.reward;
+  return { ...fish.reward, coins: Math.max(1, scaledReward(fish.reward.coins, rate)) };
+}
+
+/** 弱い魚をジャストで釣ったときのウロコインの倍率(D-258)。ほかは 1。 */
+export function justCoinRate(game) {
+  return game.cast.kind === FISH_KINDS.WEAK && game.hookGrade === HOOK_GRADES.JUST ? (game.config.weakJustCoins ?? 1) : 1;
 }
 
 /** 場面が時間切れになったときに、次の場面へ進める。 */
@@ -341,23 +354,18 @@ function fightZoneWidth(game) {
 /**
  * 戦闘を始める。grade は合わせの結果(ヌシ戦は null。合わせの成功とみなす:D-187)。
  * 条件発動型の「最初の命中」の効果は、戦闘中の一時的な上乗せ(fight.boosts)に積む(D-186)。
+ * 強い魚をジャストで合わせたら、初撃を入れる(D-256)。初撃の結果を返す(なければ null)。
  */
 function startFight(game, grade) {
   const { minigame, zone, minigameSeed } = game.cast;
   const t = game.triggers ?? {};
   /** @type {object[]} */
   const boosts = [];
-  // ジャストなら、最初の命中のダメージを上げる(D-089)。ジャスト・ブーストは、その倍率に足す(D-184)。
-  // ジャストの条件のほかの効果(ダメージ・会心率など)も、最初の命中に載せる。
-  if (grade === HOOK_GRADES.JUST) {
-    const multiplier = game.combat.hook.justMultiplier + (t.just?.justMultiplier ?? 0);
-    boosts.push(t.just ? { id: "just", damageMultiplier: multiplier, when: "just", effects: t.just, uses: 1 } : { id: "just", damageMultiplier: multiplier, uses: 1 });
-  }
-  // 先手:合わせの成功(ジャストを含む)とヌシ戦の始まりのあと、最初の命中に効く。
+  // 先手:合わせの成功(ジャストを含む)とヌシ戦の始まりのあと、最初の命中に効く。初撃のあとの最初の命中に乗る(D-256)。
   if (t.firstHit) boosts.push({ id: "first-hit", when: "firstHit", effects: t.firstHit, uses: 1 });
   const zoneWidth = fightZoneWidth(game);
   game.fight = {
-    // 戦闘中の一時的な上乗せ(D-089・D-186)。戦闘が終わると消え、保存しない。
+    // 戦闘中の一時的な上乗せ(D-186)。戦闘が終わると消え、保存しない。
     boosts,
     // 連撃の段数(続けて命中した回数)。ミスで 0 に戻る(D-185)。
     combo: 0,
@@ -374,8 +382,32 @@ function startFight(game, grade) {
     hits: 0,
     misses: 0,
     crits: 0,
+    // ジャストの初撃の結果(D-256)。なければ null。
+    strike: null,
   };
   enter(game, PHASES.MINIGAME);
+  if (grade === HOOK_GRADES.JUST && game.cast.kind === FISH_KINDS.STRONG) return justStrike(game);
+  return null;
+}
+
+/**
+ * ジャストの初撃(D-256)。1 命中の基本のダメージ × ジャスト倍率(表 + ジャスト・ブースト、逓減つき)を、実効防御で減らす。
+ * クリティカルの判定はしない(乱数を引かない)。命中に数えない(連撃・条件発動型は働かない)。
+ * 体力以上なら、その場で釣り上げる(ミニゲームなし)。届かなければ、減った体力でミニゲームを続ける。
+ */
+function justStrike(game) {
+  const { fight, combat, config } = game;
+  const limits = config.combatLimits;
+  const bonus = game.triggers?.just?.justMultiplier ?? 0;
+  const stats = effectiveStats({ ...combat, justMultiplier: combat.justMultiplier + bonus }, config.formula ?? null);
+  const multiplier = Math.min(limits.maxJustMultiplier, stats.justMultiplier);
+  const effDefense = effectiveDefense(game.cast.minigame.defense ?? 0, stats.penetration ?? 0);
+  const { raw, damage } = strikeDamage(combat.damage, multiplier, effDefense, limits.maxHitDamage);
+  fight.hp = Math.max(0, fight.hp - damage);
+  const strike = { damage, rawDamage: raw, defended: damage < raw, effDefense, multiplier, hp: fight.hp, maxHp: fight.maxHp, caught: fight.hp === 0 };
+  fight.strike = strike;
+  if (strike.caught) finish(game, OUTCOMES.CAUGHT, REASONS.STRIKE);
+  return strike;
 }
 
 /**
@@ -450,15 +482,14 @@ function fightTap(game) {
   if (isHit(position, fight.zone)) {
     const triggered = triggeredStats(game, position);
     const active = triggered.active;
-    // 会心率・倍率・貫通の合計に逓減をかける(D-239・D-245)。
+    // 会心率・倍率・貫通の合計に逓減をかける(D-255・D-260)。
     const stats = effectiveStats(triggered.stats, config.formula ?? null);
     // クリティカルの乱数は、命中のたびに 1 回だけ引く。会心率 100% 超は追加の段(D-169)。
     const roll = fight.critRng();
     const limits = config.combatLimits;
     const stages = critStages({ roll, stats, position, zone: fight.zone }, game.critRules, limits.maxCritStages);
     const critical = stages > 0;
-    const boosted = fight.boosts.some((b) => b.damageMultiplier);
-    const raw = Math.min(limits.maxHitDamage, boostedDamage(hitDamage(stats, stages, limits), fight.boosts));
+    const raw = Math.min(limits.maxHitDamage, hitDamage(stats, stages, limits));
     // 防御で減らす(通常の計算のあと。最小 1。実効防御 100% 以上はいつも 1:D-235)。
     const effDefense = effectiveDefense(game.cast.minigame.defense ?? 0, stats.penetration ?? 0);
     const damage = defendedDamage(raw, effDefense);
@@ -476,7 +507,6 @@ function fightTap(game) {
       damage,
       critical,
       critStages: stages,
-      boosted,
       triggers: active,
       // 防御:実効防御と、防御で減らす前のダメージ(画面の色分けに使う)。
       effDefense,
@@ -527,9 +557,13 @@ export function tap(game) {
         return { action: "hook", grade };
       }
       game.hookGrade = grade;
-      if (game.cast.kind !== FISH_KINDS.WEAK) startFight(game, grade);
-      else enter(game, PHASES.REELING);
-      return { action: "hook", grade };
+      if (game.cast.kind === FISH_KINDS.WEAK) {
+        enter(game, PHASES.REELING);
+        return { action: "hook", grade };
+      }
+      // 強い魚のジャストなら初撃が入る(体力以上なら、その場で釣り上げ:D-256)。
+      const strike = startFight(game, grade);
+      return strike ? { action: "hook", grade, strike } : { action: "hook", grade };
     }
     case PHASES.MINIGAME:
       return fightTap(game);

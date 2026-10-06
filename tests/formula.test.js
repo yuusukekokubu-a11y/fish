@@ -56,11 +56,13 @@ test("式の数(config.formula)を変えると、表の数値・価格・ゲー�
     if (game.phase === PHASES.RESTING) tap(game);
   }
   const r = game.results.find((x) => x.fishId === "aji" && x.outcome === OUTCOMES.CAUGHT);
-  assert.equal(r.reward.coins, fishCoins("weak", 1));
+  // ジャストで釣ったので × 1.5(四捨五入:D-258)。
+  assert.equal(r.reward.coins, Math.round(fishCoins("weak", 1) * 1.5));
 });
 
 // ②-4b4 のときの手書きの値(段階 1〜5)。手触りを ±15% 以内に保つ(D-226)。
-// ヌシの体力と制限時間は、②-4c 防御で「育てた装備で決まった命中回数」の式に作り直したので、ここでは比べない(D-238・D-245)。
+// ヌシの体力と制限時間は、②-4c 防御で「育てた装備で決まった命中回数」の式に作り直したので、ここでは比べない(D-260・D-254)。
+// クレートの価格は、目標の時間を 120 秒から 60 秒にしたので、およそ半分にした(下の別のテスト:D-253)。
 const OLD = {
   weakCoins: [1, 3, 8, 20, 50],
   strongCoins: [5, 15, 40, 100, 250],
@@ -68,10 +70,10 @@ const OLD = {
   strongHp: [20, 30, 40, 50, 60],
   strongTime: [8000, 9000, 10000, 11000, 12000],
   craft: [3, 4, 4, 5, 6],
-  price: [20, 46, 110, 260, 630],
 };
+const OLD_PRICE = [20, 46, 110, 260, 630];
 
-test("g=1〜5 の値は、②-4b4 のときの値から ±15% 以内(体力・報酬・製作の数・ヌシの強さ・価格・装備)", () => {
+test("g=1〜5 の値は、②-4b4 のときの値から ±15% 以内(体力・報酬・製作の数・装備)。価格はおよそ半分", () => {
   const prices = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG).map((c) => c.price);
   const now = {
     weakCoins: [1, 2, 3, 4, 5].map((g) => fishCoins("weak", g)),
@@ -80,8 +82,12 @@ test("g=1〜5 の値は、②-4b4 のときの値から ±15% 以内(体力・�
     strongHp: [1, 2, 3, 4, 5].map((g) => fishMinigame("strong", g).hp),
     strongTime: [1, 2, 3, 4, 5].map((g) => fishMinigame("strong", g).timeLimitMs),
     craft: [1, 2, 3, 4, 5].map((g) => craftCount(g)),
-    price: prices,
   };
+  // 価格は、およそ半分(目標の時間 60 秒。弱い魚のジャストの分だけ、ちょうど半分より少し高い:D-253・D-258)。
+  prices.forEach((p, i) => {
+    const ratio = p / OLD_PRICE[i];
+    assert.ok(ratio >= 0.45 && ratio <= 0.65, `価格 g=${i + 1}:${OLD_PRICE[i]} → ${p}(${ratio.toFixed(2)} 倍)`);
+  });
   for (const [k, olds] of Object.entries(OLD)) {
     olds.forEach((old, i) => {
       const diff = Math.abs(now[k][i] - old) / old;

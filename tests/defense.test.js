@@ -1,4 +1,4 @@
-// 防御と貫通のテスト(②-4c 防御の条件 1・7・8・11:D-235・D-236・D-239・D-245)。
+// 防御と貫通のテスト(②-4c 防御の条件 1・7・8・11:D-235・D-236・D-255・D-260)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -102,13 +102,15 @@ test("連撃・貫:連撃の段数ごとに貫通を足す(最大 10 段、ミ�
   assert.equal(game.triggers.combo.penetration, 0.04);
 });
 
-test("会心率・倍率・貫通の合計の逓減:knee までは そのまま、こえた分は log で緩やか(上限なし)", () => {
+test("会心率・倍率・貫通・ジャスト倍率の合計の逓減:knee までは そのまま、こえた分は log で緩やか(上限なし)", () => {
   const f = DEFAULT_CONFIG.formula;
   assert.equal(softCurve(1.15, f.critChanceCurve), 1.15);
   assert.ok(softCurve(2, f.critChanceCurve) < 2 && softCurve(2, f.critChanceCurve) > 1.15);
   assert.ok(softCurve(1000, f.critChanceCurve) > softCurve(100, f.critChanceCurve), "増え続ける");
-  const s = effectiveStats({ critChance: 0.5, critMultiplier: 2, penetration: 0.3 }, f);
-  assert.deepEqual([s.critChance, s.critMultiplier, s.penetration], [0.5, 2, 0.3], "knee より下は同じ");
+  const s = effectiveStats({ critChance: 0.5, critMultiplier: 1.6, penetration: 0.3, justMultiplier: 5 }, f);
+  assert.deepEqual([s.critChance, s.critMultiplier, s.penetration, s.justMultiplier], [0.5, 1.6, 0.3, 5], "knee より下は同じ");
+  // knee:会心の倍率 1.65(1.3 + 0.05 × 7:D-255)、ジャスト倍率 5.1(3 + 0.3 × 7:D-257)。
+  assert.deepEqual([f.critMultiplierCurve.knee, f.justMultiplierCurve.knee], [1.65, 5.1]);
 });
 
 test("画面:防御の表示(貫通があれば実効防御、100% 以上は目立たせる)と、次のレベルでの増分", () => {
