@@ -34,6 +34,7 @@ import { readUrlOptions, withUrlOptions } from "./url_params.js";
  * @property {() => void} onGearChanged
  * @property {() => void} backToMain
  * @property {(hook: { grade: string, strike?: any }) => void} [showHook] 合わせの演出を出す(ジャストの初撃も)
+ * @property {{ visible: () => boolean, setVisible: (on: boolean) => void }} [perf] 確かめ用の表示(D-286)
  */
 
 /** @param {string} title */
@@ -107,6 +108,20 @@ export function mountDebug(container, ctx) {
     row.append(field(f.label, box), set);
     values.append(row);
   }
+
+  // 確かめ用の表示(D-286):入力の遅れとフレーム間隔を、メイン画面の左下に出す・消す。
+  const perfBox = section("入力の遅れとフレーム間隔");
+  const perf = /** @type {HTMLInputElement} */ (el("input"));
+  perf.type = "checkbox";
+  perf.dataset.field = "perf";
+  perf.checked = ctx.perf ? ctx.perf.visible() : false;
+  perf.addEventListener("change", () => ctx.perf?.setVisible(perf.checked));
+  const perfLabel = el("label", "debug-check");
+  perfLabel.append(perf, el("span", "", "メイン画面の左下に出す"));
+  perfBox.append(
+    perfLabel,
+    el("p", "debug-note", "入力の遅れ:指が触れた瞬間から、処理が始まるまで(直近 20 回の平均と最大)。フレーム:描画の間隔(直近 120 回)。"),
+  );
 
   // 釣り場(D-273):解放済みの釣り場から選ぶ。竿の段階を決めると、釣り場は自動で決まる(行けない釣り場からは外れる)。
   const areaBox = section("釣り場");
@@ -244,5 +259,5 @@ export function mountDebug(container, ctx) {
   });
   reset.append(clear);
 
-  container.append(values, areaBox, baitBox, make, presets, fight, url, reset);
+  container.append(values, perfBox, areaBox, baitBox, make, presets, fight, url, reset);
 }

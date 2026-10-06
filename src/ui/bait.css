@@ -121,3 +121,71 @@
 .group-head[aria-expanded="false"] .group-mark::after {
   content: "▶";
 }
+/* タイミング補正(D-285)。 */
+.timing-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.timing-step {
+  min-width: 56px;
+  font-size: 20px;
+  font-weight: bold;
+}
+.timing-value {
+  min-width: 80px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+.timing-note {
+  margin: 8px 2px;
+  font-size: 14px;
+  opacity: 0.85;
+}
+.timing-measure {
+  min-height: 48px;
+  width: 100%;
+}
+.timing-pad {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 220px;
+  margin: 8px 0;
+  border: 0;
+  border-radius: 12px;
+  background: #0b3954;
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+.timing-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 180px;
+  height: 180px;
+  margin: -90px 0 0 -90px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.timing-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 27px;
+  height: 27px;
+  margin: -13.5px 0 0 -13.5px;
+  border-radius: 50%;
+  background: #ffd166;
+}
+.timing-status {
+  font-size: 14px;
+}
+.timing-apply,
+.timing-close {
+  min-height: 48px;
+  width: 100%;
+  margin-top: 6px;
+}
