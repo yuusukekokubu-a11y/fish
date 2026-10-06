@@ -8,19 +8,26 @@ import { test } from "node:test";
 import { createGame, PHASES, tap, update } from "../src/core/fishing.js";
 import { emptyGear } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
-import { parseSave, SAVE_KEY, toSaveData } from "../src/core/save.js";
+import { encodeSaveCode, parseSave } from "../src/core/savecode.js";
 import { skillStates } from "../src/core/skills.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import {
   addDebugItem,
   applyPreset,
   DEBUG_PRESETS,
-  DEBUG_SAVE_KEY,
   debugFields,
   parseDebugSave,
   setDebugField,
   startQuickFight,
 } from "../src/ui/debug_view.js";
+import {
+  DEBUG_SAVE_KEY,
+  OLD_DATA_MESSAGE,
+  OLD_SAVE_KEYS,
+  SAVE_KEY,
+  shouldShowOldDataNotice,
+  storeKeyFor,
+} from "../src/ui/save_store.js";
 import { drawerItems, SCREENS, screensFor } from "../src/ui/screens.js";
 import { readUrlOptions, URL_PARAMS, withUrlOptions } from "../src/ui/url_params.js";
 import { progressAt, readText, ROOT } from "./helpers.js";
@@ -39,33 +46,52 @@ function nextFish(game) {
 }
 
 /** 保存して読み直す(再読み込みと同じ)。 */
-const reload = (game) => parseDebugSave(JSON.stringify(toSaveData(game.progress)));
+const reload = (game) => parseDebugSave(encodeSaveCode(game.progress));
 
 test("?debug がないときは、デバッグの行も、seed・crit も出ない(本番に影響しない)", () => {
   assert.equal(screensFor(false), SCREENS);
   assert.ok(!SCREENS.some((s) => s.id === "debug"));
   assert.ok(!drawerItems(screensFor(false)).some((i) => i.label === "デバッグ"));
-  assert.deepEqual(readUrlOptions("?seed=42&crit=100"), { debug: false, seed: null, crit: null });
-  assert.deepEqual(readUrlOptions(""), { debug: false, seed: null, crit: null });
+  assert.deepEqual(readUrlOptions("?seed=42&crit=100&stages=100"), { debug: false, seed: null, crit: null, stages: null });
+  assert.deepEqual(readUrlOptions(""), { debug: false, seed: null, crit: null, stages: null });
 });
 
 test("?debug のときだけ、目次の最後に「デバッグ」。seed と crit を読む", () => {
   const items = drawerItems(screensFor(true));
   assert.equal(items.at(-1).label, "デバッグ");
   assert.equal(items.length, SCREENS.length + 1);
-  assert.deepEqual(readUrlOptions("?debug&seed=42&crit=100"), { debug: true, seed: "42", crit: 100 });
-  assert.deepEqual(readUrlOptions("?debug&crit=abc"), { debug: true, seed: null, crit: null });
+  assert.deepEqual(readUrlOptions("?debug&seed=42&crit=100&stages=100"), { debug: true, seed: "42", crit: 100, stages: 100 });
+  assert.deepEqual(readUrlOptions("?debug&crit=abc&stages=0"), { debug: true, seed: null, crit: null, stages: null });
+  assert.equal(readUrlOptions("?debug&stages=201").stages, null);
+  assert.equal(readUrlOptions("?debug&stages=2.5").stages, null);
   assert.equal(withUrlOptions("?debug&seed=1", { crit: "50", seed: "" }), "?debug&crit=50");
   assert.equal(withUrlOptions("?debug", { other: "1" }), "?debug");
 });
 
-test("保存場所は本番とデバッグで別", () => {
+test("保存場所は本番とデバッグで別。互換性を切る前の場所(fish:save)は使わない", () => {
   assert.notEqual(DEBUG_SAVE_KEY, SAVE_KEY);
+  assert.equal(storeKeyFor({ debug: false, stages: null }), SAVE_KEY);
+  assert.equal(storeKeyFor({ debug: true, stages: null }), DEBUG_SAVE_KEY);
+  assert.equal(storeKeyFor({ debug: true, stages: 100 }), `${DEBUG_SAVE_KEY}:stages-100`);
+  for (const key of [SAVE_KEY, DEBUG_SAVE_KEY]) assert.ok(!Object.values(OLD_SAVE_KEYS).includes(key));
   const main = readText("src/ui/main.js");
-  assert.match(main, /URL_OPTIONS\.debug \? DEBUG_SAVE_KEY : SAVE_KEY/);
-  // 保存の読み書きは、選んだ場所(STORE_KEY)だけを使う。
-  assert.equal((main.match(/localStorage\.\w+\(SAVE_KEY/g) ?? []).length, 0);
-  assert.equal((main.match(/localStorage\.\w+\(STORE_KEY/g) ?? []).length, 3);
+  // 保存の読み書きは、選んだ場所(STORE_KEY)だけを使う。localStorage を直接読み書きしない。
+  assert.equal((main.match(/localStorage\.\w+\(/g) ?? []).length, 0);
+  assert.match(main, /const STORE_KEY = storeKeyFor\(URL_OPTIONS\);/);
+});
+
+test("古い版のデータの案内:新しいデータがなく古いデータだけがあるときに 1 回だけ。古いデータは消さない", () => {
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null) };
+  assert.equal(shouldShowOldDataNotice(storage, SAVE_KEY, OLD_SAVE_KEYS.main), false, "どちらもない");
+  store.set(OLD_SAVE_KEYS.main, '{"version":7}');
+  assert.equal(shouldShowOldDataNotice(storage, SAVE_KEY, OLD_SAVE_KEYS.main), true, "古いものだけ");
+  store.set(SAVE_KEY, encodeSaveCode(freshGame().progress));
+  assert.equal(shouldShowOldDataNotice(storage, SAVE_KEY, OLD_SAVE_KEYS.main), false, "新しいデータを保存したあとは出ない");
+  assert.equal(store.get(OLD_SAVE_KEYS.main), '{"version":7}');
+  assert.equal(OLD_DATA_MESSAGE, "古い版のデータは読めません。新しく始まります");
+  const throwing = { getItem: () => { throw new Error("使えない"); } };
+  assert.equal(shouldShowOldDataNotice(throwing, SAVE_KEY, OLD_SAVE_KEYS.main), false);
 });
 
 /** src の中の .js を全部。 */
@@ -134,7 +160,7 @@ test("装備を作る:種類・レア度・グレード・値・スキル(最大
   assert.deepEqual(back.gear.items, game.progress.gear.items);
   assert.equal(back.gear.equipped.reel, r.item.id);
   // 本番の点検では、レジェンド・グレード 5 のレベルの上限(5)をこえるので読まない(前のまま)。
-  assert.equal(parseSave(JSON.stringify(toSaveData(game.progress))).gear.items.length, 0);
+  assert.equal(parseSave(encodeSaveCode(game.progress)).gear.items.length, 0);
   // レア度のスキルの数をこえると作らない。値は最小・真ん中も選べる。
   assert.equal(addDebugItem(game, { kind: "line", rarity: "rare", grade: 1, value: "min", skills: [{ id: "power", level: 1 }, { id: "fortune", level: 1 }] }).ok, false);
   const low = addDebugItem(game, { kind: "line", rarity: "normal", grade: 1, value: "min", skills: [] });

@@ -1,208 +1,216 @@
-// 保存の形式(D-065・D-104・D-117・D-143)。ブラウザに保存するのは UI の役目で、ここは形の変換と点検だけを行う。
-// 版 7 の形(版 5・6 と同じ形。版 6 でルアーの値の意味が、版 7 でスキルの数がポイントからレベルに変わった:D-188・D-199):
-//   { version: 7, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...],
-//     gear: { items: [[…]], equipped: [[…]], draws, seed, nextId } } }
-//   装備は表の番号の短い配列で書く(D-208。形は gear_save.js)。
-// 装備とガチャのまとまり(gear)の点検は gear_save.js にある。
-// 古い版は、版ごとの小さな関数(MIGRATIONS)で 1 つずつ新しい版に読み替える。版を足すときは、
-// SAVE_VERSION を上げ、「前の版 → 新しい版」の関数を 1 つ足す。
-// 魚や段階が増えても形は変わらない(鱗は魚の id をキーにした表)。表にない魚の鱗や id は、
-// 消さずに持ち続ける(画面では使わない)。
+// @ts-check
+// 保存の形(版 1:D-223・D-232)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
+//
+// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 7 つの欄に分ける:
+//   ウロコイン ~ 竿の段階.工程の番号 ~ 鱗(魚の id:数 を「,」で) ~ 釣れた魚(魚の id を「,」で)
+//   ~ 引いた回数.ガチャの種.次の個体の番号 ~ 装着(種類の番号.個体の番号 を「,」で) ~ 持ち物(装備を「,」で)
+// 装備 1 個:前の個体の番号との差.種類とレア度の番号.グレード.基本効果の値 のあとに、スキルを「英大文字 1 字(スキルの番号)+ レベル」で並べる。
+//   例:「1.b.5.2s」+「B7C7D7」。種類とレア度の番号 = 種類の番号 × レア度の数 + レア度の番号。
+// - 魚は id で書く(D-228)。鱗は持っているもの(1 以上)だけを書く。
+// - 装備の種類・レア度・スキルは表の番号で書く(表の行は並べ替えない。スキルは 26 個まで:足すときは版を上げる)。
+// - 点検:壊れた・切れた・範囲外・表にない魚の id や工程・重複・装着の番号が持ち物にない、を含むものは拒否する。
+// 版を足すときは、SAVE_VERSION を上げ、「前の版 → 新しい版」の読み替えの関数を足す。
+// tests/fixtures/compat_v1.json(互換の正解データ)が、いつまでも読めて同じ結果になることをテストで守る(DESIGN)。
+// JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { DEFAULT_CONFIG } from "./config.js";
-import { DEFAULT_CONTENT, FISH_ID_PATTERN as ID_PATTERN } from "./fish.js";
-import { emptyGear } from "./gear.js";
-import {
-  LEGACY_SKILL_IDS,
-  legacyKinds,
-  legacyPointsRange,
-  migratedGear,
-  packGear,
-  pointsToLevels,
-  readGear,
-  readGearV4,
-  remapLures,
-} from "./gear_save.js";
-import { levelRange } from "./skills.js";
+import { DEFAULT_CONTENT } from "./fish.js";
+import { effectRange, emptyGear, RARITY_ROWS } from "./gear.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
+import { levelRange } from "./skills.js";
 
-export const SAVE_VERSION = 7;
-export const SAVE_KEY = "fish:save";
+/** @typedef {import("./gear.js").Gear} Gear */
+/** @typedef {import("./gear.js").Item} Item */
 
-// 鱗の表の大きさの上限(壊れたデータで大きくなりすぎないように)。
-const MAX_SCALE_KINDS = 1000;
+export const SAVE_VERSION = 1;
 
-/** 初めて遊ぶときの進み具合。 */
+/** 工程の番号(保存に書く順。並べ替えない)。 */
+export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
+
+/** スキルの番号を書く文字(26 個まで)。 */
+const SKILL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const SEED_MAX = 4294967295;
+const FIELDS = 7;
+
+/**
+ * 進み具合。
+ * @typedef {object} Progress
+ * @property {number} coins
+ * @property {Record<string, number>} scales 魚の id ごとの鱗の数
+ * @property {number} rodStage 竿の段階(通し番号)
+ * @property {string} rodStep 工程
+ * @property {string[]} seen 一度でも釣れた魚の id
+ * @property {Gear} gear
+ */
+
+/**
+ * 読むときに使う表(魚・装備の種類・スキル)。
+ * @typedef {{ fish: readonly { id: string }[], byId: Map<string, unknown>, maxStage: number,
+ *   equipKinds: readonly import("./gear.js").EquipKind[], skills?: readonly { id: string }[] }} SaveContent
+ */
+
+/** 初めて遊ぶときの進み具合。 @returns {Progress} */
 export function initialProgress() {
   return { coins: 0, scales: {}, rodStage: 1, rodStep: ROD_STEPS.NONE, seen: [], gear: emptyGear() };
 }
 
-/** 進み具合を、保存する形(版 7)にする。装備の番号は content の表の並び。 */
-export function toSaveData(progress, content = DEFAULT_CONTENT) {
-  return {
-    version: SAVE_VERSION,
-    progress: {
-      coins: progress.coins,
-      scales: { ...progress.scales },
-      rod: { stage: progress.rodStage, step: progress.rodStep },
-      seen: [...progress.seen],
-      gear: packGear(progress.gear ?? emptyGear(), content),
-    },
-  };
+/** @param {number} n */
+const num = (n) => n.toString(36);
+
+/**
+ * 36 進数の数を読む。形がちがう(先頭の 0・記号・大きすぎ)ときは null。
+ * @param {string} text @returns {number | null}
+ */
+function readNum(text) {
+  if (!/^[0-9a-z]{1,11}$/.test(text)) return null;
+  const n = parseInt(text, 36);
+  return Number.isSafeInteger(n) && n <= COUNT_MAX && num(n) === text ? n : null;
 }
 
-function isCount(value) {
-  return Number.isSafeInteger(value) && value >= 0 && value <= COUNT_MAX;
+/** @param {SaveContent} content */
+const skillTable = (content) => content.skills ?? [];
+
+/**
+ * 進み具合を、保存の本文(版 1)にする。
+ * @param {Progress} progress @param {SaveContent} [content]
+ */
+export function encodeSave(progress, content = DEFAULT_CONTENT) {
+  const gear = progress.gear ?? emptyGear();
+  const kinds = content.equipKinds;
+  const skills = skillTable(content);
+  if (skills.length > SKILL_LETTERS.length) throw new Error("スキルが 26 個をこえた:保存の版を上げる");
+  const scales = Object.entries(progress.scales)
+    .filter(([, n]) => n > 0)
+    .map(([id, n]) => `${id}:${num(n)}`)
+    .join(",");
+  const items = [...gear.items].sort((a, b) => a.id - b.id);
+  let prev = 0;
+  const itemText = items
+    .map((it) => {
+      const kr = kinds.findIndex((k) => k.id === it.kind) * RARITY_ROWS.length + RARITY_ROWS.findIndex((r) => r.id === it.rarity);
+      const sk = it.skills.map((s) => `${SKILL_LETTERS[skills.findIndex((x) => x.id === s.id)]}${num(s.level)}`).join("");
+      const text = `${num(it.id - prev)}.${num(kr)}.${num(it.grade)}.${num(it.value)}${sk}`;
+      prev = it.id;
+      return text;
+    })
+    .join(",");
+  const equipped = Object.entries(gear.equipped)
+    .map(([kind, id]) => `${num(kinds.findIndex((k) => k.id === kind))}.${num(id)}`)
+    .join(",");
+  return [
+    num(progress.coins),
+    `${num(progress.rodStage)}.${num(STEP_ORDER.indexOf(/** @type {any} */ (progress.rodStep)))}`,
+    scales,
+    progress.seen.join(","),
+    `${num(gear.draws)}.${gear.seed === null ? "" : num(gear.seed)}.${num(gear.nextId)}`,
+    equipped,
+    itemText,
+  ].join("~");
 }
 
-function isPlainObject(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+/** 「,」で区切った一覧(空なら空の配列)。 @param {string} text */
+const list = (text) => (text === "" ? [] : text.split(","));
+
+/**
+ * 装備 1 個を読む。
+ * @param {string} text @param {number} prev @param {SaveContent} content @param {typeof DEFAULT_CONFIG} config
+ * @returns {Item | null}
+ */
+function readItem(text, prev, content, config) {
+  const m = text.match(/^([0-9a-z]+)\.([0-9a-z]+)\.([0-9a-z]+)\.([0-9a-z]+)((?:[A-Z][0-9a-z]+)*)$/);
+  if (!m) return null;
+  const [delta, kr, grade, value] = [m[1], m[2], m[3], m[4]].map(readNum);
+  if (delta === null || kr === null || grade === null || value === null || delta < 1) return null;
+  const kind = content.equipKinds[Math.floor(kr / RARITY_ROWS.length)];
+  const rarity = RARITY_ROWS[kr % RARITY_ROWS.length];
+  if (!kind || !rarity || grade < 1 || grade > content.maxStage) return null;
+  const range = effectRange(kind, rarity, grade, config.gacha.gradeGrowth);
+  if (value < range.min || value > range.max) return null;
+  const skills = skillTable(content);
+  const levels = levelRange(rarity.id, grade, config.skills);
+  /** @type {{ id: string, level: number }[]} */
+  const own = [];
+  for (const [, letter, lv] of m[5].matchAll(/([A-Z])([0-9a-z]+)/g)) {
+    const skill = skills[SKILL_LETTERS.indexOf(letter)];
+    const level = readNum(lv);
+    if (!skill || own.some((s) => s.id === skill.id) || level === null || level < levels.min || level > levels.max) return null;
+    own.push({ id: skill.id, level });
+  }
+  // スキルの数はレア度の数まで(ノーマル 0 〜 レジェンド 3)。
+  if (own.length > (rarity.skillCount ?? 0)) return null;
+  return { id: prev + delta, kind: kind.id, rarity: rarity.id, grade, value, skills: own };
 }
 
 /**
- * 版ごとの読み替え。キーは「元の版」、値は「1 つ新しい版の形」を返す関数。
- * 形がおかしくて読み替えられないときは null を返す。
+ * 保存の本文(版 1)を点検して、進み具合を取り出す。成功:{ ok: true, progress }。失敗:{ ok: false }。
+ * @param {string} body @param {SaveContent} [content] @param {typeof DEFAULT_CONFIG} [config]
+ * @returns {{ ok: true, progress: Progress } | { ok: false }}
  */
-export const MIGRATIONS = Object.freeze({
-  // 版 1 → 版 2:進み具合を progress の下に入れる。
-  1: (data) => {
-    const { coins, material, rodStage, seen } = data;
-    return { version: 2, progress: { coins, material, rodStage, seen } };
-  },
-  // 版 2 → 版 3:前の素材は、同じ数のウロコインに換えて足す(損をしないように)。
-  // 竿の段階 n は、段階 n の「未製作」にする。鱗は 0 から。
-  2: (data) => {
-    if (!isPlainObject(data.progress)) return null;
-    const { coins, material, rodStage, seen } = data.progress;
-    if (!isCount(coins) || !isCount(material)) return null;
-    return {
-      version: 3,
-      progress: {
-        coins: Math.min(COUNT_MAX, coins + material),
-        scales: {},
-        rod: { stage: rodStage, step: ROD_STEPS.NONE },
-        seen,
-      },
-    };
-  },
-  // 版 3 → 版 4:空の持ち物、引いた回数 0。ガチャの種は、画面がデータを読んだときに決める(D-141)。
-  3: (data) => {
-    if (!isPlainObject(data.progress)) return null;
-    return { version: 4, progress: { ...data.progress, gear: migratedGear() } };
-  },
-  // 版 4 → 版 5:装備を表の番号の短い配列にする。旧装備はスキルなしのまま(D-172)。
-  // 版 4 の形の点検もここで行う(おかしければ null)。
-  4: (data, content, config) => {
-    if (!isPlainObject(data.progress)) return null;
-    const gear = readGearV4(data.progress.gear, legacyRules(content, config));
-    if (!gear) return null;
-    return { version: 5, progress: { ...data.progress, gear: packGear(gear, legacyTables(content)) } };
-  },
-  // 版 5 → 版 6:ルアーの値の意味が変わる(外したあとの次の当たり → 命中範囲 +n%:D-181)。
-  // 前の範囲で点検してから、同じレア度・グレードの範囲の中での位置を保って読み替える(D-188)。
-  5: (data, content, config) => {
-    if (!isPlainObject(data.progress)) return null;
-    const gear = readGear(data.progress.gear, legacyRules(content, config));
-    if (!gear) return null;
-    const remapped = remapLures(gear, content.equipKinds, config.gacha.gradeGrowth);
-    return { version: 6, progress: { ...data.progress, gear: packGear(remapped, legacyTables(content)) } };
-  },
-  // 版 6 → 版 7:スキルのポイントをレベルにする(÷4 を四捨五入、最低 1)。目利きは取り除く(D-195・D-196)。
-  6: (data, content, config) => {
-    if (!isPlainObject(data.progress)) return null;
-    const gear = readGear(data.progress.gear, { ...gearRules(content, config), skills: LEGACY_SKILL_IDS, skillRange: legacyPointsRange });
-    if (!gear) return null;
-    const leveled = pointsToLevels(gear, content.skills, config.skills);
-    return { version: 7, progress: { ...data.progress, gear: packGear(leveled, content) } };
-  },
-});
+export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CONFIG) {
+  const fail = /** @type {{ ok: false }} */ ({ ok: false });
+  if (typeof body !== "string") return fail;
+  const parts = body.split("~");
+  if (parts.length !== FIELDS) return fail;
+  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText] = parts;
 
-/** 版 6 までの番号の並び(スキルの表は目利きを含む前のもの)。 */
-function legacyTables(content) {
-  return { equipKinds: content.equipKinds, skills: LEGACY_SKILL_IDS };
-}
+  const coins = readNum(coinText);
+  if (coins === null) return fail;
 
-/** 版 5 までのデータの点検に使う表と数値(ルアーの値の範囲と、スキルの表とポイントの範囲が前のもの)。 */
-function legacyRules(content, config) {
-  return { ...gearRules(content, config), equipKinds: legacyKinds(content.equipKinds), skills: LEGACY_SKILL_IDS, skillRange: legacyPointsRange };
-}
-
-/** 装備の点検に使う表と数値。 */
-function gearRules(content, config) {
-  return {
-    equipKinds: content.equipKinds,
-    skills: content.skills,
-    maxStage: content.maxStage,
-    inventoryMax: config.gacha.inventoryMax,
-    gradeGrowth: config.gacha.gradeGrowth,
-    skillRange: (/** @type {string} */ rarityId, /** @type {number} */ grade) => levelRange(rarityId, grade, config.skills),
-  };
-}
-
-/** 古い版を、今の版の形まで順に読み替える。知らない版や読み替えられないときは null。 */
-export function migrate(data, content = DEFAULT_CONTENT, config = DEFAULT_CONFIG) {
-  let current = data;
-  while (isPlainObject(current) && current.version !== SAVE_VERSION) {
-    const step = MIGRATIONS[current.version];
-    if (!step) return null;
-    current = step(current, content, config);
-  }
-  return isPlainObject(current) ? current : null;
-}
-
-function readScales(scales) {
-  if (!isPlainObject(scales)) return null;
-  const entries = Object.entries(scales);
-  if (entries.length > MAX_SCALE_KINDS) return null;
-  for (const [id, n] of entries) {
-    if (!ID_PATTERN.test(id) || !isCount(n)) return null;
-  }
-  return Object.fromEntries(entries);
-}
-
-/**
- * 保存の形(オブジェクト)を点検して、進み具合を取り出す。
- * 成功:{ ok: true, progress }。失敗:{ ok: false, error: "version" | "content" }。
- */
-export function readSaveData(data, content = DEFAULT_CONTENT, config = DEFAULT_CONFIG) {
-  if (!isPlainObject(data)) return { ok: false, error: "content" };
-  const known = MIGRATIONS[data.version] || data.version === SAVE_VERSION;
-  if (!known) return { ok: false, error: "version" };
-  const current = migrate(data, content, config);
-  if (!current || !isPlainObject(current.progress)) return { ok: false, error: "content" };
-  const { coins, scales, rod, seen, gear } = current.progress;
-  if (!isCount(coins)) return { ok: false, error: "content" };
-  const ownScales = readScales(scales);
-  if (!ownScales) return { ok: false, error: "content" };
-  if (!isPlainObject(rod)) return { ok: false, error: "content" };
-  const { stage, step } = rod;
-  if (!Number.isSafeInteger(stage) || stage < 1 || stage > content.maxStage) return { ok: false, error: "content" };
-  if (!Object.values(ROD_STEPS).includes(step)) return { ok: false, error: "content" };
+  const rod = rodText.split(".");
+  if (rod.length !== 2) return fail;
+  const stage = readNum(rod[0]);
+  const stepIndex = readNum(rod[1]);
+  if (stage === null || stepIndex === null || stage < 1 || stage > content.maxStage) return fail;
+  const step = STEP_ORDER[stepIndex];
   // 「進化済み」は、表の最後の段階でだけありうる。
-  if (step === ROD_STEPS.EVOLVED && stage !== content.maxStage) return { ok: false, error: "content" };
-  if (!Array.isArray(seen) || !seen.every((id) => typeof id === "string" && ID_PATTERN.test(id))) {
-    return { ok: false, error: "content" };
+  if (!step || (step === ROD_STEPS.EVOLVED && stage !== content.maxStage)) return fail;
+
+  /** @type {Record<string, number>} */
+  const scales = {};
+  for (const pair of list(scaleText)) {
+    const m = pair.match(/^([a-z0-9-]+):([0-9a-z]+)$/);
+    const n = m ? readNum(m[2]) : null;
+    if (!m || n === null || n < 1 || !content.byId.has(m[1]) || m[1] in scales) return fail;
+    scales[m[1]] = n;
   }
-  const ownGear = readGear(gear, gearRules(content, config));
-  if (!ownGear) return { ok: false, error: "content" };
+
+  const seen = list(seenText);
+  if (new Set(seen).size !== seen.length || !seen.every((id) => content.byId.has(id))) return fail;
+
+  const gacha = gachaText.split(".");
+  if (gacha.length !== 3) return fail;
+  const draws = readNum(gacha[0]);
+  const seed = gacha[1] === "" ? null : readNum(gacha[1]);
+  const nextId = readNum(gacha[2]);
+  if (draws === null || nextId === null || nextId < 1 || (gacha[1] !== "" && (seed === null || seed > SEED_MAX))) return fail;
+
+  /** @type {Item[]} */
+  const items = [];
+  let prev = 0;
+  for (const text of list(itemText)) {
+    const item = readItem(text, prev, content, config);
+    if (!item) return fail;
+    items.push(item);
+    prev = item.id;
+  }
+  if (items.length > config.gacha.inventoryMax || prev >= nextId) return fail;
+
+  /** @type {Record<string, number>} */
+  const equipped = {};
+  for (const pair of list(equipText)) {
+    const [k, i, extra] = pair.split(".");
+    const kindIndex = readNum(k ?? "");
+    const itemId = readNum(i ?? "");
+    const kind = kindIndex === null ? undefined : content.equipKinds[kindIndex];
+    const item = items.find((it) => it.id === itemId);
+    // 装着の番号は持ち物にあり、枠と種類がそろい、同じ枠は 1 回だけ。
+    if (extra !== undefined || !kind || !item || item.kind !== kind.id || kind.id in equipped) return fail;
+    equipped[kind.id] = item.id;
+  }
+
   return {
     ok: true,
-    progress: { coins, scales: ownScales, rodStage: stage, rodStep: step, seen: [...new Set(seen)], gear: ownGear },
+    progress: { coins, scales, rodStage: stage, rodStep: step, seen, gear: { items, equipped, draws, seed, nextId } },
   };
-}
-
-/**
- * ブラウザに保存された文字列を読む。壊れている・形がちがう・版がちがうときは、初めの状態を返す。
- * エラーは投げない。
- */
-export function parseSave(text, content = DEFAULT_CONTENT) {
-  if (typeof text !== "string" || text === "") return initialProgress();
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    return initialProgress();
-  }
-  const result = readSaveData(data, content);
-  return result.ok ? result.progress : initialProgress();
 }

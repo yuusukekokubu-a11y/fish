@@ -5,7 +5,7 @@ import { test } from "node:test";
 
 import { boostedDamage } from "../src/core/combat.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
-import { DEFAULT_CONTENT, defineFish, defineStage, FISH_ROWS, makeContent, STAGE_ROWS } from "../src/core/fish.js";
+import { DEFAULT_CONTENT, makeContent } from "../src/core/fish.js";
 import {
   challengeBoss,
   createGame,
@@ -34,7 +34,7 @@ import {
   unequipKind,
 } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
-import { progressAt } from "./helpers.js";
+import { progressAt, stage6Content } from "./helpers.js";
 
 const GACHA = DEFAULT_CONFIG.gacha;
 const KINDS = EQUIP_KIND_ROWS;
@@ -53,9 +53,9 @@ test("クレートは段階ごとに 1 種類。名前・解放の段階・グ�
     [
       ["クロダイのクレート", 1, 1, 20],
       ["スズキのクレート", 2, 2, 46],
-      ["ブリのクレート", 3, 3, 110],
-      ["カツオのクレート", 4, 4, 260],
-      ["マグロのクレート", 5, 5, 630],
+      ["ヒラメのクレート", 3, 3, 110],
+      ["ワラサのクレート", 4, 4, 260],
+      ["ブリのクレート", 5, 5, 610],
     ],
   );
   for (const c of CRATES) {
@@ -93,7 +93,7 @@ test("基本効果:レア度・グレード・種類ごとに範囲の中、段�
 
 test("装備の名前は、グレードの段階の魚の名前 + 種類", () => {
   assert.equal(itemName(itemOf(1, "line"), DEFAULT_CONTENT), "クロダイの糸");
-  assert.equal(itemName(itemOf(2, "reel", "rare", 5), DEFAULT_CONTENT), "マグロのリール");
+  assert.equal(itemName(itemOf(2, "reel", "rare", 5), DEFAULT_CONTENT), "ブリのリール");
   assert.equal(itemName(itemOf(3, "lure", "epic", 2), DEFAULT_CONTENT), "スズキのルアー");
 });
 
@@ -316,20 +316,7 @@ test("装備なし・ガチャを引いても付けなければ、結果は前�
 });
 
 test("データ駆動:段階 6 を足すとクレートが自動で増え、価格・グレード・排出率が数式と表から作られる", () => {
-  const fish = [
-    ...FISH_ROWS,
-    { id: "kisu", name: "キス", kind: "weak", stage: 6, coins: 120, scales: 0, color: "#fefae0", size: 26 },
-    {
-      id: "kanpachi", name: "カンパチ", kind: "strong", stage: 6, coins: 600, scales: 1, color: "#bc6c25", size: 46,
-      minigame: { sweepMs: 480, zoneWidth: 0.1, hp: 70, timeLimitMs: 13000 },
-    },
-    {
-      id: "nushi-kanpachi", name: "ヌシ・カンパチ", kind: "boss", stage: 6, coins: 6000, scales: 1, color: "#7f4f24", size: 62,
-      minigame: { sweepMs: 460, zoneWidth: 0.1, hp: 245, timeLimitMs: 55000 },
-    },
-  ];
-  const stages = [...STAGE_ROWS, { stage: 6, craft: { scale: "kanpachi", count: 2 }, boss: "nushi-kanpachi", evolve: { count: 1 } }];
-  const content = makeContent(fish.map(defineFish), stages.map(defineStage));
+  const content = stage6Content();
   const crates = makeCrates(content, DEFAULT_CONFIG);
   assert.equal(crates.length, 6);
   const six = crates[5];

@@ -7,11 +7,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
-import { defineFish, defineStage, FISH_ROWS, makeContent, STAGE_ROWS } from "../../src/core/fish.js";
+import { makeContent } from "../../src/core/fish.js";
 import { challengeBoss, createGame, PHASES, tap, update } from "../../src/core/fishing.js";
 import { effectRange, emptyGear, EQUIP_KIND_ROWS, RARITY_ROWS } from "../../src/core/gear.js";
 import { createRng } from "../../src/core/rng.js";
-import { progressAt } from "../helpers.js";
+import { progressAt, stage6Content } from "../helpers.js";
 
 const LURE = EQUIP_KIND_ROWS.find((k) => k.id === "lure");
 const LEGEND = RARITY_ROWS.find((r) => r.id === "legend");
@@ -62,19 +62,7 @@ test("序盤の高レアのルアー(レジェンド・グレード 1)で、命�
 });
 
 test("終盤の最高のルアー(レジェンドの最大。段階 6 を足しても)でも、どの魚でも上限(70%)に届かない。下限(10%)は守る", () => {
-  const fish = [
-    ...FISH_ROWS,
-    {
-      id: "kanpachi", name: "カンパチ", kind: "strong", stage: 6, coins: 600, scales: 1, color: "#bc6c25", size: 46,
-      minigame: { sweepMs: 480, zoneWidth: 0.1, hp: 70, timeLimitMs: 13000 },
-    },
-    {
-      id: "nushi-kanpachi", name: "ヌシ・カンパチ", kind: "boss", stage: 6, coins: 6000, scales: 1, color: "#7f4f24", size: 62,
-      minigame: { sweepMs: 460, zoneWidth: 0.1, hp: 245, timeLimitMs: 55000 },
-    },
-  ];
-  const stages = [...STAGE_ROWS, { stage: 6, craft: { scale: "kanpachi", count: 2 }, boss: "nushi-kanpachi", evolve: { count: 1 } }];
-  const content = makeContent(fish.map(defineFish), stages.map(defineStage));
+  const content = stage6Content();
   const lines = [];
   for (const grade of [1, 3, 5, 6]) {
     const best = effectRange(LURE, LEGEND, grade, GG).max;

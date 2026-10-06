@@ -1,7 +1,7 @@
 // 画面の入り口:ゲームの状態を時間で進め、絵と数を描き、タップとボタンを受け取る。
 // 保存の読み書きもここ(画面の側)で行う。セーブコードと「データを消す」はメニューの設定タブ(settings.js)。
 
-import { fishById, scaleName } from "../core/fish.js";
+import { DEFAULT_CONTENT, fishById, scaleName } from "../core/fish.js";
 import {
   canChallengeBoss,
   canCraftRod,
@@ -27,9 +27,12 @@ import { formatCount } from "./format.js";
 import { createScreenShell } from "./screen_shell.js";
 import { initialNav, isPaused, screensFor, setDrawer, showScreen } from "./screens.js";
 import { act, advance, createSession, setPaused, tapSession } from "./session.js";
-import { parseSave, SAVE_KEY, toSaveData } from "../core/save.js";
+import { decodeSaveCode, encodeSaveCode, parseSave } from "../core/savecode.js";
+import { syntheticContent } from "../core/synthetic.js";
 import { versionLabel } from "../version.js";
-import { DEBUG_SAVE_KEY, parseDebugSave } from "./debug_view.js";
+import { DEBUG_READ_CONFIG } from "./debug_view.js";
+import { clearText, loadText as loadKey, OLD_DATA_MESSAGE, OLD_SAVE_KEYS, saveText, shouldShowOldDataNotice, storeKeyFor } from "./save_store.js";
+import { openSheet } from "./sheet.js";
 import { readUrlOptions } from "./url_params.js";
 import { createDrawer } from "./drawer.js";
 import { fightBadges, gaugeBands } from "./fight_view.js";
@@ -48,7 +51,11 @@ import {
 // URL の指定(確認用の仕組み:D-215)。読むのは url_params.js だけ。?debug がなければ、どれも本番に効かない。
 const URL_OPTIONS = readUrlOptions(location.search);
 // 保存場所:?debug のときは、デバッグ専用の場所を使う。本番の保存データは読みも書きもしない(D-214)。
-const STORE_KEY = URL_OPTIONS.debug ? DEBUG_SAVE_KEY : SAVE_KEY;
+const STORE_KEY = storeKeyFor(URL_OPTIONS);
+// 魚の表:?debug&stages=n のときだけ、大きな確かめ用の表(D-233)。ふだんは港の表。
+const CONTENT = URL_OPTIONS.stages === null ? DEFAULT_CONTENT : syntheticContent(URL_OPTIONS.stages);
+// デバッグのデータは、スキルのレベルをそのスキルの最大まで許して読む(本番の点検は変えない:D-219)。
+const READ_CONFIG = URL_OPTIONS.debug ? /** @type {any} */ (DEBUG_READ_CONFIG) : DEFAULT_CONFIG;
 
 // 1 回の描画で進める時間の上限。裏に回って戻ったときに、一気に何匹も進まないようにする。
 const MAX_STEP_MS = 100;
@@ -83,31 +90,15 @@ function readDebugCombat() {
   return { ...DEFAULT_CONFIG.combat, critChance: URL_OPTIONS.crit / 100 };
 }
 
-// 保存の読み書き。ブラウザの設定で使えないときも、エラーで止めずに遊べるようにする(D-050)。
-function loadText() {
-  try {
-    return localStorage.getItem(STORE_KEY);
-  } catch {
-    return null;
-  }
-}
-
+// 保存の読み書き(save_store.js)。保存の中身はセーブコードと同じ文字列(版 1:D-232)。
+// ブラウザの設定で使えないときも、エラーで止めずに遊べるようにする(D-050)。
 /** 保存する。できたら true(保存できなくても遊びは続ける)。 */
 function saveProgress(progress) {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(toSaveData(progress)));
-    return true;
-  } catch {
-    return false;
-  }
+  return saveText(STORE_KEY, encodeSaveCode(progress, CONTENT));
 }
 
 function clearSave() {
-  try {
-    localStorage.removeItem(STORE_KEY);
-  } catch {
-    // 消せなくても続ける。
-  }
+  clearText(STORE_KEY);
 }
 
 function messageFor(game) {
@@ -122,7 +113,7 @@ function messageFor(game) {
       const r = game.lastResult;
       if (r.reason === REASONS.EARLY) return "早すぎ…";
       if (r.reason === REASONS.LATE) return "遅すぎ…";
-      const name = fishById(r.fishId).name;
+      const name = fishById(r.fishId, game.content).name;
       if (r.outcome === OUTCOMES.ESCAPED) return `${name}に逃げられた…`;
       return r.kind === FISH_KINDS.WEAK ? `${name}が釣れた` : `${name}を釣り上げた!`;
     }
@@ -140,17 +131,18 @@ function messageFor(game) {
 function rodButton(game) {
   const p = game.progress;
   const stage = gameStage(game);
-  if (!stage || p.rodStep === ROD_STEPS.EVOLVED) return { label: "次の魚はまだいない", enabled: false };
-  const names = stageRodNames(stage);
+  // 最後の段階のヌシを倒して進化したあとは、次の釣り場はまだない(②-4d で足す:D-224)。
+  if (!stage || p.rodStep === ROD_STEPS.EVOLVED) return { label: "次の釣り場はまだない", enabled: false };
+  const names = stageRodNames(stage, game.content);
   if (p.rodStep === ROD_STEPS.NONE) {
-    const need = nextNeed(p);
+    const need = nextNeed(p, game.content);
     if (!canCraftRod(game)) {
       return { label: `${names.craft}を製作 ${formatCount(need.have)}/${formatCount(need.need)}`, enabled: false };
     }
     return { label: `${names.craft}を製作`, enabled: true, run: () => craftGameRod(game) && `${names.craft}ができた!` };
   }
   if (p.rodStep === ROD_STEPS.CRAFTED) {
-    const boss = fishById(stage.boss);
+    const boss = fishById(stage.boss, game.content);
     return { label: `${boss.name}に挑む`, enabled: canChallengeBoss(game), run: () => challengeBoss(game) && null };
   }
   return { label: `${names.evolve}に進化`, enabled: canEvolveRod(game), run: () => evolveGameRod(game) && `${names.evolve}に進化!` };
@@ -158,9 +150,9 @@ function rodButton(game) {
 
 /** 上の表示:今の工程で要る鱗(「クロダイの鱗 2/3」)。要るものがなければ空。 */
 function needLabel(game) {
-  const need = nextNeed(game.progress);
+  const need = nextNeed(game.progress, game.content);
   if (!need) return "";
-  return `${scaleName(need.id)} ${formatCount(need.have)}/${formatCount(need.need)}`;
+  return `${scaleName(need.id, game.content)} ${formatCount(need.have)}/${formatCount(need.need)}`;
 }
 
 function main() {
@@ -178,14 +170,16 @@ function main() {
     version: document.getElementById("version"),
   };
 
-  // デバッグのデータは、スキルのレベルをそのスキルの最大まで許して読む(本番の点検は変えない:D-219)。
-  const progress = URL_OPTIONS.debug ? parseDebugSave(loadText()) : parseSave(loadText());
+  // 古い版(互換性を切る前)のデータだけがあるときは、1 回だけ案内する(古いデータは消さない:D-223)。
+  const oldKey = URL_OPTIONS.debug ? OLD_SAVE_KEYS.debug : OLD_SAVE_KEYS.main;
+  const showOldNotice = URL_OPTIONS.stages === null && shouldShowOldDataNotice(localStorage, STORE_KEY, oldKey);
+  const progress = parseSave(loadKey(STORE_KEY), CONTENT, READ_CONFIG);
   // ガチャの種がまだなければ(初めて遊ぶ・データを消した・前の版から読んだ)、ここで決めて保存する(D-141・D-148)。
   if (progress.gear.seed === null) {
     progress.gear.seed = newGachaSeed();
     saveProgress(progress);
   }
-  const game = createGame(readSeed(), { progress, combat: readDebugCombat() });
+  const game = createGame(readSeed(), { progress, combat: readDebugCombat(), content: CONTENT });
   const effects = createEffects();
   // 時間とタップは、この窓口を通して渡す。メニューを開いている間は止まる(D-134)。
   const session = createSession(game, { maxStepMs: MAX_STEP_MS });
@@ -242,6 +236,11 @@ function main() {
       game,
       app,
       storage: { save: saveProgress, clear: clearSave },
+      // セーブコードの書き出しと読み込み(表と点検の数値は、遊んでいる表のもの)。
+      saveCode: {
+        encode: (progress) => encodeSaveCode(progress, CONTENT),
+        decode: (text) => decodeSaveCode(text, CONTENT, READ_CONFIG),
+      },
       reload: () => location.reload(),
       // 装着・外す・分解のあと:装備を反映した戦闘の数値の表を作り直して保存する(D-181)。
       onGearChanged: () => {
@@ -261,6 +260,25 @@ function main() {
     onOpenChange: (open) => applyNav(setDrawer(nav, open)),
   });
   // ?debug を付けたときだけ、ブラウザの自動操作の確認用に状態を見せる(読むだけ。結果には関係しない)。
+  // 古い版のデータの案内(1 回だけ。閉じるまで釣りを止める:D-223)。
+  if (showOldNotice) {
+    setPaused(session, true);
+    openSheet(app, (panel, close) => {
+      panel.classList.add("old-data-notice");
+      const text = document.createElement("p");
+      text.className = "old-data-text";
+      text.textContent = OLD_DATA_MESSAGE;
+      const ok = document.createElement("button");
+      ok.type = "button";
+      ok.className = "primary-button old-data-ok";
+      ok.textContent = "はじめる";
+      ok.addEventListener("click", () => {
+        close();
+        setPaused(session, isPaused(nav));
+      });
+      panel.append(text, ok);
+    });
+  }
   if (URL_OPTIONS.debug) {
     window.fishDebug = game;
     window.fishSession = session;
@@ -276,7 +294,7 @@ function main() {
 
     // 新しい結果が出たら、保存して演出を足す。
     while (shownResults < game.results.length) {
-      addResultEffects(effects, game.results[shownResults], now);
+      addResultEffects(effects, game.results[shownResults], now, game.content);
       shownResults += 1;
       saveProgress(game.progress);
     }
@@ -285,7 +303,7 @@ function main() {
     const view = {
       phase: game.phase,
       progress: game.phase === PHASES.RESTING ? 0 : Math.min(1, game.phaseMs / phaseDuration(game)),
-      fish: game.phase === PHASES.RESULT ? fishById(game.lastResult.fishId) : game.cast.fish,
+      fish: game.phase === PHASES.RESULT ? fishById(game.lastResult.fishId, game.content) : game.cast.fish,
       zone: game.fight?.zone ?? game.cast.zone,
       marker: currentMarker(game),
       hp: game.fight?.hp ?? 0,
@@ -305,7 +323,7 @@ function main() {
     el.coins.textContent = formatCount(game.progress.coins);
     if (shell.current() !== null) shell.setCoins(`ウロコイン ${formatCount(game.progress.coins)}`);
     el.need.textContent = needLabel(game);
-    el.rodName.textContent = rodName(game.progress);
+    el.rodName.textContent = rodName(game.progress, game.content);
     el.message.textContent = messageFor(game);
     const button = rodButton(game);
     el.upgrade.textContent = button.label;

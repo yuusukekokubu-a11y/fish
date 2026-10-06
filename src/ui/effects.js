@@ -14,7 +14,7 @@ export function createEffects() {
 }
 
 /** 魚の結果が出たときの演出を足す。 */
-export function addResultEffects(effects, result, now) {
+export function addResultEffects(effects, result, now, content = undefined) {
   const caught = result.outcome === "caught";
   if (result.firstCatch) {
     effects.flash = { color: "255,209,102", start: now, ms: FLASH_MS * 2 };
@@ -28,7 +28,7 @@ export function addResultEffects(effects, result, now) {
   }
   const lines = [];
   if (result.reward.coins > 0) lines.push(`+${formatCount(result.reward.coins)} ウロコイン`);
-  if (result.reward.scales > 0) lines.push(`+${formatCount(result.reward.scales)} ${scaleName(result.fishId)}`);
+  if (result.reward.scales > 0) lines.push(`+${formatCount(result.reward.scales)} ${scaleName(result.fishId, content)}`);
   // 報酬の文字は空のあたりに出す(ダメージや「CRITICAL!」と重ならないように)。
   lines.forEach((text, i) => effects.floats.push({ text, start: now + i * 120, ms: FLOAT_MS, y: 0.32 + i * 0.05 }));
 }

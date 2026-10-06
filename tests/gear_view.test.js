@@ -31,7 +31,7 @@ test("クレートの画面:解放済みだけを段階の新しい順に。価�
   const game = gameWith(3, 100);
   const crates = makeCrates(game.content, game.config);
   const cards = crateCards(game, crates);
-  assert.deepEqual(cards.map((c) => c.name), ["ブリのクレート", "スズキのクレート", "クロダイのクレート"]);
+  assert.deepEqual(cards.map((c) => c.name), ["ヒラメのクレート", "スズキのクレート", "クロダイのクレート"]);
   assert.deepEqual(cards[0].price, { one: "110", ten: "1100" });
   assert.deepEqual(cards[0].blockers, { one: "coins", ten: "coins" });
   assert.deepEqual(cards[2].blockers, { one: null, ten: "coins" });

@@ -4,10 +4,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
-import { defineFish, defineStage, FISH_ROWS, makeContent, STAGE_ROWS } from "../../src/core/fish.js";
+import { makeContent } from "../../src/core/fish.js";
 import { createGame, update } from "../../src/core/fishing.js";
 import { emptyGear, EQUIP_KIND_ROWS, makeCrates, pullCrate } from "../../src/core/gear.js";
-import { progressAt } from "../helpers.js";
+import { progressAt, stage6Content } from "../helpers.js";
 import { makePolicy } from "./policy.js";
 
 const GACHA = DEFAULT_CONFIG.gacha;
@@ -73,20 +73,7 @@ test("価格と時間:各段階で、上手なら 1〜3 分、ときどき失敗
 });
 
 test("段階 6 を表に足しても、数式のままで 1〜3 分に収まる", () => {
-  const fish = [
-    ...FISH_ROWS,
-    { id: "kisu", name: "キス", kind: "weak", stage: 6, coins: 120, scales: 0, color: "#fefae0", size: 26 },
-    {
-      id: "kanpachi", name: "カンパチ", kind: "strong", stage: 6, coins: 600, scales: 1, color: "#bc6c25", size: 46,
-      minigame: { sweepMs: 480, zoneWidth: 0.1, hp: 70, timeLimitMs: 13000 },
-    },
-    {
-      id: "nushi-kanpachi", name: "ヌシ・カンパチ", kind: "boss", stage: 6, coins: 6000, scales: 1, color: "#7f4f24", size: 62,
-      minigame: { sweepMs: 460, zoneWidth: 0.1, hp: 245, timeLimitMs: 55000 },
-    },
-  ];
-  const stages = [...STAGE_ROWS, { stage: 6, craft: { scale: "kanpachi", count: 2 }, boss: "nushi-kanpachi", evolve: { count: 1 } }];
-  const content = makeContent(fish.map(defineFish), stages.map(defineStage));
+  const content = stage6Content();
   const six = measure(content).at(-1);
   console.log(`段階 6:${six.crate.name} ${six.crate.price}:上手 ${six.skilled.toFixed(0)} 秒、ときどき失敗 ${six.sloppy.toFixed(0)} 秒`);
   assert.ok(six.skilled >= 60 && six.skilled <= 180);

@@ -14,7 +14,7 @@ import { progressAt } from "./helpers.js";
 const STRONG = FISH_LIST.filter((f) => f.kind === FISH_KINDS.STRONG).sort((a, b) => a.stage - b.stage);
 const NO_CRIT = { ...DEFAULT_CONFIG.combat, critChance: 0 };
 
-test("体力は Issue #8 の 10 倍で、段階が上の強い魚ほど多い", () => {
+test("体力は 10 + 10g(式)で、段階が上の強い魚ほど多い。制限時間は 8 秒 + 4 秒 × log5(g)", () => {
   assert.deepEqual(
     STRONG.map((f) => f.minigame.hp),
     [20, 30, 40, 50, 60],
@@ -24,7 +24,7 @@ test("体力は Issue #8 の 10 倍で、段階が上の強い魚ほど多い", 
   }
   assert.deepEqual(
     STRONG.map((f) => f.minigame.timeLimitMs),
-    [8000, 9000, 10000, 11000, 12000],
+    [8000, 9700, 10700, 11400, 12000],
   );
 });
 

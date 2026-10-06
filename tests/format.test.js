@@ -18,6 +18,8 @@ test("1 万未満はそのまま、1 万以上は万・億・兆で小数 1 け�
     [1e12, "1兆"],
     [1234567890123, "1.2兆"],
     [Number.MAX_SAFE_INTEGER, "9007兆"],
+    [1e16, "1京"],
+    [1.23e17, "12.3京"],
   ];
   for (const [n, text] of cases) assert.equal(formatCount(n), text, String(n));
 });
