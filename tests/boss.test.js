@@ -17,6 +17,8 @@ import {
 } from "../src/core/fishing.js";
 import { ROD_STEPS } from "../src/core/rod.js";
 import { createRng } from "../src/core/rng.js";
+import { emptyGear } from "../src/core/gear.js";
+import { applyPreset } from "../src/ui/debug_view.js";
 import { hookGood, progressAt } from "./helpers.js";
 
 /** 腕前のモデル:印が当たり範囲の真ん中に来るたびに、割合 rate で当て、残りは範囲の外で押して外す。 */
@@ -44,8 +46,18 @@ function makeSkill(rate, seed) {
   };
 }
 
-function bossGame(stage, seed = 1, step = ROD_STEPS.CRAFTED) {
-  return createGame(seed, { progress: progressAt(stage, step, { coins: 10, scales: { kurodai: 2 } }) });
+/**
+ * ヌシに挑める状態のゲーム。段階 1〜2 は装備なし(装備なしでも倒せる:D-237)。
+ * 段階 3 からは装備前提なので、デバッグの「貫通」のプリセット(貫通・連撃・貫など)を付ける(D-238)。
+ */
+function bossGame(stage, seed = 1, step = ROD_STEPS.CRAFTED, { gear = stage >= 3 } = {}) {
+  const game = createGame(seed, { progress: progressAt(stage, step, { coins: 10, scales: { kurodai: 2 }, gear: { ...emptyGear(), seed: 1 } }) });
+  if (gear) {
+    const before = game.progress.rodStage;
+    applyPreset(game, "pen");
+    assert.equal(game.progress.rodStage, before);
+  }
+  return game;
 }
 
 /** ヌシ戦を最後まで(または制限時間まで)遊ぶ。かかった時間(ミリ秒)を返す。 */
@@ -142,7 +154,7 @@ test("ヌシ戦は、でたらめなタップでも必ず制限時間のうち�
   }
 });
 
-test("当たり範囲で押せる割合が 100% なら、全部のヌシに必ず勝つ(シード 20 個)", () => {
+test("当たり範囲で押せる割合が 100% なら、全部のヌシに必ず勝つ(段階 1〜2 は装備なし、3 からは貫通の装備。シード 20 個)", () => {
   for (const s of STAGE_LIST) {
     for (let seed = 1; seed <= 20; seed++) {
       const game = bossGame(s.stage, seed);
@@ -153,7 +165,7 @@ test("当たり範囲で押せる割合が 100% なら、全部のヌシに必�
   }
 });
 
-test("当たり範囲で押せる割合が 70% でも、シード 20 個のうち 8 割以上で勝つ", () => {
+test("当たり範囲で押せる割合が 70% でも、シード 20 個のうち 8 割以上で勝つ(同じ装備)", () => {
   for (const s of STAGE_LIST) {
     let wins = 0;
     for (let seed = 1; seed <= 20; seed++) {
@@ -182,4 +194,14 @@ test("ヌシ戦の乱数は、挑戦の回数で変わり、魚の並びには�
   const plain = bossGame(1, 5);
   assert.equal(a.cast.fish.id, plain.cast.fish.id);
   assert.equal(a.cast.waitMs, plain.cast.waitMs);
+});
+
+test("5 体目のヌシ(防御 100% 以上)は、貫通がないと 1 命中 1 ダメージで、制限時間のうちに倒せない", () => {
+  const game = bossGame(5, 3, ROD_STEPS.CRAFTED, { gear: false });
+  challengeBoss(game);
+  assert.ok(game.cast.minigame.defense >= 1);
+  fight(game, makeSkill(1, 3));
+  assert.equal(game.lastResult.outcome, OUTCOMES.ESCAPED);
+  assert.equal(game.lastResult.reason, REASONS.TIMEOUT);
+  assert.ok(game.lastResult.hits > 0);
 });

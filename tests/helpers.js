@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { DEFAULT_CONFIG as DEFAULT_CONFIG_FOR_TESTS } from "../src/core/config.js";
 import { defineFish, FISH_ROWS, makeContent } from "../src/core/fish.js";
 import { emptyGear } from "../src/core/gear.js";
 
@@ -90,3 +91,10 @@ export const STAGE6_ROWS = Object.freeze([
 export function stage6Content(equipKinds = undefined, skills = undefined) {
   return makeContent([...FISH_ROWS, ...STAGE6_ROWS].map((r) => defineFish(r)), undefined, equipKinds, skills);
 }
+
+/**
+ * 防御のない魚の表(港の魚。数値は式から、防御だけ 0)。スキルの計算の順など、防御と関係のない決まりを確かめるテストで使う。
+ */
+export const NO_DEFENSE_CONTENT = makeContent(
+  FISH_ROWS.map((r) => defineFish(r, { ...DEFAULT_CONFIG_FOR_TESTS.formula, defenseStartStage: Number.MAX_SAFE_INTEGER })),
+);

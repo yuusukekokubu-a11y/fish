@@ -67,10 +67,10 @@ const skillGame = (items, equipped, skills = SKILL_ROWS) => {
   return game;
 };
 
-test("スキルの画面は 数値型 9・条件発動型 7・ゲージ系 2 のグループ。見出しはレベル 1 以上の数", () => {
+test("スキルの画面は 数値型 10・条件発動型 8・ゲージ系 2 のグループ。見出しはレベル 1 以上の数", () => {
   const game = skillGame([], {});
   const groups = skillGroups(game);
-  assert.deepEqual(groups.map((g) => [g.title, g.total]), [["数値型", 9], ["条件発動型", 7], ["ゲージ系", 2]]);
+  assert.deepEqual(groups.map((g) => [g.title, g.total]), [["数値型", 10], ["条件発動型", 8], ["ゲージ系", 2]]);
   assert.deepEqual(groups.flatMap((g) => g.rows.map((r) => r.id)).sort(), SKILL_ROWS.map((s) => s.id).sort());
   assert.deepEqual(groups.find((g) => g.id === "gauge").rows.map((r) => r.id), ["core", "edge"]);
   // スキルがなければ全部閉じる。
@@ -82,7 +82,7 @@ test("初めは、レベル 1 以上のスキルがあるグループだけ開�
   const items = [{ id: 1, kind: "reel", rarity: "legend", grade: 5, value: 20, skills: [{ id: "power", level: 2 }, { id: "edge", level: 1 }, { id: "fortune", level: 1 }] }];
   const groups = skillGroups(skillGame(items, { reel: 1 }));
   assert.deepEqual(groups.map((g) => [g.id, g.count, g.open]), [["numeric", 2, true], ["trigger", 0, false], ["gauge", 1, true]]);
-  assert.equal(groups[0].label, "数値型(2 / 9)");
+  assert.equal(groups[0].label, "数値型(2 / 10)");
 });
 
 test("スキルの表に行を足すと、種類に合うグループに入る。グループの表に行を足すと、グループが増える", () => {
@@ -93,7 +93,7 @@ test("スキルの表に行を足すと、種類に合うグループに入る�
     { ...SKILL_ROWS.find((s) => s.id === "core"), id: "new-gauge", name: "新しい帯" },
   ];
   const groups = skillGroups(skillGame([], {}, extra));
-  assert.deepEqual(groups.map((g) => g.total), [10, 8, 3]);
+  assert.deepEqual(groups.map((g) => g.total), [11, 9, 3]);
   assert.ok(groups.find((g) => g.id === "gauge").rows.some((r) => r.id === "new-gauge"));
   const more = [{ id: "growth", title: "成長型の数値", order: 0, match: (s) => s.target.kind !== "trigger" && s.type === "growth" }, ...SKILL_GROUPS];
   const four = skillGroups(skillGame([], {}), more);

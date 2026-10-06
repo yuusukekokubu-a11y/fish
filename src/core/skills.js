@@ -21,7 +21,7 @@ import { growthMaxLevel } from "./formula.js";
  *   "lowHp"(体力が最大の一定割合以下)・"afterCrit"(クリティカルの次の命中)・"fullHp"(体力が満タンで、戦闘の最初の命中まで:D-192)・
  *   "core"(命中範囲の芯で命中)・"edge"(命中範囲の縁で命中:D-197)。
  *   effect:"damage"(ダメージを足す)・"critChance"(会心率を足す)・"damagePct"(ダメージを 1 + n 倍)・
- *   "justMultiplier"(ジャスト倍率を足す)。
+ *   "justMultiplier"(ジャスト倍率を足す)・"penetration"(貫通を足す:D-236)。
  * @typedef {{ kind: "combat", stat: string, op: "add" | "scale" } | { kind: "hook", band: "successMs" | "justMs" }
  *   | { kind: "reward", what: "coins" } | { kind: "wait" }
  *   | { kind: "trigger", when: TriggerWhen, effect: TriggerEffect }} SkillTarget
@@ -30,7 +30,7 @@ import { growthMaxLevel } from "./formula.js";
 /**
  * スキルの表の 1 行。
  * @typedef {"combo" | "firstHit" | "just" | "lowHp" | "afterCrit" | "fullHp" | "core" | "edge"} TriggerWhen
- * @typedef {"damage" | "critChance" | "damagePct" | "justMultiplier"} TriggerEffect
+ * @typedef {"damage" | "critChance" | "damagePct" | "justMultiplier" | "penetration"} TriggerEffect
  */
 /**
  * スキルの表の 1 行。
@@ -70,7 +70,7 @@ export const SKILL_ROWS = Object.freeze([
     name: "会心威力",
     type: "growth",
     target: { kind: "combat", stat: "critMultiplier", op: "add" },
-    perLevel: 0.2,
+    perLevel: 0.1,
     display: { label: "クリティカルの倍率", scale: 1, unit: " 倍", sign: "+" },
     description: "クリティカルのダメージが大きくなる。",
   },
@@ -210,6 +210,25 @@ export const SKILL_ROWS = Object.freeze([
     perLevel: 0.2,
     display: { label: "ダメージ", scale: 0.01, unit: "%", sign: "+", when: "縁で命中すると" },
     description: "命中範囲の端のぎりぎりで命中すると、ダメージが大きい。",
+  },
+  // ここから ②-4c 防御で足したもの(D-236)。番号はセーブコードに使うので、表の末尾に足す。
+  {
+    id: "penetration",
+    name: "貫通",
+    type: "growth",
+    target: { kind: "combat", stat: "penetration", op: "add" },
+    perLevel: 0.1,
+    display: { label: "貫通", scale: 0.01, unit: "%", sign: "+" },
+    description: "魚の防御を減らして、ダメージを通す。",
+  },
+  {
+    id: "combo-pen",
+    name: "連撃・貫",
+    type: "growth",
+    target: { kind: "trigger", when: "combo", effect: "penetration" },
+    perLevel: 0.01,
+    display: { label: "貫通", scale: 0.01, unit: "%", sign: "+", when: "連続命中 1 段ごとに" },
+    description: "続けて命中するほど、魚の防御を減らす。ミスで途切れる。",
   },
 ]);
 

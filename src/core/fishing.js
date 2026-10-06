@@ -10,6 +10,9 @@ import {
   critSeed,
   critStages,
   DEFAULT_CRIT_RULES,
+  defendedDamage,
+  effectiveDefense,
+  effectiveStats,
   fightTimeLimit,
   hitDamage,
   HOOK_GRADES,
@@ -420,35 +423,45 @@ export function triggeredStats(game, position = null) {
   let damageAdd = 0;
   let critAdd = 0;
   let pct = 0;
+  let penAdd = 0;
   for (const [when, effects, k] of met) {
     if (!effects) continue;
     const add = (effects.damage ?? 0) * k;
     const crit = (effects.critChance ?? 0) * k;
     const p = (effects.damagePct ?? 0) * k;
-    if (add === 0 && crit === 0 && p === 0) continue;
+    const pen = (effects.penetration ?? 0) * k;
+    if (add === 0 && crit === 0 && p === 0 && pen === 0) continue;
     damageAdd += add;
     critAdd += crit;
     pct += p;
+    penAdd += pen;
     active.push(when);
   }
-  if (damageAdd === 0 && critAdd === 0 && pct === 0) return { stats: combat, active };
+  if (damageAdd === 0 && critAdd === 0 && pct === 0 && penAdd === 0) return { stats: combat, active };
   const damage = Math.min(limits.maxDamage, Math.max(limits.minDamage, Math.round((combat.damage + damageAdd) * (1 + pct))));
   const critChance = Math.min(limits.maxCritChance, Math.max(0, combat.critChance + critAdd));
-  return { stats: { ...combat, damage, critChance }, active };
+  const penetration = Math.min(limits.maxPenetration ?? Infinity, (combat.penetration ?? 0) + penAdd);
+  return { stats: { ...combat, damage, critChance, penetration }, active };
 }
 
 function fightTap(game) {
   const { fight, config, combat } = game;
   const position = currentMarker(game);
   if (isHit(position, fight.zone)) {
-    const { stats, active } = triggeredStats(game, position);
+    const triggered = triggeredStats(game, position);
+    const active = triggered.active;
+    // 会心率・倍率・貫通の合計に逓減をかける(D-239・D-245)。
+    const stats = effectiveStats(triggered.stats, config.formula ?? null);
     // クリティカルの乱数は、命中のたびに 1 回だけ引く。会心率 100% 超は追加の段(D-169)。
     const roll = fight.critRng();
     const limits = config.combatLimits;
     const stages = critStages({ roll, stats, position, zone: fight.zone }, game.critRules, limits.maxCritStages);
     const critical = stages > 0;
     const boosted = fight.boosts.some((b) => b.damageMultiplier);
-    const damage = Math.min(limits.maxHitDamage, boostedDamage(hitDamage(stats, stages, limits), fight.boosts));
+    const raw = Math.min(limits.maxHitDamage, boostedDamage(hitDamage(stats, stages, limits), fight.boosts));
+    // 防御で減らす(通常の計算のあと。最小 1。実効防御 100% 以上はいつも 1:D-235)。
+    const effDefense = effectiveDefense(game.cast.minigame.defense ?? 0, stats.penetration ?? 0);
+    const damage = defendedDamage(raw, effDefense);
     fight.boosts = consumeBoosts(fight.boosts);
     // 勢い:クリティカルのあと、次の命中に効く(次の 1 回だけ)。
     const afterCrit = game.triggers?.afterCrit;
@@ -465,6 +478,10 @@ function fightTap(game) {
       critStages: stages,
       boosted,
       triggers: active,
+      // 防御:実効防御と、防御で減らす前のダメージ(画面の色分けに使う)。
+      effDefense,
+      rawDamage: raw,
+      defended: damage < raw,
       // 命中した帯(芯・通常・縁)。画面の「芯」「縁」の表示に使う。
       band: zoneBand(position, fight.zone, config.skills),
       combo: fight.combo,
