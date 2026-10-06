@@ -4,8 +4,9 @@
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { DEFAULT_CONFIG } from "../core/config.js";
+import { softCurve } from "../core/formula.js";
 import { itemName } from "../core/gear.js";
-import { formatSkillEffect, SKILL_ROWS, skillById, skillStates } from "../core/skills.js";
+import { formatSkillEffect, SKILL_ROWS, skillAmount, skillById, skillStates } from "../core/skills.js";
 
 /** @typedef {import("../core/gear.js").Item} Item */
 /** @typedef {import("../core/gear.js").Gear} Gear */
@@ -31,12 +32,49 @@ export function currentStates(game, gear = game.progress.gear) {
   return skillStates(gear, game.progress.rodStage, config, skills);
 }
 
+/** 合計に逓減がかかる、戦闘の数値の項目と、その形の名前(D-239・D-245)。 */
+const TAPERED_STATS = Object.freeze({ critChance: "critChanceCurve", critMultiplier: "critMultiplierCurve", penetration: "penetrationCurve" });
+
+/**
+ * 逓減をかけたあとの、スキルの効果の量(そのスキルだけを付けたとき)。逓減のないスキルは null。
+ * @param {SkillRow} skill @param {number} level
+ * @returns {{ amount: number, tapered: boolean } | null}
+ */
+export function taperedAmount(skill, level) {
+  const t = skill.target;
+  if (t.kind !== "combat" || t.op !== "add") return null;
+  const curveName = /** @type {Record<string, string>} */ (TAPERED_STATS)[t.stat];
+  if (!curveName) return null;
+  const curve = /** @type {{ knee: number, soft: number }} */ (/** @type {Record<string, any>} */ (DEFAULT_CONFIG.formula)[curveName]);
+  const base = /** @type {Record<string, any>} */ (DEFAULT_CONFIG.combat)[t.stat] ?? 0;
+  const raw = base + skillAmount(skill, level);
+  return { amount: softCurve(raw, curve) - softCurve(base, curve), tapered: raw > curve.knee + 1e-9 };
+}
+
+/** 効果の量(逓減のあと)。 @param {SkillRow} skill @param {number} level */
+function effectiveAmount(skill, level) {
+  return taperedAmount(skill, level)?.amount ?? skillAmount(skill, level);
+}
+
+/**
+ * 次のレベルでの増分の文(例:「Lv5→6:会心率 +15%」。逓減が始まっていれば「(増え方が少し緩やかです)」を付ける:D-239)。
+ * 最大なら null。
+ * @param {SkillRow} skill @param {number} level @param {number} max
+ */
+export function nextLevelText(skill, level, max) {
+  if (level >= max) return null;
+  const inc = effectiveAmount(skill, level + 1) - effectiveAmount(skill, level);
+  const n = Math.round((inc / skill.display.scale) * 100) / 100;
+  const slow = taperedAmount(skill, level + 1)?.tapered ? "(増え方が少し緩やかです)" : "";
+  return `Lv${level}→${level + 1}:${skill.display.label} ${skill.display.sign}${n}${skill.display.unit}${slow}`;
+}
+
 /**
  * 効果の文(レベル 0 は「効果なし」)。条件発動型は条件の短い言い方つき(例:「連続命中 1 段ごとにダメージ +2(最大 10 段)」)。
  * @param {SkillRow} skill @param {number} level @param {import("../core/skills.js").SkillConfig} config
  */
 function effectText(skill, level, config) {
-  return level === 0 ? "効果なし" : formatSkillEffect(skill, level, config);
+  return level === 0 ? "効果なし" : formatSkillEffect(skill, level, config, effectiveAmount(skill, level));
 }
 
 /**
@@ -75,7 +113,9 @@ export function skillRows(game) {
       breakdown: equipped
         .map((it) => ({ name: itemName(it, game.content), level: it.skills.find((x) => x.id === skill.id)?.level ?? 0 }))
         .filter((b) => b.level > 0),
-      levels: Array.from({ length: s.max }, (_, i) => ({ level: i + 1, effect: formatSkillEffect(skill, i + 1, config) })),
+      levels: Array.from({ length: s.max }, (_, i) => ({ level: i + 1, effect: formatSkillEffect(skill, i + 1, config, effectiveAmount(skill, i + 1)) })),
+      // 次のレベルでの増分(D-239)。最大なら null。
+      next: nextLevelText(skill, s.level, s.max),
     };
   });
 }

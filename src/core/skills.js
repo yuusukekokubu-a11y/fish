@@ -400,9 +400,10 @@ export function scaledReward(base, rate) {
 /**
  * スキルの効果の見せ方(例:「会心率 +20%」「待ち時間 −30%」「連続命中 1 段ごとにダメージ +2(最大 10 段)」)。
  * @param {SkillRow} skill @param {number} level @param {SkillConfig | null} [config] 連撃の最大段数を添えるとき
+ * @param {number} [amount] 効果の量(逓減をかけた量を出すとき。なければレベル × 1 レベルの効果)
  */
-export function formatSkillEffect(skill, level, config = null) {
-  const n = Math.round((skillAmount(skill, level) / skill.display.scale) * 1000) / 1000;
+export function formatSkillEffect(skill, level, config = null, amount = skillAmount(skill, level)) {
+  const n = Math.round((amount / skill.display.scale) * 1000) / 1000;
   const text = `${skill.display.label} ${skill.display.sign}${n}${skill.display.unit}`;
   const d = skill.display;
   if (!d.when) return text;

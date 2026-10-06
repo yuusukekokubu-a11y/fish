@@ -52,6 +52,7 @@ function mountSkillList(rows) {
     fill.style.setProperty("width", `${Math.round(row.progress * 100)}%`);
     bar.append(fill);
     head.append(top, bar, el("span", "skill-effect", row.effect));
+    if (row.next) head.append(el("span", "skill-next", row.next));
 
     const detail = el("dl", "menu-detail");
     detail.hidden = true;

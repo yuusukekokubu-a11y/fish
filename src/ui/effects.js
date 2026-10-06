@@ -67,6 +67,12 @@ export function bandLabel(hit) {
 }
 
 export function addHitEffects(effects, hit, now) {
+  // 防御:実効防御 100% 以上は「-1 防御」(貫通が足りない)。防御で減った命中は、数字を灰色がかった青にする(D-235)。
+  if (hit.effDefense >= 1) {
+    effects.shake = { start: now, ms: 120, amplitude: 2 };
+    effects.floats.push({ text: "-1 防御", start: now, ms: 700, y: 0.58, size: 26, color: DEFENDED_COLOR });
+    return;
+  }
   const band = bandLabel(hit);
   if (band) effects.floats.push({ text: band.text, start: now, ms: 700, y: 0.44, size: 24, color: band.color });
   // 条件発動型が効いた命中は、数字の色を変える(ふつうは水色で少し大きく、クリティカルは少し明るいオレンジ:D-191)。
@@ -77,12 +83,15 @@ export function addHitEffects(effects, hit, now) {
     effects.shake = { start: now, ms: 260 + 60 * extra, amplitude: 9 + 2 * extra };
     effects.flash = { color: "255,140,0", start: now, ms: 220, strength: 0.25 + 0.05 * extra };
     effects.floats.push({ text: critLabel(stages), start: now, ms: 800, y: 0.5, size: 22 + 2 * extra, color: "#ffd166" });
-    effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 800, y: 0.58, size: 34, color: band ? band.color : triggered ? "#ffb347" : "#ff8c00" });
+    effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 800, y: 0.58, size: 34, color: hit.defended ? DEFENDED_COLOR : band ? band.color : triggered ? "#ffb347" : "#ff8c00" });
     return;
   }
   effects.shake = { start: now, ms: 150, amplitude: 4 };
-  effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 650, y: 0.58, size: triggered ? 28 : 24, color: band ? band.color : triggered ? "#8be9fd" : "#ffd166" });
+  effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 650, y: 0.58, size: triggered ? 28 : 24, color: hit.defended ? DEFENDED_COLOR : band ? band.color : triggered ? "#8be9fd" : "#ffd166" });
 }
+
+/** 防御で減ったダメージの数字の色(灰色がかった青)。 */
+export const DEFENDED_COLOR = "#9fb7d9";
 
 /** ミニゲームでミスしたときの演出。回復した数を別の色で出す。 */
 export function addMissEffects(effects, miss, now) {

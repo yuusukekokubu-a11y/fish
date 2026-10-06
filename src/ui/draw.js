@@ -104,6 +104,14 @@ function drawGauge(ctx, w, h, view) {
   ctx.fillText(`${view.hp} / ${view.maxHp}`, w / 2, by + 15);
   drawTimeBar(ctx, gx, gy + gh + 10, gw, view.timeLeft, "#ffd166");
 
+  // 魚の防御(体力のバーの上。貫通があれば実効防御も。100% 以上は赤:D-235)。
+  if (view.defense) {
+    ctx.font = "bold 15px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = view.defense.high ? "#ff5a5f" : "#cfd8dc";
+    ctx.fillText(view.defense.text, w / 2, by - 30);
+  }
+
   // 連撃の段数(左)と、次の命中で効く条件の短い名前(右)。説明の文章は置かない(D-191)。
   const badges = view.badges;
   if (badges) {

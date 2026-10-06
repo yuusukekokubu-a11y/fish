@@ -664,6 +664,11 @@
   font-size: 14px;
   opacity: 0.85;
 }
+/* 次のレベルでの増分(D-239)。 */
+.skill-next {
+  font-size: 14px;
+  color: #8be9fd;
+}
 /* 持ち物の空きの警告(D-216)。空き 10 以下は黄、0 は赤。目次の「装備」にも「!」の印。 */
 .space-warning {
   margin: 0 2px 10px;
