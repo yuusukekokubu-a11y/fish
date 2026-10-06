@@ -15,7 +15,7 @@
  * - wait:待ち時間を、1 − レベル × perLevel 倍にする(下限あり)。
  * - trigger:条件発動型(D-184〜D-187)。戦闘の流れの条件(when)を満たした命中にだけ、効果(effect)を足す。
  *   when:"combo"(連撃の段数 1 段ごと)・"firstHit"(合わせ成功のあとの最初の命中)・"just"(ジャストのあとの最初の命中)・
- *   "lowHp"(体力が最大の一定割合以下)・"afterCrit"(クリティカルの次の命中)・"fullHp"(体力が満タン)。
+ *   "lowHp"(体力が最大の一定割合以下)・"afterCrit"(クリティカルの次の命中)・"fullHp"(体力が満タンで、戦闘の最初の命中まで:D-192)。
  *   effect:"damage"(ダメージを足す)・"critChance"(会心率を足す)・"damagePct"(ダメージを 1 + n 倍)・
  *   "justMultiplier"(ジャスト倍率を足す)。
  * @typedef {{ kind: "combat", stat: string, op: "add" | "scale" } | { kind: "hook", band: "successMs" | "justMs" }
@@ -194,8 +194,8 @@ export const SKILL_ROWS = Object.freeze([
     type: "growth",
     target: { kind: "trigger", when: "fullHp", effect: "critChance" },
     perLevel: 0.1,
-    display: { label: "会心率", scale: 0.01, unit: "%", sign: "+", when: "魚の体力が満タンのとき" },
-    description: "魚の体力が満タンの間、クリティカルが出やすい。",
+    display: { label: "会心率", scale: 0.01, unit: "%", sign: "+", when: "戦いの最初の命中で" },
+    description: "魚の体力が満タンの最初の命中で、クリティカルが出やすい。",
   },
 ]);
 

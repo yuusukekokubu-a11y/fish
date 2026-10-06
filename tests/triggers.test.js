@@ -144,18 +144,18 @@ test("勢い:クリティカルが出た直後の 1 回だけ、会心率 +10% �
   assert.equal(triggeredStats(game).stats.critChance, 0.01, "次の命中で消える");
 });
 
-test("先制:体力が満タンの間だけ、会心率 +10% × Lv", () => {
+test("先制:体力が満タンで、その戦闘の最初の命中まで、会心率 +10% × Lv(満タンに戻しても、もう効かない:D-192)", () => {
   const game = bossFight({ "first-strike": 2 });
   assert.ok(Math.abs(triggeredStats(game).stats.critChance - 0.2) < 1e-9);
+  missOnce(game);
+  assert.ok(Math.abs(triggeredStats(game).stats.critChance - 0.2) < 1e-9, "満タンでのミスでは消えない");
   game.fight.critRng = () => 0.99;
   hitOnce(game);
   assert.equal(triggeredStats(game).stats.critChance, 0, "満タンでなくなると効かない");
-  game.fight.hp = game.fight.maxHp - 1;
-  assert.equal(triggeredStats(game).stats.critChance, 0);
   game.fight.hp = game.fight.maxHp;
-  assert.ok(triggeredStats(game).active.includes("fullHp"));
+  assert.equal(triggeredStats(game).stats.critChance, 0, "ミスで満タンに戻しても、最初の命中のあとは効かない");
+  assert.ok(!triggeredStats(game).active.includes("fullHp"));
 });
-
 test("上乗せは戦いが終わると消え、次の戦いに持ち越さない。メニューで止めても保持される", () => {
   const game = bossFight({ "combo-power": 1, momentum: 1 }, { ...DEFAULT_CONFIG.combat, critChance: 1 });
   const session = createSession(game);

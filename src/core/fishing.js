@@ -398,7 +398,8 @@ export function triggeredStats(game) {
   if (stages > 0) met.push(["combo", t.combo, stages]);
   // 「最初の命中」「クリティカルの次」などは、戦闘中の一時的な上乗せに積んである(D-186)。
   for (const b of fight.boosts) if (b.when) met.push([b.when, b.effects, 1]);
-  if (fight.hp >= fight.maxHp) met.push(["fullHp", t.fullHp, 1]);
+  // 先制:体力が満タンで、その戦闘の最初の命中まで(ミスで満タンに戻しても、もう効かない:D-192)。
+  if (fight.hp >= fight.maxHp && fight.hits === 0) met.push(["fullHp", t.fullHp, 1]);
   if (fight.hp <= fight.maxHp * config.skills.lowHpRatio) met.push(["lowHp", t.lowHp, 1]);
   /** @type {string[]} */
   const active = [];

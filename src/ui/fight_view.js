@@ -29,7 +29,7 @@ export function fightBadges(game) {
   const boosts = /** @type {{ id: string }[]} */ (fight.boosts ?? []);
   if (boosts.some((b) => b.id === "first-hit")) labels.push(TRIGGER_LABELS.firstHit);
   if (boosts.some((b) => b.id === "momentum")) labels.push(TRIGGER_LABELS.afterCrit);
-  if (t.fullHp && fight.hp >= fight.maxHp) labels.push(TRIGGER_LABELS.fullHp);
+  if (t.fullHp && fight.hp >= fight.maxHp && fight.hits === 0) labels.push(TRIGGER_LABELS.fullHp);
   if (t.lowHp && fight.hp <= fight.maxHp * lowHpRatio) labels.push(TRIGGER_LABELS.lowHp);
   return { combo: n >= 2 ? `連撃 ×${n}` : null, labels };
 }
