@@ -41,9 +41,9 @@ function effectText(skill, level, config) {
 
 /**
  * スキルの画面の行(表の順)。
- * - progress:次のレベルまでの進み(0〜1。最大なら 1)。
- * - capped:頭打ち型で最大(MAX の印)。
- * - breakdown:装着中の装備ごとのポイントの内訳。levels:各レベルの効果。
+ * - label:「Lv 5 / 7」。progress:最大に対する今のレベルの割合(細い棒)。
+ * - capped:頭打ち型で最大(MAX の印)。over:最大をこえて無駄になっているレベル。
+ * - breakdown:装着中の装備ごとのレベルの内訳。levels:各レベルの効果。
  * @param {SkillGame} game
  */
 export function skillRows(game) {
@@ -55,42 +55,40 @@ export function skillRows(game) {
     .filter((it) => it !== undefined);
   return skills.map((skill) => {
     const s = states[skill.id];
-    const per = config.pointsPerLevel;
     const isMax = s.level >= s.max;
-    const into = s.points - s.level * per;
     return {
       id: skill.id,
       name: skill.name,
       level: s.level,
       max: s.max,
-      points: s.points,
-      label: `Lv${s.level} / ${s.max}`,
+      total: s.total,
+      label: `Lv ${s.level} / ${s.max}`,
       isMax,
       capped: skill.type === "capped" && isMax,
       growth: skill.type === "growth",
-      progress: isMax ? 1 : Math.max(0, Math.min(1, into / per)),
-      next: isMax ? (s.points > s.max * per ? `余り ${s.points - s.max * per} ポイント` : "最大") : `次の Lv まで ${per - into} ポイント`,
+      progress: s.max > 0 ? Math.max(0, Math.min(1, s.level / s.max)) : 0,
+      over: Math.max(0, s.total - s.max),
       effect: effectText(skill, s.level, config),
       // 条件発動型か(数値型と同じ一覧に出す:D-191)。
       triggered: skill.target.kind === "trigger",
       description: skill.description,
       breakdown: equipped
-        .map((it) => ({ name: itemName(it, game.content), points: it.skills.find((x) => x.id === skill.id)?.points ?? 0 }))
-        .filter((b) => b.points > 0),
+        .map((it) => ({ name: itemName(it, game.content), level: it.skills.find((x) => x.id === skill.id)?.level ?? 0 }))
+        .filter((b) => b.level > 0),
       levels: Array.from({ length: s.max }, (_, i) => ({ level: i + 1, effect: formatSkillEffect(skill, i + 1, config) })),
     };
   });
 }
 
 /**
- * 装備 1 個のスキルの行(最大 3 行。例:「強打 +5」)。
+ * 装備 1 個のスキルの行(最大 3 行。例:「会心率 Lv2」:D-195)。
  * @param {Item} item @param {readonly SkillRow[]} [skills]
  */
 export function itemSkillLines(item, skills = SKILL_ROWS) {
   return item.skills.slice(0, 3).map((s) => {
     const row = skillById(s.id, skills);
     const name = row ? row.name : s.id;
-    return { id: s.id, name, points: s.points, text: `${name} +${s.points}` };
+    return { id: s.id, name, level: s.level, text: `${name} Lv${s.level}` };
   });
 }
 

@@ -1,17 +1,18 @@
 // @ts-check
-// 保存の、装備とガチャのまとまりの変換と点検(D-143・D-171・D-178・D-188)。
-// 版 6 の形(短い配列。表の番号で書く。版 5 と同じ形で、ルアーの値の意味だけがちがう):
-//   { items: [[個体の番号, 種類の番号, レア度の番号, グレード, 基本効果の値, [スキルの番号, ポイント, …]], …],
+// 保存の、装備とガチャのまとまりの変換と点検(D-143・D-171・D-178・D-188・D-199)。
+// 版 7 の形(短い配列。表の番号で書く。版 5・6 と同じ形で、スキルの数がポイントではなくレベル):
+//   { items: [[個体の番号, 種類の番号, レア度の番号, グレード, 基本効果の値, [スキルの番号, レベル, …]], …],
 //     equipped: [[種類の番号, 個体の番号], …], draws, seed, nextId }
 //   番号は表(装備の種類・レア度・スキル)の並びの順(0 から)。表の行は、あとから並べ替えない(足すのは最後に)。
 // 版 5 まで、ルアーの値は「外したあとの次の当たり +n」だった。版 6 では「命中範囲 +n%」(D-181)。
+// 版 6 まで、スキルの数はポイントで、スキルの表に目利きがあった(番号は LEGACY_SKILL_IDS)。版 7 でレベルにした(D-195・D-196)。
 // 版 4 の形(オブジェクト):{ items: [{ id, kind, rarity, grade, value, skills: [] }], equipped: { 種類の id: 番号 }, … }
 // 壊れた・範囲外・表にない種類やレア度やスキル・同じ装備に同じスキル・ポイントが範囲外・持ち物にない装着の番号を
 // 含むときは null を返す(読み込みを拒否する)。
 // このファイルは JSDoc で型を書き、`npm run typecheck` で確かめる(D-144)。
 
 import { effectRange, emptyGear, kindById, RARITY_ROWS, rarityById } from "./gear.js";
-import { pointsRange } from "./skills.js";
+import { levelRange } from "./skills.js";
 
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
@@ -24,8 +25,8 @@ import { pointsRange } from "./skills.js";
  * @property {number} maxStage 段階の数(グレードの上限)
  * @property {number} inventoryMax 持ち物の上限
  * @property {number} gradeGrowth グレードごとの基本効果の伸び
- * @property {readonly import("./skills.js").SkillRow[]} skills スキルの表
- * @property {import("./skills.js").SkillConfig} skillConfig スキルの数値
+ * @property {readonly { id: string }[]} skills スキルの表(番号の並び)
+ * @property {(rarityId: string, grade: number) => { min: number, max: number }} skillRange 装備 1 個のスキルの数(レベル。版 6 まではポイント)の範囲
  */
 
 const MAX_COUNT = Number.MAX_SAFE_INTEGER;
@@ -127,7 +128,7 @@ export function packGear(gear, tables) {
       rarityIndex(it.rarity),
       it.grade,
       it.value,
-      it.skills.flatMap((s) => [skillIndex(s.id), s.points]),
+      it.skills.flatMap((s) => [skillIndex(s.id), s.level]),
     ]),
     equipped: Object.entries(gear.equipped).map(([kind, id]) => [kindIndex(kind), id]),
     draws: gear.draws,
@@ -158,20 +159,21 @@ function unpackItem(raw, rules) {
   if (!Number.isSafeInteger(value) || /** @type {number} */ (value) < range.min || /** @type {number} */ (value) > range.max) {
     return null;
   }
-  // スキル:[番号, ポイント] の組の並び。数はレア度の数まで(旧装備は 0:D-172)、同じスキルは 1 回だけ、ポイントは範囲の中。
+  // スキル:[番号, レベル] の組の並び。数はレア度の数まで(旧装備は 0:D-172)、同じスキルは 1 回だけ、レベルは範囲の中。
+  // 版 6 までのデータを読むときは、レベルの代わりにポイント(範囲は rules.skillRange が決める)。
   if (!Array.isArray(skillPairs) || skillPairs.length % 2 !== 0) return null;
   if (skillPairs.length / 2 > (rarity.skillCount ?? 0)) return null;
-  const pr = pointsRange(rarity.id, g, rules.skillConfig);
+  const pr = rules.skillRange(rarity.id, g);
   /** @type {import("./skills.js").ItemSkill[]} */
   const skills = [];
   for (let i = 0; i < skillPairs.length; i += 2) {
     const si = skillPairs[i];
-    const points = skillPairs[i + 1];
+    const level = skillPairs[i + 1];
     if (!isIndex(si, rules.skills.length)) return null;
     const sid = rules.skills[si].id;
     if (skills.some((s) => s.id === sid)) return null;
-    if (!Number.isSafeInteger(points) || points < pr.min || points > pr.max) return null;
-    skills.push({ id: sid, points });
+    if (!Number.isSafeInteger(level) || level < pr.min || level > pr.max) return null;
+    skills.push({ id: sid, level });
   }
   return { id, kind: kind.id, rarity: rarity.id, grade: g, value: /** @type {number} */ (value), skills };
 }
@@ -242,6 +244,41 @@ export function remapLures(gear, kinds, gradeGrowth) {
     const t = from.max > from.min ? (it.value - from.min) / (from.max - from.min) : 0;
     const value = to.min + Math.round((t * (to.max - to.min)) / lure.step) * lure.step;
     return { ...it, value: Math.min(to.max, Math.max(to.min, value)) };
+  });
+  return { ...gear, items };
+}
+
+/** 版 6 までのスキルの表の並び(セーブコードの番号。目利きは 5 番:D-196)。読み替えにだけ使う。 */
+export const LEGACY_SKILL_IDS = Object.freeze([
+  "power", "crit-rate", "crit-power", "tenacity", "fortune", "appraisal", "agility", "insight", "mastery", "recovery",
+  "combo-power", "combo-crit", "first-hit", "just-boost", "finisher", "momentum", "first-strike",
+].map((id) => Object.freeze({ id })));
+
+/** 版 6 までの、装備 1 個のスキルのポイントの範囲(グレード 1・レアで 2〜4、グレードごとに +35%、レア度の倍率)。 */
+const LEGACY_POINTS = Object.freeze({ base: Object.freeze({ min: 2, max: 4 }), growth: 0.35, rarity: Object.freeze({ normal: 1, rare: 1, epic: 1.25, legend: 1.5 }) });
+
+/** @param {string} rarityId @param {number} grade @returns {{ min: number, max: number }} */
+export function legacyPointsRange(rarityId, grade) {
+  const factor = (1 + LEGACY_POINTS.growth * (grade - 1)) * (LEGACY_POINTS.rarity[/** @type {keyof typeof LEGACY_POINTS.rarity} */ (rarityId)] ?? 1);
+  const min = Math.max(1, Math.round(LEGACY_POINTS.base.min * factor));
+  const max = Math.max(min, Math.round(LEGACY_POINTS.base.max * factor));
+  return { min, max };
+}
+
+/**
+ * 版 6 までのスキル(ポイント)を、版 7 のレベルに読み替える(D-195・D-196・D-208)。
+ * レベル = ポイント ÷ 4 を四捨五入(最低 1)。新しい範囲の外になるときは、近いほうの端に収める。目利きは取り除く(装備は残す)。
+ * @param {Gear} gear 版 6 の点検を通ったもの(skills の level にポイントが入っている) @param {readonly { id: string }[]} skills 今のスキルの表
+ * @param {import("./skills.js").SkillConfig} config @returns {Gear}
+ */
+export function pointsToLevels(gear, skills, config) {
+  const items = gear.items.map((it) => {
+    const range = levelRange(it.rarity, it.grade, config);
+    const kept = it.skills.filter((s) => skills.some((row) => row.id === s.id));
+    return {
+      ...it,
+      skills: kept.map((s) => ({ id: s.id, level: Math.min(range.max, Math.max(range.min, Math.max(1, Math.round(s.level / 4)))) })),
+    };
   });
   return { ...gear, items };
 }

@@ -98,16 +98,16 @@ test("持ち物の空き(「あと n 個」)と、種類での絞り込み、ま
   assert.equal(inventorySpaceLabel(full), "持ち物がいっぱいです");
 });
 
-test("スキルの欄は最大 3 行(名前とポイント)。スキルなしは空", () => {
+test("スキルの欄は最大 3 行(名前とレベル)。スキルなしは空", () => {
   const skills = [
-    { id: "power", points: 3 },
-    { id: "crit-rate", points: 4 },
-    { id: "insight", points: 5 },
+    { id: "power", level: 1 },
+    { id: "crit-rate", level: 2 },
+    { id: "insight", level: 1 },
   ];
   const game = gameWith(1, 0, [{ ...item(1, "reel", "legend", 1, 2), skills }, item(2, "reel", "normal", 1, 1)]);
   const crates = makeCrates(game.content, game.config);
   const views = inventoryRows(game, crates, "new");
-  assert.deepEqual(views.find((v) => v.id === 1).skills.map((s) => s.text), ["強打 +3", "会心率 +4", "見極め +5"]);
+  assert.deepEqual(views.find((v) => v.id === 1).skills.map((s) => s.text), ["強打 Lv1", "会心率 Lv2", "見極め Lv1"]);
   assert.deepEqual(views.find((v) => v.id === 2).skills, []);
 });
 

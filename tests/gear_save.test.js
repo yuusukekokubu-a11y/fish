@@ -9,8 +9,8 @@ import { effectRange, emptyGear, EQUIP_KIND_ROWS, equipItem, makeCrates, pullCra
 import { ROD_STEPS } from "../src/core/rod.js";
 import { initialProgress, parseSave, readSaveData, toSaveData } from "../src/core/save.js";
 import { checksum, decodeSaveCode, encodeSaveCode } from "../src/core/savecode.js";
-import { legacyKinds } from "../src/core/gear_save.js";
-import { pointsRange, SKILL_ROWS } from "../src/core/skills.js";
+import { LEGACY_SKILL_IDS, legacyKinds, legacyPointsRange } from "../src/core/gear_save.js";
+import { levelRange, SKILL_ROWS } from "../src/core/skills.js";
 import { progressAt } from "./helpers.js";
 
 const GACHA = DEFAULT_CONFIG.gacha;
@@ -60,28 +60,53 @@ function v4Data(p) {
   };
 }
 
-/** 版 5 の形(短い配列。ルアーは前の値)のデータ。 */
-function v5Data(p) {
-  const v6 = toSaveData({ ...p, gear: { ...p.gear, items: oldItems(p) } });
-  return { ...v6, version: 5 };
-}
+const SK = DEFAULT_CONFIG.skills;
+/** 版 6 までのポイント:レベル × 4 を、前のポイントの範囲に収めたもの。 */
+const legacyPoints = (it, level) => {
+  const pr = legacyPointsRange(it.rarity, it.grade);
+  return Math.min(pr.max, Math.max(pr.min, level * 4));
+};
+/** 版 7 に読み替えたときのレベル(÷4 を四捨五入、最低 1、新しい範囲の中に収める:D-208)。 */
+const migratedLevel = (it, points) => {
+  const lr = levelRange(it.rarity, it.grade, SK);
+  return Math.min(lr.max, Math.max(lr.min, Math.max(1, Math.round(points / 4))));
+};
 
-function codeWith(data, prefix = "FISH6") {
+/** 版 6 までの表にあったスキルだけ(芯・縁は版 7 から)。 */
+const legacySkills = (it) => it.skills.filter((sk) => LEGACY_SKILL_IDS.some((x) => x.id === sk.id));
+
+/** 版 5・版 6 の形(短い配列。スキルは前の表の番号とポイント。版 5 はルアーも前の値)のデータ。 */
+function legacyData(p, version) {
+  const base = toSaveData(p);
+  const items = (version === 5 ? oldItems(p) : p.gear.items).map((it) => [
+    it.id,
+    EQUIP_KIND_ROWS.findIndex((k) => k.id === it.kind),
+    RARITY_ROWS.findIndex((x) => x.id === it.rarity),
+    it.grade,
+    it.value,
+    legacySkills(it).flatMap((sk) => [LEGACY_SKILL_IDS.findIndex((x) => x.id === sk.id), legacyPoints(it, sk.level)]),
+  ]);
+  return { version, progress: { ...base.progress, gear: { ...base.progress.gear, items } } };
+}
+const v5Data = (p) => legacyData(p, 5);
+const v6Data = (p) => legacyData(p, 6);
+
+function codeWith(data, prefix = "FISH7") {
   const body = btoa(JSON.stringify(data)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
   return `${prefix}-${body}-${checksum(body)}`;
 }
 
-test("版 6 の保存とセーブコード(FISH6)は、往復で元に戻る(スキルつきの装備も)", () => {
+test("版 7 の保存とセーブコード(FISH7)は、往復で元に戻る(スキルつきの装備も)", () => {
   for (const p of [progressAt(1), sample(1), sample(10)]) {
     assert.deepEqual(parseSave(JSON.stringify(toSaveData(p))), p);
     const code = encodeSaveCode(p);
-    assert.match(code, /^FISH6-/);
+    assert.match(code, /^FISH7-/);
     assert.deepEqual(decodeSaveCode(code), { ok: true, progress: p });
   }
   assert.ok(sample(10).gear.items.some((it) => it.skills.length > 0));
 });
 
-test("版 6 の装備は、表の番号の短い配列で書く", () => {
+test("版 7 の装備は、表の番号の短い配列で書く(スキルは番号とレベル)", () => {
   const p = sample(1);
   const g = toSaveData(p).progress.gear;
   const it = p.gear.items[0];
@@ -90,11 +115,11 @@ test("版 6 の装備は、表の番号の短い配列で書く", () => {
   assert.equal(EQUIP_KIND_ROWS[row[1]].id, it.kind);
   assert.equal(RARITY_ROWS[row[2]].id, it.rarity);
   assert.deepEqual(row.slice(3, 5), [it.grade, it.value]);
-  assert.deepEqual(row[5], it.skills.flatMap((s) => [SKILL_ROWS.findIndex((r) => r.id === s.id), s.points]));
+  assert.deepEqual(row[5], it.skills.flatMap((s) => [SKILL_ROWS.findIndex((r) => r.id === s.id), s.level]));
   assert.ok(Array.isArray(g.equipped));
 });
 
-test("版 1〜5 から版 6 に読み替える。旧装備はスキルなし(版 4)、ルアーは範囲の中の位置を保って読み替える", () => {
+test("版 1〜6 から版 7 に読み替える。旧装備はスキルなし(版 4)、ルアーは範囲の中の位置(版 5)、スキルのポイントはレベル(版 5・6)", () => {
   const v1 = { version: 1, coins: 5, material: 2, rodStage: 2, seen: ["aji"] };
   const v2 = { version: 2, progress: { coins: 5, material: 2, rodStage: 2, seen: ["aji"] } };
   const v3 = { version: 3, progress: { coins: 7, scales: { suzuki: 3 }, rod: { stage: 2, step: "crafted" }, seen: ["aji"] } };
@@ -120,7 +145,8 @@ test("版 1〜5 から版 6 に読み替える。旧装備はスキルなし(版
   assert.deepEqual(r5.progress.gear.equipped, p.gear.equipped);
   for (const [i, it] of p.gear.items.entries()) {
     const got = r5.progress.gear.items[i];
-    assert.deepEqual({ ...got, value: 0 }, { ...it, value: 0 });
+    assert.deepEqual({ ...got, value: 0, skills: [] }, { ...it, value: 0, skills: [] });
+    assert.deepEqual(got.skills, legacySkills(it).map((sk) => ({ id: sk.id, level: migratedLevel(it, legacyPoints(it, sk.level)) })));
     if (it.kind !== "lure") assert.equal(got.value, it.value);
     else {
       const to = rangeOf(LURE, it);
@@ -129,6 +155,40 @@ test("版 1〜5 から版 6 に読み替える。旧装備はスキルなし(版
     }
   }
   assert.deepEqual(decodeSaveCode(codeWith(v5Data(p), "FISH5")), r5);
+  // 版 6:ルアーはそのまま。スキルのポイントをレベルにする。
+  const r6 = readSaveData(v6Data(p));
+  assert.equal(r6.ok, true);
+  assert.deepEqual({ ...r6.progress, gear: null }, { ...p, gear: null });
+  assert.deepEqual(r6.progress.gear.equipped, p.gear.equipped);
+  for (const [i, it] of p.gear.items.entries()) {
+    const got = r6.progress.gear.items[i];
+    assert.deepEqual({ ...got, skills: [] }, { ...it, skills: [] });
+    assert.deepEqual(got.skills, legacySkills(it).map((sk) => ({ id: sk.id, level: migratedLevel(it, legacyPoints(it, sk.level)) })));
+  }
+  assert.deepEqual(decodeSaveCode(codeWith(v6Data(p), "FISH6")), r6);
+});
+
+test("版 6 → 版 7:ポイント ÷ 4 を四捨五入(最低 1)、目利きはスキルだけ取り除いて装備は残す", () => {
+  const ids = LEGACY_SKILL_IDS.map((x) => x.id);
+  const at = (rarity, grade, pairs) => {
+    const value = effectRange(EQUIP_KIND_ROWS[1], rarityById(rarity, RARITY_ROWS), grade, GACHA.gradeGrowth).min;
+    const row = [7, 1, RARITY_ROWS.findIndex((x) => x.id === rarity), grade, value, pairs.flatMap(([id, pts]) => [ids.indexOf(id), pts])];
+    const base = toSaveData(progressAt(5, ROD_STEPS.NONE));
+    const data = { version: 6, progress: { ...base.progress, gear: { ...base.progress.gear, items: [row], equipped: [[1, 7]], nextId: 8 } } };
+    return readSaveData(data);
+  };
+  // レジェンド・グレード 5(前のポイント 7〜14 → 新しいレベル 2〜4)。
+  const legend = at("legend", 5, [["power", 7], ["appraisal", 14], ["crit-rate", 14]]);
+  assert.equal(legend.ok, true);
+  assert.deepEqual(legend.progress.gear.items[0].skills, [{ id: "power", level: 2 }, { id: "crit-rate", level: 4 }], "7 → 1.75 → 2、14 → 3.5 → 4、目利きは消える");
+  assert.deepEqual(legend.progress.gear.equipped, { reel: 7 }, "装備は残り、付けたまま");
+  // レア・グレード 1(前のポイント 2〜4 → 新しいレベル 1)。2 ÷ 4 = 0.5 → 1(最低 1)。
+  assert.deepEqual(at("rare", 1, [["power", 2]]).progress.gear.items[0].skills, [{ id: "power", level: 1 }]);
+  // 目利きだけの装備は、スキルなしの装備として残る。
+  assert.deepEqual(at("rare", 1, [["appraisal", 3]]).progress.gear.items[0].skills, []);
+  // 前の範囲の外のポイントは拒否する。
+  assert.equal(at("rare", 1, [["power", 5]]).ok, false);
+  assert.equal(at("rare", 1, [[ "power", 1]]).ok, false);
 });
 
 test("旧ルアーの読み替え:前の範囲の位置(0・真ん中・1)を、新しい範囲の同じ位置にする", () => {
@@ -163,7 +223,7 @@ test("版 4 の形がおかしいデータ(スキルが入っている等)は拒
   }
 });
 
-test("壊れた・範囲外・表にない種類やレア度やスキル・重複スキル・ポイント範囲外・持ち物にない装着のコードは拒否し、何も変えない", () => {
+test("壊れた・範囲外・表にない種類やレア度やスキル・重複スキル・レベル範囲外・持ち物にない装着のコードは拒否し、何も変えない", () => {
   const p = sample(2);
   const good = toSaveData(p);
   const g = good.progress.gear;
@@ -176,7 +236,7 @@ test("壊れた・範囲外・表にない種類やレア度やスキル・重�
   const withItem = (row) => withGear({ items: [row, ...others], equipped: [] });
   const set = (i, v) => item0.map((x, j) => (j === i ? v : x));
   const it = p.gear.items[idx];
-  const pr = pointsRange(it.rarity, it.grade, DEFAULT_CONFIG.skills);
+  const pr = levelRange(it.rarity, it.grade, SK);
   const sk = item0[5];
   const normalRow = g.items.find((r) => RARITY_ROWS[r[2]].id === "normal");
   const bad = [
@@ -195,7 +255,7 @@ test("壊れた・範囲外・表にない種類やレア度やスキル・重�
     set(5, [sk[0]]), // 組になっていない
     set(5, [SKILL_ROWS.length, pr.min]), // 表にないスキル
     set(5, [sk[0], sk[1], sk[0], sk[1]]), // 同じスキルが 2 つ
-    set(5, [sk[0], pr.min - 1]), // ポイントが範囲外
+    set(5, [sk[0], pr.min - 1]), // レベルが範囲外
     set(5, [sk[0], pr.max + 1]),
     set(5, [sk[0], 1.5]),
     set(5, [0, pr.min, 1, pr.min, 2, pr.min, 3, pr.min, 4, pr.min]), // レア度の数より多い
@@ -250,11 +310,11 @@ test("FISH3 以前のコードも読める", () => {
   assert.deepEqual(decodeSaveCode(codeWith(v3, "FISH3")), { ok: true, progress: progressAt(1, ROD_STEPS.NONE, { coins: 1 }) });
 });
 
-/** 持ち物 100 個がすべてレジェンド・スキル 3 つ・値もポイントも最大の、一番長くなる進み具合。 */
+/** 持ち物 100 個がすべてレジェンド・スキル 3 つ・値もレベルも最大の、一番長くなる進み具合。 */
 function longestProgress() {
   const legend = rarityById("legend", RARITY_ROWS);
   const grade = DEFAULT_CONTENT.maxStage;
-  const pr = pointsRange("legend", grade, DEFAULT_CONFIG.skills);
+  const pr = levelRange("legend", grade, SK);
   const items = Array.from({ length: GACHA.inventoryMax }, (_, i) => {
     const kind = EQUIP_KIND_ROWS[i % 3];
     return {
@@ -263,7 +323,7 @@ function longestProgress() {
       rarity: "legend",
       grade,
       value: effectRange(kind, legend, grade, GACHA.gradeGrowth).max,
-      skills: [7, 8, 9].map((s) => ({ id: SKILL_ROWS[s].id, points: pr.max })),
+      skills: [15, 16, 17].map((s) => ({ id: SKILL_ROWS[s].id, level: pr.max })),
     };
   });
   return progressAt(grade, ROD_STEPS.CRAFTED, {

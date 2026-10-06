@@ -1,6 +1,6 @@
 // @ts-check
-// スキルの画面(全画面:D-179)。スキルの表の順に、名前・Lv/最大・次のレベルまでの細い棒・今の効果を並べる。
-// 頭打ち型で最大のものには MAX の印。行を押すと、装備ごとのポイントの内訳と、各レベルの効果が開く。
+// スキルの画面(全画面:D-179・D-195)。スキルの表の順に、名前・「Lv 5 / 7」・レベルの細い棒・今の効果を並べる。
+// 頭打ち型で最大のものには MAX の印。行を押すと、装備ごとのレベルの内訳と、各レベルの効果が開く。
 // 数と文字は skill_view.js が作る。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
@@ -37,9 +37,10 @@ export function mountSkills(container, ctx) {
     const detail = el("dl", "menu-detail");
     detail.hidden = true;
     /** @type {[string, string][]} */
-    const lines = [["説明", row.description], ["ポイント", `${row.points}(${row.next})`]];
+    const lines = [["説明", row.description]];
     if (row.breakdown.length === 0) lines.push(["内訳", "装着中の装備にこのスキルはありません"]);
-    for (const b of row.breakdown) lines.push(["内訳", `${b.name} +${b.points}`]);
+    for (const b of row.breakdown) lines.push(["内訳", `${b.name} Lv${b.level}`]);
+    if (row.over > 0) lines.push(["余り", `Lv${row.over}(最大をこえた分は無駄になります)`]);
     for (const l of row.levels) lines.push([`Lv${l.level}`, l.effect]);
     if (row.growth) lines.push(["最大", GROWTH_NOTE]);
     for (const [k, v] of lines) detail.append(el("dt", "", k), el("dd", "", v));

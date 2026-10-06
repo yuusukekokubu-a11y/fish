@@ -8,7 +8,7 @@
 
 import { DEFAULT_CONFIG } from "./config.js";
 import { createRng } from "./rng.js";
-import { pointsRange, SKILL_ROWS } from "./skills.js";
+import { levelRange, SKILL_ROWS } from "./skills.js";
 
 /**
  * レア度の表の 1 行。
@@ -41,7 +41,7 @@ import { pointsRange, SKILL_ROWS } from "./skills.js";
  * @property {string} rarity レア度の id
  * @property {number} grade グレード(引いたクレートの段階)
  * @property {number} value 基本効果の値(stat の単位の整数)
- * @property {import("./skills.js").ItemSkill[]} skills スキル(スキルの id とポイント。レア度で 0〜3 種類、重複なし:D-166)
+ * @property {import("./skills.js").ItemSkill[]} skills スキル(スキルの id とレベル。レア度で 0〜3 種類、重複なし:D-195)
  */
 
 /**
@@ -245,7 +245,7 @@ export const DEFAULT_SKILL_DRAW = Object.freeze({ skills: SKILL_ROWS, config: DE
 
 /**
  * 1 回ぶんの抽選。乱数は決まった順に引く(D-148・D-177):
- * レア度 → 種類(等確率)→ 基本効果の値 → スキル(数はレア度で決まる。表から等確率、重複なし)→ 各スキルのポイント。
+ * レア度 → 種類(等確率)→ 基本効果の値 → スキル(数はレア度で決まる。表から等確率、重複なし)→ 各スキルのレベル。
  * 前の 3 つは ②-4a と同じなので、スキルが付かないノーマルの結果は前と同じ。
  * @param {number} seed @param {number} index 何回目か(0 から) @param {Crate} crate
  * @param {readonly EquipKind[]} kinds @param {number} gradeGrowth @param {SkillDraw} [skillDraw]
@@ -267,7 +267,7 @@ export function drawItem(seed, index, crate, kinds, gradeGrowth, skillDraw = DEF
   const range = effectRange(kind, rarity, crate.grade, gradeGrowth);
   const choices = Math.round((range.max - range.min) / kind.step) + 1;
   const value = range.min + Math.min(choices - 1, Math.floor(rng() * choices)) * kind.step;
-  // スキル:レア度の数だけ、残りの中から等確率で選ぶ(同じスキルは付かない)。そのあとポイントを引く。
+  // スキル:レア度の数だけ、残りの中から等確率で選ぶ(同じスキルは付かない)。そのあと各スキルのレベルを引く(D-195)。
   const pool = [...skillDraw.skills];
   const count = Math.min(rarity.skillCount ?? 0, pool.length);
   const picked = [];
@@ -275,8 +275,8 @@ export function drawItem(seed, index, crate, kinds, gradeGrowth, skillDraw = DEF
     const at = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
     picked.push(pool.splice(at, 1)[0]);
   }
-  const pr = pointsRange(rarity.id, crate.grade, skillDraw.config);
-  const skills = picked.map((s) => ({ id: s.id, points: pr.min + Math.min(pr.max - pr.min, Math.floor(rng() * (pr.max - pr.min + 1))) }));
+  const lr = levelRange(rarity.id, crate.grade, skillDraw.config);
+  const skills = picked.map((s) => ({ id: s.id, level: lr.min + Math.min(lr.max - lr.min, Math.floor(rng() * (lr.max - lr.min + 1))) }));
   return { kind: kind.id, rarity: rarity.id, grade: crate.grade, value, skills };
 }
 
