@@ -90,7 +90,7 @@ const ITEM = Object.freeze({
   justMultiplier: { label: "ジャストの倍率", value: (c) => c.hook.justMultiplier, format: times },
   success: { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
   just: { label: "ジャスト帯(強い魚)", value: (c) => c.hook.strong.justMs, format: seconds },
-  // 報酬と待ち時間の倍率(スキル:豊漁・俊敏)。基本は全部 1。鱗を増やす効果はない(D-196)。
+  // 報酬と待ち時間の倍率(スキル:豊漁・俊敏)。基本は全部 1。鱗を増やす効果はない(D-211)。
   coins: { label: "ウロコイン", value: (_c, r) => r.coins, format: rate },
   wait: { label: "待ち時間", value: (_c, r) => r.wait, format: rate },
 });
