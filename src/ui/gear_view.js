@@ -112,6 +112,30 @@ export function inventorySpaceLabel(game) {
   return left === 0 ? "持ち物がいっぱいです" : `持ち物 あと ${left} 個`;
 }
 
+/** 空きがこの数以下になったら、黄色の警告を出す(D-216)。 */
+export const SPACE_WARN_AT = 10;
+
+/**
+ * 持ち物の空きの警告(D-216)。
+ * - level:空き 11 以上は null、1〜10 は "warn"(黄)、0 は "full"(赤)。
+ * - tenBlocked:10 連に要る空きが足りない(10 連のボタンを押せなくする)。oneBlocked:1 回も引けない。
+ * @param {{ config: { gacha: { inventoryMax: number, pullMax: number } }, progress: { gear: { items: unknown[] } } }} game
+ */
+export function inventoryWarning(game) {
+  const { inventoryMax, pullMax } = game.config.gacha;
+  const left = Math.max(0, inventoryMax - game.progress.gear.items.length);
+  /** @type {"warn" | "full" | null} */
+  const level = left === 0 ? "full" : left <= SPACE_WARN_AT ? "warn" : null;
+  return {
+    left,
+    level,
+    text: level === "full" ? "持ち物がいっぱいです。分解して空きを作ってください" : level === "warn" ? "もうすぐいっぱいです" : "",
+    tenBlocked: left < pullMax,
+    tenNote: left > 0 && left < pullMax ? `10 連には空き ${pullMax} 個が必要です` : "",
+    oneBlocked: left === 0,
+  };
+}
+
 /** 差(+/−)の文。 @param {import("../core/gear.js").EquipKind} kind @param {number} diff */
 export function formatDiff(kind, diff) {
   if (diff === 0) return "±0";

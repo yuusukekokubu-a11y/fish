@@ -30,7 +30,7 @@ function baseUrl() {
  * @param {object} options
  * @param {HTMLElement} options.app 画面全体
  * @param {readonly Screen[]} options.screens 画面の表
- * @param {Record<string, any>} options.ctx 画面の部品に渡すもの(rerender と navigate はここで足す)
+ * @param {Record<string, any>} options.ctx 画面の部品に渡すもの(rerender・navigate・backToMain はここで足す)
  * @param {(screen: string | null) => void} options.onChange 開いている画面が変わったとき(null はメイン画面)
  */
 export function createScreenShell({ app, screens, ctx, onChange }) {
@@ -94,6 +94,7 @@ export function createScreenShell({ app, screens, ctx, onChange }) {
 
   ctx.navigate = (/** @type {string} */ id) => navigate(id);
   ctx.rerender = () => render(current, true);
+  ctx.backToMain = () => backToMain();
   back.addEventListener("click", backToMain);
   window.addEventListener("popstate", () => render(screenFromHash(location.hash, screens)));
   // 画面の中のタップは、下の釣りの絵やボタンに届かない。

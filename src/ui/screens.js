@@ -8,7 +8,9 @@
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { mountCrates } from "./crate_screen.js";
+import { mountDebug } from "./debug_screen.js";
 import { mountEquipment } from "./equip_screen.js";
+import { inventoryWarning } from "./gear_view.js";
 import { mountList } from "./list_view.js";
 import { materialsView, statusView } from "./screen_views.js";
 import { mountSettings } from "./settings.js";
@@ -20,17 +22,29 @@ import { mountSkills } from "./skill_screen.js";
  * @property {string} id URL の「#」のあとに使う名前(小文字の英字)
  * @property {string} title 目次と、画面の上のバーに出す名前
  * @property {(container: HTMLElement, ctx: any) => void} mount
+ * @property {(game: any) => "warn" | "full" | null} [badge] 目次の項目に出す「!」の印(黄:warn・赤:full)(D-216)
  */
 
 /** @type {readonly Screen[]} */
 export const SCREENS = Object.freeze([
-  { id: "equipment", title: "装備", mount: mountEquipment },
+  { id: "equipment", title: "装備", mount: mountEquipment, badge: (game) => inventoryWarning(game).level },
   { id: "skills", title: "スキル", mount: mountSkills },
   { id: "crates", title: "クレート", mount: mountCrates },
   { id: "materials", title: "素材", mount: mountList(materialsView) },
   { id: "status", title: "ステータス", mount: mountList(statusView) },
   { id: "settings", title: "設定", mount: mountSettings },
 ]);
+
+/** デバッグ画面の行。?debug のときだけ、表の最後に足す(D-214)。 @type {Screen} */
+export const DEBUG_SCREEN = Object.freeze({ id: "debug", title: "デバッグ", mount: mountDebug });
+
+/**
+ * 使う画面の表。?debug のときだけ、デバッグ画面の行を最後に足す(D-214)。
+ * @param {boolean} debug @returns {readonly Screen[]}
+ */
+export function screensFor(debug) {
+  return debug ? Object.freeze([...SCREENS, DEBUG_SCREEN]) : SCREENS;
+}
 
 /**
  * 目次の項目(表の順)。

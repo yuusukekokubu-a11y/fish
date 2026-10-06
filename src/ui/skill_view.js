@@ -81,6 +81,50 @@ export function skillRows(game) {
 }
 
 /**
+ * スキルの画面のグループの表(D-217・D-221)。表の順に並べ、スキルは match が最初に当たったグループに入る。
+ * グループは表の行から決まるので、スキルの表に行を足すと、種類に合うグループに自動で入る。
+ * @typedef {{ id: string, title: string, order: number, match: (skill: SkillRow) => boolean }} SkillGroup
+ */
+
+/** ゲージ系の条件(命中範囲の帯で決まるもの)。 */
+const GAUGE_WHENS = Object.freeze(["core", "edge"]);
+
+/** @param {SkillRow} skill */
+function triggerWhen(skill) {
+  return skill.target.kind === "trigger" ? /** @type {{ when: string }} */ (skill.target).when : null;
+}
+
+/** @type {readonly SkillGroup[]} */
+export const SKILL_GROUPS = Object.freeze([
+  // 当てはめる順:ゲージ系 → 条件発動型 → 数値型(order は画面に並べる順)。
+  { id: "gauge", title: "ゲージ系", order: 3, match: (s) => GAUGE_WHENS.includes(triggerWhen(s) ?? "") },
+  { id: "trigger", title: "条件発動型", order: 2, match: (s) => s.target.kind === "trigger" },
+  { id: "numeric", title: "数値型", order: 1, match: () => true },
+]);
+
+/**
+ * スキルの画面の行を、グループに分ける(D-217)。
+ * - count:レベル 1 以上のスキルの数(見出しに出す)。
+ * - open:初めに開いておくか。レベル 1 以上のスキルがあるグループだけ開く(どれにもなければ全部閉じる)。
+ * @param {SkillGame} game @param {readonly SkillGroup[]} [groups]
+ */
+export function skillGroups(game, groups = SKILL_GROUPS) {
+  const { skills } = tables(game);
+  const rows = skillRows(game);
+  return [...groups]
+    .sort((a, b) => a.order - b.order)
+    .map((g) => {
+      const own = rows.filter((r) => {
+        const skill = /** @type {SkillRow} */ (skills.find((x) => x.id === r.id));
+        return groups.find((x) => x.match(skill)) === g;
+      });
+      const count = own.filter((r) => r.level >= 1).length;
+      return { id: g.id, title: g.title, rows: own, count, total: own.length, label: `${g.title}(${count} / ${own.length})`, open: count > 0 };
+    })
+    .filter((g) => g.total > 0);
+}
+
+/**
  * 装備 1 個のスキルの行(最大 3 行。例:「会心率 Lv2」:D-195)。
  * @param {Item} item @param {readonly SkillRow[]} [skills]
  */
