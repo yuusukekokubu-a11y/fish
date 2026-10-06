@@ -68,7 +68,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     cappedMax: 3, // 頭打ち型の最大レベル
     // 装備 1 個のスキルのレベルの範囲:上限 =(段階の最大 ÷ 3 枠)× レア度の倍率、下限 = 上限の半分(D-207)。
     levelSlots: 3,
-    levelRarityMultiplier: Object.freeze({ normal: 0, rare: 0.75, epic: 1, legend: 1.5 }),
+    levelRarityMultiplier: Object.freeze({ normal: 0, rare: 0.7, epic: 1, legend: 1.5 }),
     levelMinRatio: 0.5,
     // ゲージ系の帯(命中範囲の中心からの距離。端が 1):芯は 0.3 以下、縁は 0.75 以上(D-197・D-207)。
     coreRatio: 0.3,

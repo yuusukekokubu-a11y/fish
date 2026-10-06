@@ -9,15 +9,15 @@ import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { DEFAULT_CONTENT } from "../../src/core/fish.js";
 import { challengeBoss, createGame, currentMarker, PHASES, tap, update } from "../../src/core/fishing.js";
 import { effectRange, emptyGear, EQUIP_KIND_ROWS, RARITY_ROWS } from "../../src/core/gear.js";
-import { pointsRange } from "../../src/core/skills.js";
+import { levelRange } from "../../src/core/skills.js";
 import { hitDamage } from "../../src/core/combat.js";
 import { progressAt } from "../helpers.js";
 
 const LEG = RARITY_ROWS.find((r) => r.id === "legend");
 const max = (kind, g) => effectRange(EQUIP_KIND_ROWS.find((k) => k.id === kind), LEG, g, DEFAULT_CONFIG.gacha.gradeGrowth).max;
 function build(stage) {
-  const p = pointsRange("legend", stage, DEFAULT_CONFIG.skills).max;
-  const sk = (ids) => ids.map((id) => ({ id, points: p }));
+  const p = levelRange("legend", stage, DEFAULT_CONFIG.skills).max;
+  const sk = (ids) => ids.map((id) => ({ id, level: p }));
   return [
     { id: 1, kind: "reel", rarity: "legend", grade: stage, value: max("reel", stage), skills: sk(["power", "crit-rate", "crit-power"]) },
     { id: 2, kind: "line", rarity: "legend", grade: stage, value: max("line", stage), skills: sk(["power", "crit-rate", "crit-power"]) },
