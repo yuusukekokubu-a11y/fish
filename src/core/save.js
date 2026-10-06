@@ -1,8 +1,8 @@
 // 保存の形式(D-065・D-104・D-117・D-143)。ブラウザに保存するのは UI の役目で、ここは形の変換と点検だけを行う。
-// 版 6 の形(版 5 と同じ形。ルアーの値の意味だけがちがう:D-188):
-//   { version: 6, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...],
+// 版 7 の形(版 5・6 と同じ形。版 6 でルアーの値の意味が、版 7 でスキルの数がポイントからレベルに変わった:D-188・D-199):
+//   { version: 7, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...],
 //     gear: { items: [[…]], equipped: [[…]], draws, seed, nextId } } }
-//   装備は表の番号の短い配列で書く(D-171・D-178。形は gear_save.js)。
+//   装備は表の番号の短い配列で書く(D-208。形は gear_save.js)。
 // 装備とガチャのまとまり(gear)の点検は gear_save.js にある。
 // 古い版は、版ごとの小さな関数(MIGRATIONS)で 1 つずつ新しい版に読み替える。版を足すときは、
 // SAVE_VERSION を上げ、「前の版 → 新しい版」の関数を 1 つ足す。
@@ -12,10 +12,21 @@
 import { DEFAULT_CONFIG } from "./config.js";
 import { DEFAULT_CONTENT, FISH_ID_PATTERN as ID_PATTERN } from "./fish.js";
 import { emptyGear } from "./gear.js";
-import { legacyKinds, migratedGear, packGear, readGear, readGearV4, remapLures } from "./gear_save.js";
+import {
+  LEGACY_SKILL_IDS,
+  legacyKinds,
+  legacyPointsRange,
+  migratedGear,
+  packGear,
+  pointsToLevels,
+  readGear,
+  readGearV4,
+  remapLures,
+} from "./gear_save.js";
+import { levelRange } from "./skills.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 export const SAVE_KEY = "fish:save";
 
 // 鱗の表の大きさの上限(壊れたデータで大きくなりすぎないように)。
@@ -26,7 +37,7 @@ export function initialProgress() {
   return { coins: 0, scales: {}, rodStage: 1, rodStep: ROD_STEPS.NONE, seen: [], gear: emptyGear() };
 }
 
-/** 進み具合を、保存する形(版 6)にする。装備の番号は content の表の並び。 */
+/** 進み具合を、保存する形(版 7)にする。装備の番号は content の表の並び。 */
 export function toSaveData(progress, content = DEFAULT_CONTENT) {
   return {
     version: SAVE_VERSION,
@@ -85,7 +96,7 @@ export const MIGRATIONS = Object.freeze({
     if (!isPlainObject(data.progress)) return null;
     const gear = readGearV4(data.progress.gear, legacyRules(content, config));
     if (!gear) return null;
-    return { version: 5, progress: { ...data.progress, gear: packGear(gear, content) } };
+    return { version: 5, progress: { ...data.progress, gear: packGear(gear, legacyTables(content)) } };
   },
   // 版 5 → 版 6:ルアーの値の意味が変わる(外したあとの次の当たり → 命中範囲 +n%:D-181)。
   // 前の範囲で点検してから、同じレア度・グレードの範囲の中での位置を保って読み替える(D-188)。
@@ -94,13 +105,26 @@ export const MIGRATIONS = Object.freeze({
     const gear = readGear(data.progress.gear, legacyRules(content, config));
     if (!gear) return null;
     const remapped = remapLures(gear, content.equipKinds, config.gacha.gradeGrowth);
-    return { version: 6, progress: { ...data.progress, gear: packGear(remapped, content) } };
+    return { version: 6, progress: { ...data.progress, gear: packGear(remapped, legacyTables(content)) } };
+  },
+  // 版 6 → 版 7:スキルのポイントをレベルにする(÷4 を四捨五入、最低 1)。目利きは取り除く(D-195・D-196)。
+  6: (data, content, config) => {
+    if (!isPlainObject(data.progress)) return null;
+    const gear = readGear(data.progress.gear, { ...gearRules(content, config), skills: LEGACY_SKILL_IDS, skillRange: legacyPointsRange });
+    if (!gear) return null;
+    const leveled = pointsToLevels(gear, content.skills, config.skills);
+    return { version: 7, progress: { ...data.progress, gear: packGear(leveled, content) } };
   },
 });
 
-/** 版 5 までのデータの点検に使う表と数値(ルアーの値の範囲だけ前のもの)。 */
+/** 版 6 までの番号の並び(スキルの表は目利きを含む前のもの)。 */
+function legacyTables(content) {
+  return { equipKinds: content.equipKinds, skills: LEGACY_SKILL_IDS };
+}
+
+/** 版 5 までのデータの点検に使う表と数値(ルアーの値の範囲と、スキルの表とポイントの範囲が前のもの)。 */
 function legacyRules(content, config) {
-  return { ...gearRules(content, config), equipKinds: legacyKinds(content.equipKinds) };
+  return { ...gearRules(content, config), equipKinds: legacyKinds(content.equipKinds), skills: LEGACY_SKILL_IDS, skillRange: legacyPointsRange };
 }
 
 /** 装備の点検に使う表と数値。 */
@@ -111,7 +135,7 @@ function gearRules(content, config) {
     maxStage: content.maxStage,
     inventoryMax: config.gacha.inventoryMax,
     gradeGrowth: config.gacha.gradeGrowth,
-    skillConfig: config.skills,
+    skillRange: (/** @type {string} */ rarityId, /** @type {number} */ grade) => levelRange(rarityId, grade, config.skills),
   };
 }
 

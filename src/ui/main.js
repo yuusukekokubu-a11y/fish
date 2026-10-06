@@ -30,7 +30,7 @@ import { act, advance, createSession, setPaused, tapSession } from "./session.js
 import { parseSave, SAVE_KEY, toSaveData } from "../core/save.js";
 import { versionLabel } from "../version.js";
 import { createDrawer } from "./drawer.js";
-import { fightBadges } from "./fight_view.js";
+import { fightBadges, gaugeBands } from "./fight_view.js";
 import { drawScene } from "./draw.js";
 import {
   addHitEffects,
@@ -280,6 +280,7 @@ function main() {
       hook: game.phase === PHASES.BITE ? { t: game.phaseMs, timing: currentHookTiming(game) } : null,
       caught: game.lastResult?.outcome === OUTCOMES.CAUGHT,
       badges: game.phase === PHASES.MINIGAME ? fightBadges(game) : null,
+      bands: game.phase === PHASES.MINIGAME ? gaugeBands(game) : null,
     };
     ctx.save();
     ctx.translate(shakeOffset(effects, now), 0);

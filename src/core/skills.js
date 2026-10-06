@@ -1,31 +1,33 @@
 // @ts-check
-// スキル(スキルレベル制:D-124・D-125・D-165〜D-168・D-174)。
+// スキル(スキルレベル制:D-125・D-167・D-195〜D-198・D-210)。
 // - スキルの表(SKILL_ROWS):1 行に id・名前・種類(成長型/頭打ち型)・足す先・レベルごとの効果・一言の説明。
 //   既にある戦闘の数値の項目を使うスキルなら、表に 1 行足すだけで、抽選・計算・画面に加わる。
-// - 装着中の装備のポイントを、スキルごとに合計してレベルにする。レベル = ポイント ÷ 1 レベルのポイント(切り捨て)。
+// - 装備のスキルは整数のレベルを持つ。装着中の装備の同じスキルのレベルを足して、スキルのレベルにする(D-195)。
 //   最大レベルで止まり、余りは無駄にする。成長型の最大は竿の段階で伸び、頭打ち型は 3。
-// - 効果:戦闘の数値の表(足し算・掛け算)、報酬の倍率(豊漁・目利き)、待ち時間の倍率(俊敏)。
+// - 効果:戦闘の数値の表(足し算・掛け算)、報酬の倍率(豊漁)、待ち時間の倍率(俊敏)、
+//   条件発動型とゲージ系(命中のたびに条件を見て足す:D-184・D-197)。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 /**
  * スキルの効果の向け先。
  * - combat:戦闘の数値の表の項目 stat に、op で効かせる("add" はレベル × perLevel を足す、"scale" は 1 − レベル × perLevel を掛ける)。
  * - hook:合わせの輪の帯(successMs か justMs)を、弱い魚と強い魚の両方で広げる。
- * - reward:報酬(coins か scales)を、1 + レベル × perLevel 倍にする。
+ * - reward:報酬(coins)を、1 + レベル × perLevel 倍にする(鱗を増やすスキルは作らない:D-196)。
  * - wait:待ち時間を、1 − レベル × perLevel 倍にする(下限あり)。
  * - trigger:条件発動型(D-184〜D-187)。戦闘の流れの条件(when)を満たした命中にだけ、効果(effect)を足す。
  *   when:"combo"(連撃の段数 1 段ごと)・"firstHit"(合わせ成功のあとの最初の命中)・"just"(ジャストのあとの最初の命中)・
- *   "lowHp"(体力が最大の一定割合以下)・"afterCrit"(クリティカルの次の命中)・"fullHp"(体力が満タンで、戦闘の最初の命中まで:D-192)。
+ *   "lowHp"(体力が最大の一定割合以下)・"afterCrit"(クリティカルの次の命中)・"fullHp"(体力が満タンで、戦闘の最初の命中まで:D-192)・
+ *   "core"(命中範囲の芯で命中)・"edge"(命中範囲の縁で命中:D-197)。
  *   effect:"damage"(ダメージを足す)・"critChance"(会心率を足す)・"damagePct"(ダメージを 1 + n 倍)・
  *   "justMultiplier"(ジャスト倍率を足す)。
  * @typedef {{ kind: "combat", stat: string, op: "add" | "scale" } | { kind: "hook", band: "successMs" | "justMs" }
- *   | { kind: "reward", what: "coins" | "scales" } | { kind: "wait" }
+ *   | { kind: "reward", what: "coins" } | { kind: "wait" }
  *   | { kind: "trigger", when: TriggerWhen, effect: TriggerEffect }} SkillTarget
  */
 
 /**
  * スキルの表の 1 行。
- * @typedef {"combo" | "firstHit" | "just" | "lowHp" | "afterCrit" | "fullHp"} TriggerWhen
+ * @typedef {"combo" | "firstHit" | "just" | "lowHp" | "afterCrit" | "fullHp" | "core" | "edge"} TriggerWhen
  * @typedef {"damage" | "critChance" | "damagePct" | "justMultiplier"} TriggerEffect
  */
 /**
@@ -87,15 +89,6 @@ export const SKILL_ROWS = Object.freeze([
     perLevel: 0.1,
     display: { label: "ウロコイン", scale: 0.01, unit: "%", sign: "+" },
     description: "釣ったときのウロコインが増える。",
-  },
-  {
-    id: "appraisal",
-    name: "目利き",
-    type: "growth",
-    target: { kind: "reward", what: "scales" },
-    perLevel: 0.1,
-    display: { label: "鱗", scale: 0.01, unit: "%", sign: "+" },
-    description: "釣ったときの鱗が増える。",
   },
   {
     id: "agility",
@@ -197,18 +190,38 @@ export const SKILL_ROWS = Object.freeze([
     display: { label: "会心率", scale: 0.01, unit: "%", sign: "+", when: "戦いの最初の命中で" },
     description: "魚の体力が満タンの最初の命中で、クリティカルが出やすい。",
   },
+  // ここからゲージ系(D-197)。命中した位置が、命中範囲の芯(真ん中)か縁(端のぎりぎり)かで効く。表の末尾に足す。
+  {
+    id: "core",
+    name: "芯",
+    type: "growth",
+    target: { kind: "trigger", when: "core", effect: "critChance" },
+    perLevel: 0.1,
+    display: { label: "会心率", scale: 0.01, unit: "%", sign: "+", when: "芯で命中すると" },
+    description: "命中範囲の真ん中で命中すると、クリティカルが出やすい。",
+  },
+  {
+    id: "edge",
+    name: "縁",
+    type: "growth",
+    target: { kind: "trigger", when: "edge", effect: "damagePct" },
+    perLevel: 0.2,
+    display: { label: "ダメージ", scale: 0.01, unit: "%", sign: "+", when: "縁で命中すると" },
+    description: "命中範囲の端のぎりぎりで命中すると、ダメージが大きい。",
+  },
 ]);
 
 /**
  * スキルの数値(config.skills)。
  * @typedef {object} SkillConfig
- * @property {number} pointsPerLevel 1 レベルに要るポイント
  * @property {number} growthMaxBase 成長型の最大レベル = growthMaxBase + growthMaxPerStage × 竿の段階
  * @property {number} growthMaxPerStage
  * @property {number} cappedMax 頭打ち型の最大レベル
- * @property {{ min: number, max: number }} pointsBase グレード 1・レアのときのポイントの範囲
- * @property {number} pointsGradeGrowth グレードが 1 上がるごとに、ポイントの範囲が増える割合
- * @property {Record<string, number>} pointsRarityMultiplier レア度ごとのポイントの倍率
+ * @property {number} levelSlots 装備のレベルの範囲の目安にする枠の数(3 枠そろえば最大に届く:D-207)
+ * @property {Record<string, number>} levelRarityMultiplier レア度ごとの、装備 1 個のレベルの上限の倍率
+ * @property {number} levelMinRatio 装備 1 個のレベルの下限 = 上限 × この割合(四捨五入、最低 1)
+ * @property {number} coreRatio 芯の帯:命中範囲の中心からの距離(端を 1)がこれ以下(D-197)
+ * @property {number} edgeRatio 縁の帯:中心からの距離がこれ以上
  * @property {number} minWaitMs 俊敏で短くしても、待ち時間はこれより短くしない
  * @property {number} comboMax 連撃の最大段数(D-185)
  * @property {number} lowHpRatio 「とどめ」が効く、魚の体力の割合(この割合以下で効く)
@@ -228,58 +241,52 @@ export function maxLevel(skill, rodStage, config) {
 }
 
 /**
- * ポイントの合計から、レベル(最大で止まる。余りは無駄)。
- * @param {number} points @param {number} max @param {SkillConfig} config
- */
-export function levelFor(points, max, config) {
-  return Math.max(0, Math.min(max, Math.floor(points / config.pointsPerLevel)));
-}
-
-/**
- * 装備 1 個に付くスキルのポイントの範囲(D-168)。レア度とグレードで大きくなる。
+ * 装備 1 個に付くスキルのレベルの範囲(D-195・D-207)。レア度とグレードで大きくなる。
+ * 上限 = (グレードの段階の成長型の最大 ÷ 枠の数)× レア度の倍率 を四捨五入(最低 1)。下限 = 上限 × 割合(最低 1)。
+ * レジェンドの上限の装備が 3 枠そろえば、その段階の最大レベルに届く。
  * @param {string} rarityId @param {number} grade @param {SkillConfig} config
  * @returns {{ min: number, max: number }}
  */
-export function pointsRange(rarityId, grade, config) {
-  const factor = (1 + config.pointsGradeGrowth * (grade - 1)) * (config.pointsRarityMultiplier[rarityId] ?? 1);
-  const min = Math.max(1, Math.round(config.pointsBase.min * factor));
-  const max = Math.max(min, Math.round(config.pointsBase.max * factor));
+export function levelRange(rarityId, grade, config) {
+  const stageMax = config.growthMaxBase + config.growthMaxPerStage * grade;
+  const max = Math.max(1, Math.round((stageMax / config.levelSlots) * (config.levelRarityMultiplier[rarityId] ?? 1)));
+  const min = Math.max(1, Math.min(max, Math.round(max * config.levelMinRatio)));
   return { min, max };
 }
 
 /**
- * 装備 1 個のスキル(スキルの id とポイント)。
- * @typedef {{ id: string, points: number }} ItemSkill
+ * 装備 1 個のスキル(スキルの id とレベル)。
+ * @typedef {{ id: string, level: number }} ItemSkill
  */
 
 /**
  * スキルごとの状態。
  * @typedef {object} SkillState
- * @property {number} points 装着中の装備のポイントの合計
- * @property {number} level レベル(最大で止まる)
+ * @property {number} total 装着中の装備のレベルの合計(最大をこえることがある。こえた分は無駄)
+ * @property {number} level レベル(合計を最大で止めたもの)
  * @property {number} max 最大レベル
  */
 
 /**
- * 装着中の装備から、スキルごとのポイント・レベル・最大を作る。
+ * 装着中の装備から、スキルごとのレベルの合計・レベル・最大を作る(D-195)。
  * @param {{ items: { id: number, skills: ItemSkill[] }[], equipped: Record<string, number> }} gear
  * @param {number} rodStage @param {SkillConfig} config @param {readonly SkillRow[]} [skills]
  * @returns {Record<string, SkillState>}
  */
 export function skillStates(gear, rodStage, config, skills = SKILL_ROWS) {
   /** @type {Record<string, number>} */
-  const points = {};
+  const totals = {};
   const equippedIds = new Set(Object.values(gear.equipped));
   for (const item of gear.items) {
     if (!equippedIds.has(item.id)) continue;
-    for (const s of item.skills) points[s.id] = (points[s.id] ?? 0) + s.points;
+    for (const s of item.skills) totals[s.id] = (totals[s.id] ?? 0) + s.level;
   }
   /** @type {Record<string, SkillState>} */
   const states = {};
   for (const skill of skills) {
     const max = maxLevel(skill, rodStage, config);
-    const p = points[skill.id] ?? 0;
-    states[skill.id] = { points: p, level: levelFor(p, max, config), max };
+    const total = totals[skill.id] ?? 0;
+    states[skill.id] = { total, level: Math.max(0, Math.min(max, total)), max };
   }
   return states;
 }
@@ -293,7 +300,7 @@ export function skillAmount(skill, level) {
 }
 
 /**
- * 戦闘の数値の表に、スキルの効果を反映する(D-174)。順は 足し算(戦闘の項目・合わせの帯)→ 掛け算(回復の軽減)。
+ * 戦闘の数値の表に、スキルの効果を反映する(D-210)。順は 足し算(戦闘の項目・合わせの帯)→ 掛け算(回復の軽減)。
  * 丸めと安全上限は、呼ぶ側の normalizeCombat が行う。
  * @template {Record<string, any>} T
  * @param {T} combat 装備の基本効果を足したあとの表 @param {Record<string, SkillState>} states
@@ -333,12 +340,12 @@ export function applySkillsToCombat(combat, states, skills = SKILL_ROWS) {
 }
 
 /**
- * 報酬と待ち時間の倍率(豊漁・目利き・俊敏)。スキルがなければ全部 1。
+ * 報酬と待ち時間の倍率(豊漁・俊敏)。スキルがなければ全部 1。
  * @param {Record<string, SkillState>} states @param {readonly SkillRow[]} [skills]
- * @returns {{ coins: number, scales: number, wait: number }}
+ * @returns {{ coins: number, wait: number }}
  */
 export function skillRates(states, skills = SKILL_ROWS) {
-  const rates = { coins: 1, scales: 1, wait: 1 };
+  const rates = { coins: 1, wait: 1 };
   for (const skill of skills) {
     const level = states[skill.id]?.level ?? 0;
     if (level === 0) continue;
@@ -360,16 +367,13 @@ export function scaledWait(waitMs, rate, minWaitMs) {
 }
 
 /**
- * 報酬に倍率を掛け、端数は持ち越す(D-175)。倍率が 1 なら、そのまま(前と同じ)。
- * 返り値は { amount: 今回もらう数, carry: 次に持ち越す端数(0 以上 1 未満) }。
- * @param {number} base @param {number} rate @param {number} carry
+ * 報酬に倍率を掛け、端数は四捨五入する(D-196)。倍率が 1 なら、そのまま(前と同じ)。
+ * @param {number} base @param {number} rate
  */
-export function scaledReward(base, rate, carry) {
-  if (rate === 1 || base === 0) return { amount: base, carry };
-  // 浮動小数の誤差(1.1 × 10 = 11.000000000000002 など)で端数が出ないよう、小さい桁で丸める。
-  const exact = Math.round((base * rate + carry) * 1e9) / 1e9;
-  const amount = Math.floor(exact);
-  return { amount, carry: exact - amount };
+export function scaledReward(base, rate) {
+  if (rate === 1 || base === 0) return base;
+  // 浮動小数の誤差(1.1 × 5 = 5.500000000000001 など)で丸めがずれないよう、小さい桁でそろえてから四捨五入する。
+  return Math.round(Math.round(base * rate * 1e9) / 1e9);
 }
 
 /**

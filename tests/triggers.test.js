@@ -11,12 +11,11 @@ import { ROD_STEPS } from "../src/core/rod.js";
 import { advance, createSession, setPaused, tapSession } from "../src/ui/session.js";
 import { progressAt } from "./helpers.js";
 
-const PER = DEFAULT_CONFIG.skills.pointsPerLevel;
 const noCrit = { ...DEFAULT_CONFIG.combat, critChance: 0 };
 
 /** スキル(id → レベル)を付けたリールを装着した進み具合(段階 5。最大 Lv7)。 */
 function progressWith(levels, stage = 5) {
-  const skills = Object.entries(levels).map(([id, level]) => ({ id, points: level * PER }));
+  const skills = Object.entries(levels).map(([id, level]) => ({ id, level }));
   const item = { id: 1, kind: "reel", rarity: "legend", grade: 1, value: 0, skills };
   return progressAt(stage, ROD_STEPS.CRAFTED, { gear: { ...emptyGear(), seed: 1, items: [item], equipped: { reel: 1 }, nextId: 2 } });
 }
@@ -244,7 +243,7 @@ test("データ駆動:既にある条件の種類を使う条件発動型を表�
   }
   assert.ok(seen, "抽選に加わる");
   // 計算:条件(体力 25% 以下)のときだけ、会心率に足される。
-  const item = { id: 1, kind: "reel", rarity: "legend", grade: 1, value: 0, skills: [{ id: "finisher-crit", points: 8 }] };
+  const item = { id: 1, kind: "reel", rarity: "legend", grade: 1, value: 0, skills: [{ id: "finisher-crit", level: 2 }] };
   const game = createGame(5, { content, combat: noCrit, progress: progressAt(1, ROD_STEPS.CRAFTED, { gear: { ...emptyGear(), seed: 1, items: [item], equipped: { reel: 1 }, nextId: 2 } }) });
   challengeBoss(game);
   assert.equal(triggeredStats(game).stats.critChance, 0);
@@ -261,7 +260,7 @@ test("スキルの画面:条件発動型も同じ一覧に、条件つきの一�
   const game = createGame(1, { progress: progressWith({ "combo-power": 2, "just-boost": 1, momentum: 3 }) });
   const rows = Object.fromEntries(skillRows(game).map((r) => [r.id, r]));
   assert.equal(rows["combo-power"].effect, "連続命中 1 段ごとにダメージ +2(最大 10 段)");
-  assert.equal(rows["combo-power"].label, "Lv2 / 7");
+  assert.equal(rows["combo-power"].label, "Lv 2 / 7");
   assert.equal(rows["just-boost"].effect, "ジャストのあとの最初の命中でジャスト倍率 +0.15");
   assert.equal(rows.momentum.effect, "クリティカルの次の命中で会心率 +30%");
   assert.equal(rows["first-hit"].effect, "効果なし");
@@ -271,7 +270,7 @@ test("スキルの画面:条件発動型も同じ一覧に、条件つきの一�
   ]);
 });
 
-test("魚の並びの独立:条件発動型のスキルとルアーを付けても、魚の乱数の並び(待ち時間・魚)は変わらない", () => {
+test("魚の並びの独立:条件発動型・芯・縁のスキルとルアーを付けても、魚の乱数の並び(待ち時間・魚)は変わらない", () => {
   const play = (progress) => {
     const game = createGame(21, { progress });
     const casts = [];
@@ -286,7 +285,7 @@ test("魚の並びの独立:条件発動型のスキルとルアーを付けて�
     return casts;
   };
   const plain = play(progressAt(5, ROD_STEPS.CRAFTED));
-  const skills = Object.fromEntries(["combo-power", "combo-crit", "first-hit", "just-boost", "finisher", "momentum", "first-strike"].map((id) => [id, 7]));
+  const skills = Object.fromEntries(["combo-power", "combo-crit", "first-hit", "just-boost", "finisher", "momentum", "first-strike", "core", "edge"].map((id) => [id, 7]));
   const p = progressWith(skills);
   p.gear.items.push({ id: 2, kind: "lure", rarity: "legend", grade: 5, value: 58, skills: [] });
   p.gear.equipped.lure = 2;

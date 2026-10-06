@@ -14,6 +14,19 @@ export const TRIGGER_LABELS = Object.freeze({
 });
 
 /**
+ * ゲージに重ねる芯・縁の帯(D-197・D-209)。芯か縁のスキルを付けているときだけ、その帯の割合を返す(付けていなければ null)。
+ * 割合は、命中範囲の中心からの距離(端が 1)。芯は coreRatio 以下、縁は edgeRatio 以上。
+ * @param {{ triggers?: Record<string, any>, config: { skills: { coreRatio: number, edgeRatio: number } } } | null} game
+ * @returns {{ core: number | null, edge: number | null } | null}
+ */
+export function gaugeBands(game) {
+  const t = game?.triggers ?? {};
+  if (!game || (!t.core && !t.edge)) return null;
+  const { coreRatio, edgeRatio } = game.config.skills;
+  return { core: t.core ? coreRatio : null, edge: t.edge ? edgeRatio : null };
+}
+
+/**
  * 戦闘中の表示。combo は「連撃 ×3」の文(2 段以上のときだけ)、labels は次の命中で効く条件の名前。
  * @param {{ fight: any, triggers?: Record<string, any>, config: { skills: { comboMax: number, lowHpRatio: number } } } | null} game
  * @returns {{ combo: string | null, labels: string[] }}

@@ -1,4 +1,4 @@
-// 保存の形式のテスト(版 1〜5 → 版 6 の読み替え、壊れたデータ:②-3c の受け入れ条件 11・②-4a の受け入れ条件 11)。
+// 保存の形式のテスト(版 1〜6 → 版 7 の読み替え、壊れたデータ:②-3c の受け入れ条件 11・②-4a の受け入れ条件 11)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -15,10 +15,10 @@ const SAMPLE = progressAt(3, ROD_STEPS.CRAFTED, {
   seen: ["aji", "saba"],
 });
 
-test("保存の形は版 6:鱗は魚の id をキーにした表、竿は段階と工程、装備とガチャのまとまり", () => {
-  assert.equal(SAVE_VERSION, 6);
+test("保存の形は版 7:鱗は魚の id をキーにした表、竿は段階と工程、装備とガチャのまとまり", () => {
+  assert.equal(SAVE_VERSION, 7);
   assert.deepEqual(toSaveData(SAMPLE), {
-    version: 6,
+    version: 7,
     progress: {
       coins: 123,
       scales: { kurodai: 2, buri: 1, "nushi-kurodai": 1 },
@@ -47,11 +47,11 @@ test("版 2 から読むと、ウロコインと竿の段階はそのまま(段�
   assert.equal(parseSave(JSON.stringify(big)).coins, COUNT_MAX);
 });
 
-test("版 1 から読むと、版 2〜5 を経て版 6 になる", () => {
+test("版 1 から読むと、版 2〜6 を経て版 7 になる", () => {
   const v1 = { version: 1, coins: 50, material: 7, rodStage: 2, seen: ["aji"] };
-  assert.deepEqual(migrate(v1).version, 6);
+  assert.deepEqual(migrate(v1).version, 7);
   assert.deepEqual(readSaveData(v1), { ok: true, progress: progressAt(2, ROD_STEPS.NONE, { coins: 57, seen: ["aji"] }) });
-  assert.deepEqual(Object.keys(MIGRATIONS), ["1", "2", "3", "4", "5"], "版ごとの小さな関数");
+  assert.deepEqual(Object.keys(MIGRATIONS), ["1", "2", "3", "4", "5", "6"], "版ごとの小さな関数");
 });
 
 test("保存したものからゲームを作ると、続きから遊べる(読んだものは書き換えない)", () => {
@@ -73,7 +73,7 @@ test("表にない魚の鱗や id が残っていても、エラーにならず�
 
 test("壊れた・形のちがう・範囲外の保存データは、エラーにせず初めの状態にする", () => {
   const good = toSaveData(SAMPLE);
-  const v3 = (over) => JSON.stringify({ version: 6, progress: { ...good.progress, ...over } });
+  const v3 = (over) => JSON.stringify({ version: 7, progress: { ...good.progress, ...over } });
   const broken = [
     null,
     undefined,
@@ -82,9 +82,10 @@ test("壊れた・形のちがう・範囲外の保存データは、エラー�
     "null",
     "[]",
     "42",
-    JSON.stringify({ version: 7, progress: good.progress }),
+    JSON.stringify({ version: 8, progress: good.progress }),
     JSON.stringify({ progress: good.progress }),
-    JSON.stringify({ version: 6 }),
+    JSON.stringify({ version: 7 }),
+    JSON.stringify({ version: 7, progress: [] }),
     JSON.stringify({ version: 6, progress: [] }),
     JSON.stringify({ version: 5, progress: [] }),
     JSON.stringify({ version: 4, progress: [] }),

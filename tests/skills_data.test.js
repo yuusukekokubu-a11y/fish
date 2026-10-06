@@ -9,7 +9,7 @@ import { createGame } from "../src/core/fishing.js";
 import { effectRange, emptyGear, EQUIP_KIND_ROWS, equipItem, makeCrates, pullCrate, RARITY_ROWS } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
 import { decodeSaveCode, encodeSaveCode } from "../src/core/savecode.js";
-import { pointsRange } from "../src/core/skills.js";
+import { levelRange } from "../src/core/skills.js";
 import { slotRows } from "../src/ui/gear_view.js";
 import { skillRows } from "../src/ui/skill_view.js";
 import { progressAt } from "./helpers.js";
@@ -33,17 +33,18 @@ function stage6Content() {
   return makeContent(fish.map(defineFish), stages.map(defineStage));
 }
 
-test("段階 6:成長型の最大は Lv8、グレード 6 の装備のポイントは段階 5 より大きく、保存とセーブコードで往復する", () => {
+test("段階 6:成長型の最大は Lv8、グレード 6 の装備のレベルは範囲の中で、保存とセーブコードで往復する", () => {
   const content = stage6Content();
   const crates = makeCrates(content, DEFAULT_CONFIG);
   const p = progressAt(6, ROD_STEPS.NONE, { coins: 1e9, gear: { ...emptyGear(), seed: 9 } });
   for (let i = 0; i < 10; i++) pullCrate(p, crates[5], 10, content.equipKinds, GACHA);
   const legend = p.gear.items.find((it) => it.rarity === "legend");
   assert.ok(legend);
-  const pr6 = pointsRange("legend", 6, DEFAULT_CONFIG.skills);
-  const pr5 = pointsRange("legend", 5, DEFAULT_CONFIG.skills);
-  assert.ok(pr6.max > pr5.max);
-  assert.ok(legend.skills.every((s) => s.points >= pr6.min && s.points <= pr6.max));
+  const pr6 = levelRange("legend", 6, DEFAULT_CONFIG.skills);
+  const pr5 = levelRange("legend", 5, DEFAULT_CONFIG.skills);
+  assert.ok(pr6.max >= pr5.max);
+  assert.ok(3 * pr6.max >= 8, "最大のレベルの装備 3 個で Lv8 に届く");
+  assert.ok(legend.skills.every((s) => s.level >= pr6.min && s.level <= pr6.max));
   equipItem(p.gear, legend.id);
   const game = createGame(1, { content, progress: p });
   assert.equal(skillRows(game).find((r) => r.id === "power").max, 8);
@@ -51,7 +52,7 @@ test("段階 6:成長型の最大は Lv8、グレード 6 の装備のポイン�
   assert.equal(decodeSaveCode(encodeSaveCode(p, content)).ok, false, "元の表には段階 6 がない");
 });
 
-test("装備の枠 7 つ:7 枠ぶんのポイントを足し、保存とセーブコードで往復し、画面の枠も 7 つ", () => {
+test("装備の枠 7 つ:7 枠ぶんのレベルを足し、保存とセーブコードで往復し、画面の枠も 7 つ", () => {
   const extra = ["a", "b", "c", "d"].map((x) => ({
     id: `extra-${x}`,
     name: `枠${x}`,
@@ -68,13 +69,13 @@ test("装備の枠 7 つ:7 枠ぶんのポイントを足し、保存とセー�
     rarity: "rare",
     grade: 1,
     value: effectRange(k, RARITY_ROWS[1], 1, GACHA.gradeGrowth).min,
-    skills: [{ id: "power", points: 2 }],
+    skills: [{ id: "power", level: 1 }],
   }));
   const equipped = Object.fromEntries(items.map((it) => [it.kind, it.id]));
   const p = progressAt(5, ROD_STEPS.NONE, { gear: { ...emptyGear(), seed: 1, items, equipped, nextId: 8 } });
   const game = createGame(1, { content, progress: p });
-  assert.equal(game.skills.power.points, 14, "7 枠 × 2 ポイント");
-  assert.equal(game.skills.power.level, 3);
+  assert.equal(game.skills.power.total, 7, "7 枠 × Lv1");
+  assert.equal(game.skills.power.level, 7, "段階 5 の最大 Lv7 にちょうど届く");
   assert.equal(slotRows(game, makeCrates(content, DEFAULT_CONFIG)).length, 7);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p, content), content), { ok: true, progress: p });
 });

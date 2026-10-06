@@ -67,7 +67,24 @@ function drawGauge(ctx, w, h, view) {
   ctx.fillStyle = COLORS.gauge;
   ctx.fillRect(gx, gy, gw, gh);
   ctx.fillStyle = COLORS.zone;
-  ctx.fillRect(gx + gw * view.zone.start, gy, gw * (view.zone.end - view.zone.start), gh);
+  const zx = gx + gw * view.zone.start;
+  const zw = gw * (view.zone.end - view.zone.start);
+  ctx.fillRect(zx, gy, zw, gh);
+  // 芯・縁のスキルを付けているときだけ、命中範囲の中に帯を重ねる(芯は濃い緑、縁は両端の金色:D-209)。
+  if (view.bands) {
+    const half = zw / 2;
+    if (view.bands.edge !== null) {
+      const ew = half * (1 - view.bands.edge);
+      ctx.fillStyle = "#e9c46a";
+      ctx.fillRect(zx, gy, ew, gh);
+      ctx.fillRect(zx + zw - ew, gy, ew, gh);
+    }
+    if (view.bands.core !== null) {
+      const cw = half * view.bands.core;
+      ctx.fillStyle = "#1b7a4e";
+      ctx.fillRect(zx + half - cw, gy, cw * 2, gh);
+    }
+  }
   ctx.fillStyle = COLORS.marker;
   ctx.fillRect(gx + gw * view.marker - 3, gy - 8, 6, gh + 16);
 

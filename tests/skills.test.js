@@ -23,9 +23,8 @@ import { createRng } from "../src/core/rng.js";
 import {
   applySkillsToCombat,
   formatSkillEffect,
-  levelFor,
+  levelRange,
   maxLevel,
-  pointsRange,
   scaledReward,
   scaledWait,
   SKILL_ROWS,
@@ -39,14 +38,14 @@ const byId = (id) => SKILL_ROWS.find((s) => s.id === id);
 
 /** スキル(id → ポイント)を 1 つの装備に付けて装着した進み具合。 */
 function gearWith(skillPoints, extra = {}) {
-  const skills = Object.entries(skillPoints).map(([id, points]) => ({ id, points }));
+  const skills = Object.entries(skillPoints).map(([id, level]) => ({ id, level }));
   const item = { id: 1, kind: "reel", rarity: "legend", grade: 5, value: 8, skills };
   return { ...emptyGear(), items: [item], equipped: {}, seed: 1, nextId: 2, ...extra };
 }
-/** レベル L になるポイント。 */
-const pts = (level) => level * SK.pointsPerLevel;
+/** レベル L の装備のスキル(完全レベル制:D-195。前はポイントだった)。 */
+const pts = (level) => level;
 
-test("スキルは 17 個:数値型(成長型 6 個と頭打ち型 4 個)と、条件発動型 7 個(全て成長型。表の末尾)", () => {
+test("スキルは 18 個:数値型 9 個(成長型 5・頭打ち型 4。目利きはない)、条件発動型 7 個、ゲージ系 2 個(芯・縁)", () => {
   assert.deepEqual(
     SKILL_ROWS.map((s) => [s.name, s.type]),
     [
@@ -55,7 +54,6 @@ test("スキルは 17 個:数値型(成長型 6 個と頭打ち型 4 個)と、�
       ["会心威力", "growth"],
       ["粘り", "growth"],
       ["豊漁", "growth"],
-      ["目利き", "growth"],
       ["俊敏", "capped"],
       ["見極め", "capped"],
       ["名人技", "capped"],
@@ -67,40 +65,48 @@ test("スキルは 17 個:数値型(成長型 6 個と頭打ち型 4 個)と、�
       ["とどめ", "growth"],
       ["勢い", "growth"],
       ["先制", "growth"],
+      ["芯", "growth"],
+      ["縁", "growth"],
     ],
   );
-  assert.equal(new Set(SKILL_ROWS.map((s) => s.id)).size, 17);
-  assert.ok(SKILL_ROWS.slice(10).every((s) => s.target.kind === "trigger"));
+  assert.equal(new Set(SKILL_ROWS.map((s) => s.id)).size, 18);
+  assert.ok(SKILL_ROWS.slice(9).every((s) => s.target.kind === "trigger"));
+  assert.ok(!SKILL_ROWS.some((s) => s.id === "appraisal"), "目利きはない");
 });
 
-test("レベル:ポイント ÷ 4(しきい値の境界)、最大で止まり、余りは影響しない", () => {
-  assert.deepEqual([0, 3, 4, 7, 8, 11, 12].map((p) => levelFor(p, 10, SK)), [0, 0, 1, 1, 2, 2, 3]);
-  assert.equal(levelFor(1000, 3, SK), 3, "最大で止まる");
-  assert.equal(levelFor(pts(3), 3, SK), levelFor(pts(3) + 3, 3, SK), "余りは無駄");
+test("レベル:装着中の装備のレベルの合計。最大で止まり、こえた分は無駄", () => {
+  const at = (levels) => {
+    const items = levels.map((level, i) => ({ id: i + 1, kind: ["reel", "line", "lure"][i], rarity: "legend", grade: 1, value: 0, skills: [{ id: "power", level }] }));
+    return skillStates({ items, equipped: Object.fromEntries(items.map((it) => [it.kind, it.id])) }, 1, SK).power;
+  };
+  assert.deepEqual(at([1]), { total: 1, level: 1, max: 3 });
+  assert.deepEqual(at([1, 2]), { total: 3, level: 3, max: 3 }, "最大ちょうど");
+  assert.deepEqual(at([2, 2]), { total: 4, level: 3, max: 3 }, "こえた分は無駄");
+  assert.deepEqual(at([2, 2, 2]), { total: 6, level: 3, max: 3 });
 });
 
 test("成長型の最大は竿の段階で伸び(段階 1・5・6)、頭打ち型は Lv3", () => {
   const growth = byId("power");
   assert.deepEqual([1, 5, 6].map((s) => maxLevel(growth, s, SK)), [3, 7, 8]);
   for (const s of [1, 5, 6]) assert.equal(maxLevel(byId("agility"), s, SK), 3);
-  // 竿を進化すると、最大が伸びて、余っていたポイントがレベルになる。
+  // 竿を進化すると、最大が伸びて、余っていたレベルが効くようになる。
   const game = createGame(1, { progress: progressAt(1, ROD_STEPS.DEFEATED, { scales: { "nushi-kurodai": 1 }, gear: gearWith({ power: 100 }, { equipped: { reel: 1 } }) }) });
-  assert.deepEqual(game.skills.power, { points: 100, level: 3, max: 3 });
+  assert.deepEqual(game.skills.power, { total: 100, level: 3, max: 3 });
   assert.equal(evolveGameRod(game), true);
-  assert.deepEqual(game.skills.power, { points: 100, level: 4, max: 4 });
+  assert.deepEqual(game.skills.power, { total: 100, level: 4, max: 4 });
 });
 
-test("ポイントは装着中の装備だけ、同じスキルは足し合わせる", () => {
+test("レベルは装着中の装備だけ、同じスキルは足し合わせる", () => {
   const gear = {
     ...emptyGear(),
     items: [
-      { id: 1, kind: "reel", rarity: "rare", grade: 1, value: 2, skills: [{ id: "power", points: 3 }] },
-      { id: 2, kind: "line", rarity: "rare", grade: 1, value: 500, skills: [{ id: "power", points: 2 }] },
-      { id: 3, kind: "lure", rarity: "rare", grade: 1, value: 2, skills: [{ id: "power", points: 9 }] },
+      { id: 1, kind: "reel", rarity: "rare", grade: 1, value: 2, skills: [{ id: "power", level: 1 }] },
+      { id: 2, kind: "line", rarity: "rare", grade: 1, value: 500, skills: [{ id: "power", level: 1 }] },
+      { id: 3, kind: "lure", rarity: "rare", grade: 1, value: 2, skills: [{ id: "power", level: 9 }] },
     ],
     equipped: { reel: 1, line: 2 },
   };
-  assert.deepEqual(skillStates(gear, 1, SK).power, { points: 5, level: 1, max: 3 });
+  assert.deepEqual(skillStates(gear, 1, SK).power, { total: 2, level: 2, max: 3 });
 });
 
 /** スキル id をレベル L にしたときの戦闘の数値の表と倍率。 */
@@ -110,7 +116,7 @@ function withLevel(id, level, rodStage = 6) {
   return game;
 }
 
-test("効果の反映:17 個のスキルの、レベル 0〜最大(条件発動型は戦闘の数値の表を変えず、条件ごとの量だけ)", () => {
+test("効果の反映:18 個のスキルの、レベル 0〜最大(条件発動型は戦闘の数値の表を変えず、条件ごとの量だけ)", () => {
   const base = createGame(1, { progress: progressAt(6, ROD_STEPS.NONE, { gear: gearWith({}, { equipped: { reel: 1 } }) }) });
   for (const skill of SKILL_ROWS) {
     const max = maxLevel(skill, 6, SK);
@@ -134,9 +140,6 @@ test("効果の反映:17 個のスキルの、レベル 0〜最大(条件発動�
           break;
         case "fortune":
           assert.ok(Math.abs(g.rates.coins - (1 + 0.1 * level)) < 1e-9);
-          break;
-        case "appraisal":
-          assert.ok(Math.abs(g.rates.scales - (1 + 0.1 * level)) < 1e-9);
           break;
         case "agility":
           assert.ok(Math.abs(g.rates.wait - (1 - 0.1 * level)) < 1e-9);
@@ -170,17 +173,12 @@ test("効果の反映:17 個のスキルの、レベル 0〜最大(条件発動�
   assert.equal(formatSkillEffect(byId("tenacity"), 4), "制限時間 +4 秒");
 });
 
-test("豊漁・目利き:報酬に倍率を掛け、端数は持ち越す(魚の乱数は使わない)", () => {
-  // 1 コイン × 1.1 を 10 回 → 11 コイン(端数が貯まって 10 回目に 1 増える)。
-  let carry = 0;
-  let total = 0;
-  for (let i = 0; i < 10; i++) {
-    const r = scaledReward(1, 1.1, carry);
-    total += r.amount;
-    carry = r.carry;
-  }
-  assert.equal(total, 11);
-  assert.deepEqual(scaledReward(5, 1, 0.5), { amount: 5, carry: 0.5 }, "倍率 1 は前と同じ");
+test("豊漁:ウロコインに倍率を掛け、端数は四捨五入(持ち越しはない:D-196)。鱗は増えない。魚の乱数は使わない", () => {
+  assert.equal(scaledReward(5, 1.1), 6, "5.5 → 6(四捨五入)");
+  assert.equal(scaledReward(5, 1.3), 7, "6.5 → 7");
+  assert.equal(scaledReward(1, 1.1), 1, "1.1 → 1(持ち越さない)");
+  assert.equal(scaledReward(10, 1.2), 12);
+  assert.equal(scaledReward(5, 1), 5, "倍率 1 は前と同じ");
   // 遊んで確かめる:豊漁 Lv3 で、魚の並びは同じ、ウロコインは 1.3 倍前後。
   const play = (gear) => {
     const g = createGame(4, { progress: progressAt(3, ROD_STEPS.NONE, { gear }) });
@@ -195,12 +193,13 @@ test("豊漁・目利き:報酬に倍率を掛け、端数は持ち越す(魚の
     return g;
   };
   const plain = play(gearWith({}, { equipped: { reel: 1 } }));
-  const rich = play(gearWith({ fortune: pts(3), appraisal: pts(3) }, { equipped: { reel: 1 } }));
+  const rich = play(gearWith({ fortune: pts(3) }, { equipped: { reel: 1 } }));
   assert.deepEqual(rich.results.map((r) => r.fishId), plain.results.map((r) => r.fishId));
   const ratio = rich.progress.coins / plain.progress.coins;
   assert.ok(ratio > 1.25 && ratio < 1.35, `${ratio}`);
   const scaleSum = (g) => Object.values(g.progress.scales).reduce((a, b) => a + b, 0);
-  assert.ok(scaleSum(rich) >= Math.floor(scaleSum(plain) * 1.3) - 1);
+  assert.equal(scaleSum(rich), scaleSum(plain), "鱗は増えない");
+  assert.equal(rich.rewardCarry, undefined, "端数の持ち越しの仕組みはない");
 });
 
 test("俊敏:引いた待ち時間に倍率を掛け(下限 1 秒)、引く値と魚の並びは変わらない", () => {
@@ -350,17 +349,23 @@ test("データ駆動:既にある戦闘の数値を使うスキルを表に 1 �
   const level = game.skills["heal-up"].level;
   assert.ok(level >= 1);
   assert.equal(game.combat.missHeal, 10 + 5 * level);
-  assert.deepEqual(applySkillsToCombat({ missHeal: 10 }, { "heal-up": { points: 0, level: 2, max: 9 } }, skills), { missHeal: 20 });
+  assert.deepEqual(applySkillsToCombat({ missHeal: 10 }, { "heal-up": { total: 2, level: 2, max: 9 } }, skills), { missHeal: 20 });
 });
 
-test("ポイントの範囲:レア度とグレードで大きく、少し重なる。後半の最大レベルに良い装備で届く", () => {
-  assert.deepEqual(pointsRange("rare", 1, SK), { min: 2, max: 4 });
-  assert.deepEqual(pointsRange("legend", 5, SK), { min: 7, max: 14 });
-  assert.ok(pointsRange("epic", 3, SK).max > pointsRange("rare", 3, SK).max);
-  assert.ok(pointsRange("rare", 2, SK).min <= pointsRange("rare", 1, SK).max, "重なる");
-  // 段階 5 の最大 Lv7 = 28 ポイント。マグロのクレートのレジェンド 3 個(各 7〜14)で届く。
-  assert.ok(3 * pointsRange("legend", 5, SK).max >= pts(maxLevel(byId("power"), 5, SK)));
-  assert.ok(3 * pointsRange("legend", 1, SK).max >= pts(maxLevel(byId("power"), 1, SK)));
+test("装備 1 個のレベルの範囲:レア度とグレードで大きく、少し重なる。最大のレベルの装備 3 個で段階の最大に届く", () => {
+  assert.deepEqual(levelRange("legend", 1, SK), { min: 1, max: 2 }, "序盤の高レアで Lv1〜2");
+  assert.deepEqual(levelRange("rare", 1, SK), { min: 1, max: 1 });
+  assert.deepEqual(levelRange("legend", 5, SK), { min: 2, max: 4 });
+  assert.deepEqual(levelRange("epic", 5, SK), { min: 1, max: 2 });
+  assert.deepEqual(levelRange("rare", 5, SK), { min: 1, max: 2 });
+  assert.ok(levelRange("legend", 3, SK).max > levelRange("rare", 3, SK).max);
+  assert.ok(levelRange("legend", 5, SK).min <= levelRange("epic", 5, SK).max, "重なる");
+  for (const stage of [1, 2, 3, 4, 5, 6]) {
+    const max = maxLevel(byId("power"), stage, SK);
+    assert.ok(3 * levelRange("legend", stage, SK).max >= max, `段階 ${stage}:最大のレベルの装備 3 個で届く`);
+  }
+  // 頭打ち型(Lv3)は、良い装備 2 個(段階 5 のレジェンドの上限 4)で届く。
+  assert.ok(levelRange("legend", 5, SK).max * 2 >= 3);
 });
 
 test("refreshCombat を呼ばない限り、装備を外しても前の表のまま(画面が呼ぶ)", () => {

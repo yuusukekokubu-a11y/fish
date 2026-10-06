@@ -90,9 +90,8 @@ const ITEM = Object.freeze({
   justMultiplier: { label: "ジャストの倍率", value: (c) => c.hook.justMultiplier, format: times },
   success: { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
   just: { label: "ジャスト帯(強い魚)", value: (c) => c.hook.strong.justMs, format: seconds },
-  // 報酬と待ち時間の倍率(スキル:豊漁・目利き・俊敏)。基本は全部 1。
+  // 報酬と待ち時間の倍率(スキル:豊漁・俊敏)。基本は全部 1。鱗を増やす効果はない(D-196)。
   coins: { label: "ウロコイン", value: (_c, r) => r.coins, format: rate },
-  scales: { label: "鱗", value: (_c, r) => r.scales, format: rate },
   wait: { label: "待ち時間", value: (_c, r) => r.wait, format: rate },
 });
 
@@ -100,10 +99,10 @@ export const STATUS_SECTIONS = Object.freeze([
   { title: "戦闘", items: [ITEM.damage, ITEM.critChance, ITEM.critMultiplier, ITEM.missHeal, ITEM.zoneWidth] },
   { title: "時間", items: [ITEM.timeBonus] },
   { title: "合わせ", items: [ITEM.success, ITEM.just, ITEM.justMultiplier] },
-  { title: "報酬と待ち時間", items: [ITEM.coins, ITEM.scales, ITEM.wait] },
+  { title: "報酬と待ち時間", items: [ITEM.coins, ITEM.wait] },
 ]);
 
-const BASE_RATES = Object.freeze({ coins: 1, scales: 1, wait: 1 });
+const BASE_RATES = Object.freeze({ coins: 1, wait: 1 });
 
 /** 幅(0〜1)を「22%」の形に。 */
 const widthText = (x) => `${Math.round(x * 1000) / 10}%`;
@@ -122,6 +121,25 @@ function zoneWidthRows(c, game) {
 }
 
 /**
+ * 芯・縁の帯の幅(命中範囲に対する割合と、いまの段階の強い魚の命中範囲での幅:D-209)。
+ */
+function bandRows(when, config, game) {
+  if (when !== "core" && when !== "edge") return [];
+  const ratio = when === "core" ? config.coreRatio : 1 - config.edgeRatio;
+  const name = when === "core" ? "芯の帯" : "縁の帯";
+  const where = when === "core" ? "真ん中" : "両端";
+  const rows = [[name, `命中範囲の${where} ${widthText(ratio)}`]];
+  const content = game.content ?? DEFAULT_CONTENT;
+  const fish = content.fish.find((f) => f.stage === game.progress.rodStage && f.kind === FISH_KINDS.STRONG && f.minigame);
+  if (fish) {
+    const all = (game.config ?? DEFAULT_CONFIG);
+    const w = lureZoneWidth(fish.minigame.zoneWidth, game.combat, { minZoneWidth: all.minigame.minZoneWidth, maxZoneWidth: all.combatLimits.maxZoneWidth });
+    rows.push([`${name}(${fish.name})`, `ゲージの ${widthText(w * ratio)}`]);
+  }
+  return rows;
+}
+
+/**
  * 条件つきの効果(条件発動型:D-184・D-191)。「今の値」には含めず、別の節に出す。レベル 0 のものは出さない。
  */
 function conditionalRows(game) {
@@ -132,7 +150,7 @@ function conditionalRows(game) {
     .map((s) => {
       const level = game.skills[s.id].level;
       const text = formatSkillEffect(s, level, config);
-      return { label: s.name, value: `Lv${level}`, detail: [["条件つき", text]] };
+      return { label: s.name, value: `Lv${level}`, detail: [["条件つき", text], ...bandRows(s.target.when, config, game)] };
     });
   return rows.length > 0 ? rows : [{ label: "なし", value: "", detail: null }];
 }

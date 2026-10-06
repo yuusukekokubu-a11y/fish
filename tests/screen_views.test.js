@@ -89,7 +89,6 @@ test("ステータスの画面:竿の名前と段階、戦闘の数値の表か�
         "報酬と待ち時間",
         [
           ["ウロコイン", "+0%"],
-          ["鱗", "+0%"],
           ["待ち時間", "+0%"],
         ],
       ],
@@ -112,7 +111,7 @@ test("ステータスの画面:戦闘の数値の表を書き換えると、表�
   };
   const game = createGame(1, { combat });
   const rows = rowsOf(statusView({ game }));
-  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.5 倍", "4", "+0%", "+1.5 秒", "0.5 秒", "0.2 秒", "2 倍", "+0%", "+0%", "+0%", ""]);
+  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.5 倍", "4", "+0%", "+1.5 秒", "0.5 秒", "0.2 秒", "2 倍", "+0%", "+0%", ""]);
   // マイナスの増減。
   const minus = createGame(1, { combat: { ...DEFAULT_CONFIG.combat, timeLimitBonusMs: -2000 } });
   assert.equal(rowsOf(statusView({ game: minus }))[5].value, "−2 秒");
@@ -146,15 +145,15 @@ test("ステータスの画面:スキル込みの値と基本の値、クリテ�
   const gear = {
     ...emptyGear(),
     items: [
-      { id: 1, kind: "reel", rarity: "legend", grade: 5, value: 15, skills: [{ id: "crit-rate", points: 14 }, { id: "fortune", points: 14 }, { id: "agility", points: 14 }] },
-      { id: 2, kind: "line", rarity: "legend", grade: 5, value: 2000, skills: [{ id: "crit-rate", points: 14 }, { id: "appraisal", points: 8 }] },
+      { id: 1, kind: "reel", rarity: "legend", grade: 5, value: 15, skills: [{ id: "crit-rate", level: 4 }, { id: "fortune", level: 3 }, { id: "agility", level: 3 }] },
+      { id: 2, kind: "line", rarity: "legend", grade: 5, value: 2000, skills: [{ id: "crit-rate", level: 3 }] },
     ],
     equipped: { reel: 1, line: 2 },
     nextId: 3,
   };
   const game = createGame(1, { progress: progressAt(5, ROD_STEPS.NONE, { gear }) });
   const byLabel = Object.fromEntries(rowsOf(statusView({ game })).map((r) => [r.label, r]));
-  // 会心率 28 ポイント → Lv7 → +105%。基本 10% と合わせて 115%(追加クリティカルあり)。
+  // 会心率 Lv4 + Lv3 = Lv7 → +105%。基本 10% と合わせて 115%(追加クリティカルあり)。
   assert.equal(byLabel["クリティカルの確率"].value, "115%");
   assert.deepEqual(byLabel["クリティカルの確率"].detail, [
     ["今の値(装備・スキル込み)", "115%"],
@@ -162,7 +161,7 @@ test("ステータスの画面:スキル込みの値と基本の値、クリテ�
     ["段の内わけ", "1 段 85% / 2 段 15%"],
   ]);
   assert.equal(byLabel["ウロコイン"].value, "+30%");
-  assert.equal(byLabel["鱗"].value, "+20%");
+  assert.equal(byLabel["鱗"], undefined, "鱗を増やす効果はない");
   assert.equal(byLabel["待ち時間"].value, "−30%");
   assert.deepEqual(byLabel["待ち時間"].detail.slice(0, 2), [
     ["今の値(装備・スキル込み)", "−30%"],
@@ -182,7 +181,7 @@ test("ステータスの画面:条件発動型は「条件つき」の節に出�
   const gear = {
     ...emptyGear(),
     items: [
-      { id: 1, kind: "reel", rarity: "legend", grade: 5, value: 15, skills: [{ id: "combo-power", points: 8 }, { id: "first-strike", points: 4 }] },
+      { id: 1, kind: "reel", rarity: "legend", grade: 5, value: 15, skills: [{ id: "combo-power", level: 2 }, { id: "first-strike", level: 1 }] },
       { id: 2, kind: "lure", rarity: "legend", grade: 5, value: 50, skills: [] },
     ],
     equipped: { reel: 1, lure: 2 },

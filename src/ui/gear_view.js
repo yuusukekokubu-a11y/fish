@@ -79,7 +79,7 @@ export function crateCards(game, crates) {
         stars: rarityStars(r.id),
         color: r.color,
         rate: formatRate(r.rate),
-        // そのレア度に付くスキルの数(D-177)。
+        // そのレア度に付くスキルの数(D-207)。
         skills: r.skillCount ?? 0,
         skillsText: (r.skillCount ?? 0) === 0 ? "スキルなし" : `スキル ${r.skillCount} つ`,
       })),

@@ -61,15 +61,18 @@ export const DEFAULT_CONFIG = Object.freeze({
     minHookEarlyMs: 300,
     maxJustMultiplier: 5,
   }),
-  // スキル(D-166〜D-168・D-174)。表は skills.js にある。
+  // スキル(D-167・D-195・D-197・D-207)。表は skills.js にある。
   skills: Object.freeze({
-    pointsPerLevel: 4, // 1 レベルに要るポイント
     growthMaxBase: 2, // 成長型の最大レベル = 2 + 竿の段階
     growthMaxPerStage: 1,
     cappedMax: 3, // 頭打ち型の最大レベル
-    pointsBase: Object.freeze({ min: 2, max: 4 }), // グレード 1・レアのポイントの範囲
-    pointsGradeGrowth: 0.35, // グレードが 1 上がるごとに増える割合(基本効果と同じ)
-    pointsRarityMultiplier: Object.freeze({ normal: 1, rare: 1, epic: 1.25, legend: 1.5 }),
+    // 装備 1 個のスキルのレベルの範囲:上限 =(段階の最大 ÷ 3 枠)× レア度の倍率、下限 = 上限の半分(D-207)。
+    levelSlots: 3,
+    levelRarityMultiplier: Object.freeze({ normal: 0, rare: 0.7, epic: 1, legend: 1.5 }),
+    levelMinRatio: 0.5,
+    // ゲージ系の帯(命中範囲の中心からの距離。端が 1):芯は 0.3 以下、縁は 0.75 以上(D-197・D-207)。
+    coreRatio: 0.3,
+    edgeRatio: 0.75,
     minWaitMs: 1000, // 俊敏で短くしても、待ち時間は 1 秒より短くしない
     comboMax: 10, // 連撃の最大段数(D-185)
     lowHpRatio: 0.25, // 「とどめ」は魚の体力が最大の 25% 以下で効く(D-184)
