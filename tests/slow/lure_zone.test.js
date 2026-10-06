@@ -11,7 +11,7 @@ import { makeContent } from "../../src/core/fish.js";
 import { challengeBoss, createGame, PHASES, tap, update } from "../../src/core/fishing.js";
 import { effectRange, emptyGear, EQUIP_KIND_ROWS, RARITY_ROWS } from "../../src/core/gear.js";
 import { createRng } from "../../src/core/rng.js";
-import { progressAt, stage6Content } from "../helpers.js";
+import { progressAt, riverContent } from "../helpers.js";
 
 const LURE = EQUIP_KIND_ROWS.find((k) => k.id === "lure");
 const LEGEND = RARITY_ROWS.find((r) => r.id === "legend");
@@ -61,10 +61,10 @@ test("序盤の高レアのルアー(レジェンド・グレード 1)で、命�
   assert.ok(rate1 > rate0 * 1.1, "命中の割合も上がる");
 });
 
-test("終盤の最高のルアー(レジェンドの最大。段階 6 を足しても)でも、どの魚でも上限(70%)に届かない。下限(10%)は守る", () => {
-  const content = stage6Content();
+test("終盤の最高のルアー(レジェンドの最大。釣り場(川)を足しても)でも、どの魚でも上限(70%)に届かない。下限(10%)は守る", () => {
+  const content = riverContent();
   const lines = [];
-  for (const grade of [1, 3, 5, 6]) {
+  for (const grade of [1, 3, 5, 6, 10, 15]) {
     const best = effectRange(LURE, LEGEND, grade, GG).max;
     const widths = content.fish
       .filter((f) => f.minigame)

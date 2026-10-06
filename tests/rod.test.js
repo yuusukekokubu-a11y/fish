@@ -19,7 +19,7 @@ import {
 } from "../src/core/rod.js";
 import { progressAt } from "./helpers.js";
 
-test("製作に要る鱗は、その段階の強い魚の鱗(港 3・4・4・5・6、磯 6・6・7・7・8)、進化はヌシの鱗 1", () => {
+test("製作に要る鱗は、その段階の強い魚の鱗(港も磯も 3・4・4・5・6)、進化はヌシの鱗 1", () => {
   assert.deepEqual(
     STAGE_LIST.map((s) => [s.craft.scale, s.craft.count, s.evolve.scale, s.evolve.count]),
     [
@@ -28,11 +28,12 @@ test("製作に要る鱗は、その段階の強い魚の鱗(港 3・4・4・5�
       ["hirame", 4, "nushi-hirame", 1],
       ["warasa", 5, "nushi-warasa", 1],
       ["buri", 6, "nushi-buri", 1],
-      ["mejina", 6, "nushi-mejina", 1],
-      ["ishidai", 6, "nushi-ishidai", 1],
-      ["budai", 7, "nushi-budai", 1],
-      ["ishigakidai", 7, "nushi-ishigakidai", 1],
-      ["kue", 8, "nushi-kue", 1],
+      // 磯も、釣り場の中の位置で 3・4・4・5・6(D-282)。
+      ["mejina", 3, "nushi-mejina", 1],
+      ["ishidai", 4, "nushi-ishidai", 1],
+      ["budai", 4, "nushi-budai", 1],
+      ["ishigakidai", 5, "nushi-ishigakidai", 1],
+      ["kue", 6, "nushi-kue", 1],
     ],
   );
 });

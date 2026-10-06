@@ -54,7 +54,7 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {{ levelRatio: number, penGap: number, penGapDraws: number, reelRatio: number, scale: number, growth: number, positionScale: readonly number[] }} bossReference
  *   ヌシの体力の基準の装備(育てた装備の目安:スキルのレベルは最大 × levelRatio、リールは最大 × reelRatio、
  *   貫通は最大レベルの貫通 −(penGap + penGapDraws ÷ N(g))。scale × g^growth を掛けて、シミュレーションの命中回数に合わせる)
- * @property {number} stagesPerGround 位置 s を数える段階の数(釣り場が入るまでの仮:5)
+ * @property {number} stagesPerGround 釣り場 1 つの段階の数(位置 s を数える:5。釣り場の表の段階の数と同じ:D-276)
  * @property {number} noPenTapsFactor 5 体目のヌシの体力の下限 = 押せる回数 × これ
  * @property {number} noPenBonusDraws 押せる回数を数えるときに足す、糸と粘りの最大の割合 = min(1, N(g) ÷ これ)(育てた装備の目安:D-260)
  */
@@ -143,7 +143,11 @@ export function softCurve(x, curve) {
   return curve.knee + curve.soft * Math.log(1 + (x - curve.knee) / curve.soft);
 }
 
-/** 5 段階ごとの位置 s(1〜5。釣り場が入るまでの仮:D-254)。 @param {number} g @param {FormulaConfig} [f] */
+/**
+ * 釣り場の中の位置 s(1〜5:D-276)。釣り場は 5 段階ずつ切れ目なく並ぶ(areas.js の checkAreas が確かめる)ので、
+ * 釣り場の表の位置(areaPosition)と同じ値になる(tests/areas.test.js)。
+ * @param {number} g @param {FormulaConfig} [f]
+ */
 export function stagePosition(g, f) {
   const n = conf(f).stagesPerGround;
   return ((stageNumber(g) - 1) % n) + 1;
@@ -275,12 +279,13 @@ export function fishMinigame(kind, g, f) {
 }
 
 /**
- * 竿の製作に要る鱗の数。g=1 で craftMin、段が進むと craftMax に近づく(3・4・4・5・6 … 10)。
+ * 竿の製作に要る鱗の数。釣り場の中の位置 s で決める(どの釣り場も 3・4・4・5・6:D-282)。
+ * 釣り場の最初の段階は、また 3 枚から(魚のプールが釣り場ごとに分かれるので、製作の時間も約 3 分に戻る)。
  * @param {number} g @param {FormulaConfig} [f]
  */
 export function craftCount(g, f) {
   const c = conf(f);
-  return Math.round(c.craftMin + (c.craftMax - c.craftMin) * (1 - Math.exp(-(stageNumber(g) - 1) / c.craftDecay)));
+  return Math.round(c.craftMin + (c.craftMax - c.craftMin) * (1 - Math.exp(-(stagePosition(g, c) - 1) / c.craftDecay)));
 }
 
 /** 進化に要るヌシの鱗の数。 @param {number} _g @param {FormulaConfig} [f] */

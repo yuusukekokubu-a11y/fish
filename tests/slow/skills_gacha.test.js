@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { makeContent } from "../../src/core/fish.js";
 import { effectRange, emptyGear, EQUIP_KIND_ROWS, makeCrates, pullCrate, RARITY_ROWS } from "../../src/core/gear.js";
-import { levelRange, SKILL_ROWS } from "../../src/core/skills.js";
+import { itemLevelRange, levelRange, SKILL_ROWS } from "../../src/core/skills.js";
 import { crateCards } from "../../src/ui/gear_view.js";
 import { createGame } from "../../src/core/fishing.js";
 import { progressAt } from "../helpers.js";
@@ -32,11 +32,14 @@ test("10 万回引くと:スキルの数はレア度どおり、重複なし、�
         const er = effectRange(EQUIP_KIND_ROWS.find((k) => k.id === it.kind), RARITY_ROWS.find((x) => x.id === it.rarity), it.grade, GACHA.gradeGrowth);
         assert.ok(it.value >= er.min && it.value <= er.max, `${it.kind} ${it.value}`);
         assert.equal(new Set(it.skills.map((s) => s.id)).size, it.skills.length, "重複なし");
-        const pr = levelRange(it.rarity, it.grade, DEFAULT_CONFIG.skills);
         for (const s of it.skills) {
-          assert.ok(s.level >= pr.min && s.level <= pr.max, `${it.rarity} ${it.grade} ${s.level}`);
+          // 頭打ち型は Lv1(D-279)。成長型はレア度とグレードの範囲の中。
+          const capped = SKILL_ROWS.find((x) => x.id === s.id).type === "capped";
+          const pr = itemLevelRange(SKILL_ROWS.find((x) => x.id === s.id), it.rarity, it.grade, DEFAULT_CONFIG.skills);
+          assert.ok(s.level >= pr.min && s.level <= pr.max, `${it.rarity} ${it.grade} ${s.id} ${s.level}`);
           appear[s.id] += 1;
           slots += 1;
+          if (capped) continue;
           const key = `${it.rarity}/${it.grade}`;
           levelsSeen[key] ??= new Set();
           levelsSeen[key].add(s.level);
@@ -53,7 +56,7 @@ test("10 万回引くと:スキルの数はレア度どおり、重複なし、�
     assert.ok(Math.abs(share - 100 / SKILL_ROWS.length) <= 0.4, `${s.name} ${share.toFixed(2)}%`);
     return `${s.name} ${share.toFixed(1)}%`;
   });
-  // レベルは範囲の端まで出る。
+  // 成長型のレベルは範囲の端まで出る。
   for (const [key, set] of Object.entries(levelsSeen)) {
     const [rarity, grade] = key.split("/");
     const pr = levelRange(rarity, Number(grade), DEFAULT_CONFIG.skills);
