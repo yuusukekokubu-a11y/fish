@@ -1,4 +1,4 @@
-// 保存の版 5 とセーブコード FISH5 の、装備・スキル・ガチャのまとまりのテスト(②-4a の条件 11・②-4b の条件 9)。
+// 保存の版 6 とセーブコード FISH6 の、装備・スキル・ガチャのまとまりのテスト(②-4a の条件 11・②-4b の条件 9・②-4b2 の条件 9)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -9,6 +9,7 @@ import { effectRange, emptyGear, EQUIP_KIND_ROWS, equipItem, makeCrates, pullCra
 import { ROD_STEPS } from "../src/core/rod.js";
 import { initialProgress, parseSave, readSaveData, toSaveData } from "../src/core/save.js";
 import { checksum, decodeSaveCode, encodeSaveCode } from "../src/core/savecode.js";
+import { legacyKinds } from "../src/core/gear_save.js";
 import { pointsRange, SKILL_ROWS } from "../src/core/skills.js";
 import { progressAt } from "./helpers.js";
 
@@ -31,35 +32,56 @@ function sample(pulls = 3) {
   return p;
 }
 
-/** 版 4 の形(オブジェクト。スキルは空)のデータ。 */
+const LURE = EQUIP_KIND_ROWS.find((k) => k.id === "lure");
+const OLD_LURE = legacyKinds([LURE])[0];
+const rangeOf = (kind, it) => effectRange(kind, rarityById(it.rarity, RARITY_ROWS), it.grade, GACHA.gradeGrowth);
+
+/** 新しいルアーの値を、前の範囲の同じ位置(min / max / 真ん中)の値にする(版 5 までのデータを作るため)。 */
+function oldLureValue(it) {
+  const to = rangeOf(LURE, it);
+  const from = rangeOf(OLD_LURE, it);
+  if (it.value === to.min) return from.min;
+  if (it.value === to.max) return from.max;
+  return Math.round((from.min + from.max) / 2);
+}
+/** 版 5 まで(ルアーは前の範囲の値)の装備。 */
+const oldItems = (p) => p.gear.items.map((it) => (it.kind === "lure" ? { ...it, value: oldLureValue(it) } : it));
+
+/** 版 4 の形(オブジェクト。スキルは空。ルアーは前の値)のデータ。 */
 function v4Data(p) {
-  const v5 = toSaveData(p);
+  const v6 = toSaveData(p);
   const g = p.gear;
   return {
     version: 4,
     progress: {
-      ...v5.progress,
-      gear: { items: g.items.map((it) => ({ ...it, skills: [] })), equipped: { ...g.equipped }, draws: g.draws, seed: g.seed, nextId: g.nextId },
+      ...v6.progress,
+      gear: { items: oldItems(p).map((it) => ({ ...it, skills: [] })), equipped: { ...g.equipped }, draws: g.draws, seed: g.seed, nextId: g.nextId },
     },
   };
 }
 
-function codeWith(data, prefix = "FISH5") {
+/** 版 5 の形(短い配列。ルアーは前の値)のデータ。 */
+function v5Data(p) {
+  const v6 = toSaveData({ ...p, gear: { ...p.gear, items: oldItems(p) } });
+  return { ...v6, version: 5 };
+}
+
+function codeWith(data, prefix = "FISH6") {
   const body = btoa(JSON.stringify(data)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
   return `${prefix}-${body}-${checksum(body)}`;
 }
 
-test("版 5 の保存とセーブコード(FISH5)は、往復で元に戻る(スキルつきの装備も)", () => {
+test("版 6 の保存とセーブコード(FISH6)は、往復で元に戻る(スキルつきの装備も)", () => {
   for (const p of [progressAt(1), sample(1), sample(10)]) {
     assert.deepEqual(parseSave(JSON.stringify(toSaveData(p))), p);
     const code = encodeSaveCode(p);
-    assert.match(code, /^FISH5-/);
+    assert.match(code, /^FISH6-/);
     assert.deepEqual(decodeSaveCode(code), { ok: true, progress: p });
   }
   assert.ok(sample(10).gear.items.some((it) => it.skills.length > 0));
 });
 
-test("版 5 の装備は、表の番号の短い配列で書く", () => {
+test("版 6 の装備は、表の番号の短い配列で書く", () => {
   const p = sample(1);
   const g = toSaveData(p).progress.gear;
   const it = p.gear.items[0];
@@ -72,7 +94,7 @@ test("版 5 の装備は、表の番号の短い配列で書く", () => {
   assert.ok(Array.isArray(g.equipped));
 });
 
-test("版 1〜4 から版 5 に読み替える。旧装備はスキルなし", () => {
+test("版 1〜5 から版 6 に読み替える。旧装備はスキルなし(版 4)、ルアーは範囲の中の位置を保って読み替える", () => {
   const v1 = { version: 1, coins: 5, material: 2, rodStage: 2, seen: ["aji"] };
   const v2 = { version: 2, progress: { coins: 5, material: 2, rodStage: 2, seen: ["aji"] } };
   const v3 = { version: 3, progress: { coins: 7, scales: { suzuki: 3 }, rod: { stage: 2, step: "crafted" }, seen: ["aji"] } };
@@ -91,6 +113,43 @@ test("版 1〜4 から版 5 に読み替える。旧装備はスキルなし", (
   assert.ok(r4.progress.gear.items.every((it) => it.skills.length === 0));
   assert.deepEqual(r4.progress.gear.equipped, p.gear.equipped);
   assert.deepEqual(decodeSaveCode(codeWith(v4Data(p), "FISH4")), r4);
+  // 版 5:ウロコイン・鱗・竿・装備(スキルつき)・装着はそのまま。ルアーは前の範囲の端なら新しい範囲の端へ。
+  const r5 = readSaveData(v5Data(p));
+  assert.equal(r5.ok, true);
+  assert.deepEqual({ ...r5.progress, gear: null }, { ...p, gear: null });
+  assert.deepEqual(r5.progress.gear.equipped, p.gear.equipped);
+  for (const [i, it] of p.gear.items.entries()) {
+    const got = r5.progress.gear.items[i];
+    assert.deepEqual({ ...got, value: 0 }, { ...it, value: 0 });
+    if (it.kind !== "lure") assert.equal(got.value, it.value);
+    else {
+      const to = rangeOf(LURE, it);
+      assert.ok(got.value >= to.min && got.value <= to.max);
+      if (it.value === to.min || it.value === to.max) assert.equal(got.value, it.value, "端は端へ");
+    }
+  }
+  assert.deepEqual(decodeSaveCode(codeWith(v5Data(p), "FISH5")), r5);
+});
+
+test("旧ルアーの読み替え:前の範囲の位置(0・真ん中・1)を、新しい範囲の同じ位置にする", () => {
+  for (const rarity of RARITY_ROWS) {
+    for (const grade of [1, 3, 5]) {
+      const it = { id: 1, kind: "lure", rarity: rarity.id, grade, value: 0, skills: [] };
+      const from = rangeOf(OLD_LURE, it);
+      const to = rangeOf(LURE, it);
+      for (const [v, want] of [
+        [from.min, to.min],
+        [from.max, to.max],
+      ]) {
+        const p = progressAt(5, ROD_STEPS.NONE, { gear: { ...emptyGear(), seed: 1, items: [{ ...it, value: v }], equipped: { lure: 1 }, nextId: 2 } });
+        const data = { ...toSaveData(p), version: 5 };
+        assert.equal(readSaveData(data).progress.gear.items[0].value, want, `${rarity.id} ${grade} ${v}`);
+      }
+      // 前の範囲の外の値は拒否する。
+      const bad = progressAt(5, ROD_STEPS.NONE, { gear: { ...emptyGear(), seed: 1, items: [{ ...it, value: from.max + 1 }], equipped: {}, nextId: 2 } });
+      assert.equal(readSaveData({ ...toSaveData(bad), version: 5 }).ok, false);
+    }
+  }
 });
 
 test("版 4 の形がおかしいデータ(スキルが入っている等)は拒否する", () => {
@@ -148,6 +207,14 @@ test("壊れた・範囲外・表にない種類やレア度やスキル・重�
     // ノーマルはスキルなし。
     const n = normalRow.map((x, j) => (j === 5 ? [0, 2] : x));
     data.push(withGear({ items: g.items.map((r) => (r === normalRow ? n : r)), equipped: [] }));
+  }
+  // ルアーの値が、新しい範囲(命中範囲 +n%)の外。
+  const lureRow = g.items.find((row) => EQUIP_KIND_ROWS[row[1]].id === "lure");
+  assert.ok(lureRow);
+  const lureIt = p.gear.items.find((it) => it.id === lureRow[0]);
+  const lr = effectRange(EQUIP_KIND_ROWS[lureRow[1]], rarityById(lureIt.rarity, RARITY_ROWS), lureIt.grade, GACHA.gradeGrowth);
+  for (const v of [lr.min - 1, lr.max + 1]) {
+    data.push(withGear({ items: g.items.map((row) => (row === lureRow ? row.map((x, j) => (j === 4 ? v : x)) : row)), equipped: [] }));
   }
   data.push(
     withGear({ items: "x" }),

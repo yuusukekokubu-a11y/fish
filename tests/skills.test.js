@@ -14,6 +14,7 @@ import {
   PHASES,
   refreshCombat,
   tap,
+  triggeredStats,
   update,
 } from "../src/core/fishing.js";
 import { emptyGear, EQUIP_KIND_ROWS, makeCrates, pullCrate } from "../src/core/gear.js";
@@ -290,7 +291,10 @@ test("安全:どんなスキルの組み合わせ・ポイントでも、戦い�
   const rng = createRng(11);
   for (let trial = 0; trial < 60; trial++) {
     const points = Object.fromEntries(SKILL_ROWS.map((s) => [s.id, Math.floor(rng() * 200)]));
-    const gear = gearWith(points, { equipped: { reel: 1 } });
+    const base = gearWith(points);
+    // ルアー(命中範囲)も、とても大きな値まで混ぜる。
+    const lure = { id: 2, kind: "lure", rarity: "legend", grade: 5, value: Math.floor(rng() * 5000), skills: [] };
+    const gear = { ...base, items: [...base.items, lure], equipped: { reel: 1, lure: 2 }, nextId: 3 };
     const game = createGame(trial, { progress: progressAt(1 + (trial % 6), ROD_STEPS.NONE, { gear }), content: makeContent() });
     const c = game.combat;
     assert.ok(c.damage >= 1 && c.missHeal >= 0 && c.critChance >= 0 && c.critMultiplier >= 1);
@@ -308,7 +312,15 @@ test("安全:どんなスキルの組み合わせ・ポイントでも、戦い�
       if (game.phase === PHASES.BITE && r() < 0.2) tap(game);
       if (game.phase === PHASES.MINIGAME) {
         assert.ok(game.fight.timeLimitMs >= LIMITS.minTimeLimitMs);
-        if (r() < 0.1) tap(game);
+        const width = game.fight.zone.end - game.fight.zone.start;
+        assert.ok(width <= Math.max(LIMITS.maxZoneWidth, game.cast.minigame.zoneWidth) + 1e-9 && width >= 0.1 - 1e-9, "命中範囲は上限と下限の中");
+        assert.ok(game.fight.zone.start >= 0 && game.fight.zone.end <= 1);
+        const { stats } = triggeredStats(game);
+        assert.ok(stats.damage >= 1 && stats.damage <= LIMITS.maxDamage && stats.critChance <= LIMITS.maxCritChance);
+        if (r() < 0.1) {
+          const res = tap(game);
+          if (res?.action === "hit") assert.ok(res.damage >= 1 && res.damage <= LIMITS.maxHitDamage);
+        }
       }
       if (game.phase === PHASES.RESTING) tap(game);
     }

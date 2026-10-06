@@ -1,9 +1,10 @@
 // @ts-check
-// 保存の、装備とガチャのまとまりの変換と点検(D-143・D-171・D-178)。
-// 版 5 の形(短い配列。表の番号で書く):
+// 保存の、装備とガチャのまとまりの変換と点検(D-143・D-171・D-178・D-188)。
+// 版 6 の形(短い配列。表の番号で書く。版 5 と同じ形で、ルアーの値の意味だけがちがう):
 //   { items: [[個体の番号, 種類の番号, レア度の番号, グレード, 基本効果の値, [スキルの番号, ポイント, …]], …],
 //     equipped: [[種類の番号, 個体の番号], …], draws, seed, nextId }
 //   番号は表(装備の種類・レア度・スキル)の並びの順(0 から)。表の行は、あとから並べ替えない(足すのは最後に)。
+// 版 5 まで、ルアーの値は「外したあとの次の当たり +n」だった。版 6 では「命中範囲 +n%」(D-181)。
 // 版 4 の形(オブジェクト):{ items: [{ id, kind, rarity, grade, value, skills: [] }], equipped: { 種類の id: 番号 }, … }
 // 壊れた・範囲外・表にない種類やレア度やスキル・同じ装備に同じスキル・ポイントが範囲外・持ち物にない装着の番号を
 // 含むときは null を返す(読み込みを拒否する)。
@@ -209,4 +210,38 @@ export function readGear(raw, rules) {
     ownEquipped[slot] = item.id;
   }
   return { items: own, equipped: ownEquipped, draws, seed: /** @type {number | null} */ (seed), nextId };
+}
+
+/** 版 5 までのルアーの値の範囲(外したあとの次の当たり +n:基本 2〜4、1 刻み)。読み替えにだけ使う(D-188)。 */
+export const LURE_V5 = Object.freeze({ base: Object.freeze({ min: 2, max: 4 }), step: 1 });
+
+/**
+ * 版 5 までの種類の表(ルアーの値の範囲だけ前のもの)。版 4・版 5 のデータの点検に使う。
+ * @param {readonly EquipKind[]} kinds @returns {EquipKind[]}
+ */
+export function legacyKinds(kinds) {
+  return kinds.map((k) => (k.id === "lure" ? { ...k, base: LURE_V5.base, step: LURE_V5.step } : k));
+}
+
+/**
+ * 旧ルアーの値を、同じレア度・グレードの範囲の中での相対的な位置を保って、新しい値に読み替える(D-188)。
+ * 位置 =(値 − 前の最小)÷(前の最大 − 前の最小)。新しい値 = 新しい最小 + 位置 ×(新しい最大 − 新しい最小)を刻みに丸める。
+ * @param {Gear} gear 版 5 の点検を通ったもの @param {readonly EquipKind[]} kinds 今の種類の表 @param {number} gradeGrowth
+ * @returns {Gear}
+ */
+export function remapLures(gear, kinds, gradeGrowth) {
+  const lure = kindById("lure", kinds);
+  if (!lure) return gear;
+  const old = legacyKinds([lure])[0];
+  const items = gear.items.map((it) => {
+    if (it.kind !== "lure") return it;
+    const rarity = rarityById(it.rarity, RARITY_ROWS);
+    if (!rarity) return it;
+    const from = effectRange(old, rarity, it.grade, gradeGrowth);
+    const to = effectRange(lure, rarity, it.grade, gradeGrowth);
+    const t = from.max > from.min ? (it.value - from.min) / (from.max - from.min) : 0;
+    const value = to.min + Math.round((t * (to.max - to.min)) / lure.step) * lure.step;
+    return { ...it, value: Math.min(to.max, Math.max(to.min, value)) };
+  });
+  return { ...gear, items };
 }
