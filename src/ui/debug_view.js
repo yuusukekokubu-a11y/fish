@@ -5,12 +5,13 @@
 // - すぐ戦う:ヌシ戦と同じく、シードと回数から作る別の乱数で魚を用意する(魚の系統は引かない:D-115・D-220)。
 // 計算本体(src/core)は変えない。JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
+import { baitCount, refundBait, setBait } from "../core/bait.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { DEFAULT_CONTENT } from "../core/fish.js";
 import { growthMaxLevel } from "../core/formula.js";
 import { currentHookTiming, FISH_KINDS, HOOK_GRADES, makeBossCast, PHASES, refreshCombat, tap } from "../core/fishing.js";
 import { effectRange, EQUIP_KIND_ROWS, kindById, RARITY_ROWS, rarityById } from "../core/gear.js";
-import { ROD_STEPS } from "../core/rod.js";
+import { COUNT_MAX, ROD_STEPS } from "../core/rod.js";
 import { parseSave } from "../core/savecode.js";
 import { SKILL_ROWS } from "../core/skills.js";
 
@@ -83,6 +84,8 @@ export function debugFields(content = DEFAULT_CONTENT) {
       max: content.maxStage,
       get: (p) => p.rodStage,
       set: (p, v) => {
+        // 段階が変わったら、残りの餌を前の段階の価格で払い戻す(進化と同じ:D-263・D-269)。
+        if (v !== p.rodStage) refundBait(p, p.rodStage, COUNT_MAX);
         p.rodStage = v;
         // 「進化済み」は最後の段階でだけありうる(保存の点検と同じ)。
         if (p.rodStep === ROD_STEPS.EVOLVED && v !== content.maxStage) p.rodStep = ROD_STEPS.DEFEATED;
@@ -99,6 +102,8 @@ export function debugFields(content = DEFAULT_CONTENT) {
         p.rodStep = step === ROD_STEPS.EVOLVED && p.rodStage !== content.maxStage ? ROD_STEPS.DEFEATED : step;
       },
     },
+    // 餌の所持数(D-263)。上限は config.bait.max。
+    { id: "bait", label: "餌の所持数", min: 0, max: DEFAULT_CONFIG.bait.max, get: (p) => baitCount(p), set: (p, v) => setBait(p, v) },
   ];
   for (const fish of content.fish) {
     if (!(fish.reward.scales > 0)) continue;

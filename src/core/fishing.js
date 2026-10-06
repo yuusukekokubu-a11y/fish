@@ -22,6 +22,7 @@ import {
   strikeDamage,
   widenZone,
 } from "./combat.js";
+import { baitCount, baitFish, refundBait, setBait, willUseBait } from "./bait.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { applyGear, copyGear, emptyGear } from "./gear.js";
 import { applySkillsToCombat, scaledReward, scaledWait, skillRates, skillStates, triggerAmounts } from "./skills.js";
@@ -30,6 +31,7 @@ import { drawZone, isHit, markerPosition, zoneAt } from "./minigame.js";
 import { createRng, normalizeSeed } from "./rng.js";
 import {
   addCount,
+  COUNT_MAX,
   canChallengeStep,
   canCraft,
   canEvolve,
@@ -104,9 +106,26 @@ export function bossSeed(seed, attempt) {
   return critSeed((seed ^ Math.imul(attempt + 1, 0x9e3779b9)) >>> 0);
 }
 
-/** 進み具合を、ゲームの中で使う形にそろえる(呼んだ側のものは変えない)。 */
+/**
+ * 餌で出る強い魚の 1 回ぶん(D-264)。魚の系統は使わず、シードと何投目かから種を作る(ヌシ戦と同じ作り方)。
+ * 待ち時間は、魚の系統から引いた元の投のものをそのまま使う。
+ */
+export function makeBaitCast(fish, config, seed, castCount, waitMs) {
+  const minigameSeed = bossSeed((seed ^ BAIT_SEED_SALT) >>> 0, castCount);
+  const minigame = effectiveMinigame(fish, config.minigame);
+  const zone = zoneAt(createRng(minigameSeed ^ 0x2545f491)(), {
+    zoneWidth: minigame.zoneWidth,
+    zoneMargin: config.minigame.zoneMargin,
+  });
+  return { waitMs, kind: FISH_KINDS.STRONG, fish, minigame, zone, minigameSeed, bait: true };
+}
+
+/** 餌の投の種を、ヌシ戦の種とずらすための数。 */
+const BAIT_SEED_SALT = 0x3c6ef372;
+
+/** 進み具合を、ゲームの中で使う形にそろえる(呼んだ側のものは変えない)。餌と自動分解の欄は、あるときだけ写す(D-269)。 */
 function ownProgress(progress) {
-  return {
+  const own = {
     coins: progress.coins ?? 0,
     scales: { ...(progress.scales ?? {}) },
     rodStage: progress.rodStage ?? 1,
@@ -114,6 +133,10 @@ function ownProgress(progress) {
     seen: [...(progress.seen ?? [])],
     gear: copyGear(progress.gear ?? emptyGear()),
   };
+  if (progress.bait) own.bait = progress.bait;
+  if (progress.useBait) own.useBait = true;
+  if (progress.autoScrap) own.autoScrap = progress.autoScrap;
+  return own;
 }
 
 /** 装備を反映した戦闘の数値の表を作り直す(装着・外す・分解のあとに呼ぶ:D-181)。 */
@@ -289,10 +312,25 @@ export function justCoinRate(game) {
   return game.cast.kind === FISH_KINDS.WEAK && game.hookGrade === HOOK_GRADES.JUST ? (game.config.weakJustCoins ?? 1) : 1;
 }
 
+/**
+ * 餌を使う投(D-264)。魚の乱数は、もう使わないときと同じ数・順番で引いてある(nextCast の drawGameCast)。
+ * その結果を、いまの段階の強い魚に置き換え、餌を 1 個減らす。ヌシ戦のあとの、取っておいた投にも使える(1 投 1 個)。
+ */
+function applyBait(game) {
+  const p = game.progress;
+  if (!willUseBait(p) || game.cast.bait) return;
+  const fish = baitFish(game.content, p.rodStage);
+  if (!fish) return;
+  game.cast = makeBaitCast(fish, game.config, game.seed, game.castCount, game.cast.waitMs);
+  setBait(p, baitCount(p) - 1);
+}
+
 /** 場面が時間切れになったときに、次の場面へ進める。 */
 function advance(game) {
   switch (game.phase) {
     case PHASES.CASTING:
+      // 投げ終わったら、餌を使う(スイッチが入っていて餌があるとき:D-263・D-264)。
+      applyBait(game);
       return enter(game, PHASES.WAITING);
     case PHASES.WAITING:
       return enter(game, PHASES.BITE);
@@ -596,9 +634,18 @@ export function canEvolveRod(game) {
   return canEvolve(game.progress, game.content);
 }
 
-/** 竿を進化する。次の段階の魚は、次に投げるときから一覧に加わる。 */
+/**
+ * 竿を進化する。次の段階の魚は、次に投げるときから一覧に加わる。
+ * 段階が進んだら、残りの餌を、進化の前の段階の価格で払い戻す(D-263)。結果は game.baitRefund({ count, coins })に置く。
+ */
 export function evolveGameRod(game) {
+  const before = game.progress.rodStage;
   const done = evolveRod(game.progress, game.content);
+  game.baitRefund = null;
+  if (done && game.progress.rodStage !== before) {
+    const refund = refundBait(game.progress, before, COUNT_MAX, game.config.formula);
+    if (refund.count > 0) game.baitRefund = refund;
+  }
   // 段階が上がると、成長型のスキルの最大レベルが伸びる(D-167)。
   if (done) refreshCombat(game);
   return done;

@@ -7,6 +7,7 @@
     <title>fish</title>
     <link rel="stylesheet" href="src/ui/screens.css" />
     <link rel="stylesheet" href="src/ui/debug.css" />
+    <link rel="stylesheet" href="src/ui/bait.css" />
     <style>
       html,
       body {
@@ -98,6 +99,47 @@
         background: #44555f;
         color: #9fb3bf;
       }
+      /* 餌の欄(D-263・D-269):餌があるときだけ、竿のボタンの上に所持数と「餌を使う」のスイッチ(44px 以上)。 */
+      #bait-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 14px;
+      }
+      #bait-row[hidden] {
+        display: none;
+      }
+      #bait-switch {
+        min-width: 150px;
+        min-height: 44px;
+        padding: 0 14px;
+        border: 2px solid #9fb3bf;
+        border-radius: 22px;
+        background: rgba(4, 30, 46, 0.7);
+        color: #cfdde5;
+        font: inherit;
+        font-size: 14px;
+        font-weight: bold;
+      }
+      #bait-switch[aria-pressed="true"] {
+        border-color: #7bdff2;
+        background: #1b6f8a;
+        color: #fff;
+      }
+      /* 払い戻しなどの知らせ(数秒で消える)。 */
+      #notice {
+        position: absolute;
+        top: 36%;
+        left: 12px;
+        right: 12px;
+        text-align: center;
+        font-size: 15px;
+        font-weight: bold;
+        color: #ffd166;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+        pointer-events: none;
+      }
       #sub {
         display: flex;
         justify-content: flex-end;
@@ -181,9 +223,14 @@
       <div id="stage">
         <canvas id="scene"></canvas>
         <div id="message"></div>
+        <div id="notice" role="status"></div>
         <button id="menu-toggle" type="button" aria-label="メニュー" aria-expanded="false" aria-controls="drawer">☰</button>
       </div>
       <div id="footer">
+        <div id="bait-row" hidden>
+          <span id="bait-count"></span>
+          <button id="bait-switch" type="button" aria-pressed="false"></button>
+        </div>
         <button id="upgrade" type="button"></button>
         <div id="sub">
           <span><span id="version"></span> / <span id="seed"></span></span>

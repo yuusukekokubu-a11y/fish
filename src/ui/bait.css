@@ -1,0 +1,65 @@
+/* 店の画面・自動分解の設定・引いた結果の自動分解の一覧(D-263・D-266・D-269)。screens.css が 800 行に近いので分ける(D-006)。 */
+.shop-card {
+  margin-top: 8px;
+}
+.shop-count {
+  font-size: 16px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+.shop-buttons {
+  flex-wrap: wrap;
+}
+.shop-buttons > button {
+  min-height: 48px;
+}
+.auto-scrap {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.auto-scrap-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.auto-scrap-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.chip.auto-scrap-choice[aria-pressed="true"] {
+  border-color: #ffd166;
+  background: #ffd166;
+  color: #3d2c00;
+  font-weight: bold;
+}
+.auto-scrap-note {
+  margin: 6px 2px 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+.fx-scrap {
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.fx-scrap-title {
+  min-height: 44px;
+  padding: 0 12px;
+  line-height: 44px;
+  font-weight: bold;
+  color: #ffd166;
+  cursor: pointer;
+}
+.fx-scrap-list {
+  padding: 0 6px 6px;
+  box-sizing: border-box;
+  opacity: 0.75;
+}
+.fx-empty {
+  margin: 4px 0;
+  font-size: 14px;
+  opacity: 0.8;
+}

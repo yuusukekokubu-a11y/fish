@@ -23,6 +23,8 @@ import {
 import { nextNeed, ROD_STEPS, rodName, stageRodNames } from "../core/rod.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { normalizeSeed } from "../core/rng.js";
+import { setUseBait } from "../core/bait.js";
+import { baitHud, refundMessage } from "./bait_view.js";
 import { formatCount } from "./format.js";
 import { createScreenShell } from "./screen_shell.js";
 import { initialNav, isPaused, screensFor, setDrawer, showScreen } from "./screens.js";
@@ -59,6 +61,8 @@ const READ_CONFIG = URL_OPTIONS.debug ? /** @type {any} */ (DEBUG_READ_CONFIG) :
 
 // 1 回の描画で進める時間の上限。裏に回って戻ったときに、一気に何匹も進まないようにする。
 const MAX_STEP_MS = 100;
+// 知らせを出しておく時間。
+const NOTICE_MS = 4000;
 
 /** シードの指定がないときに使う、毎回ちがうシード。計算本体では Math.random を使わない(D-021)。 */
 function randomSeed() {
@@ -167,6 +171,10 @@ function main() {
     hud: document.getElementById("hud"),
     menu: document.getElementById("menu-toggle"),
     seed: document.getElementById("seed"),
+    baitRow: document.getElementById("bait-row"),
+    baitCount: document.getElementById("bait-count"),
+    baitSwitch: document.getElementById("bait-switch"),
+    notice: document.getElementById("notice"),
     version: document.getElementById("version"),
   };
 
@@ -205,6 +213,13 @@ function main() {
     else if (result?.action === "miss") addMissEffects(effects, result, now);
   });
 
+  // 知らせ(払い戻しなど)を数秒だけ出す。
+  let noticeUntil = 0;
+  function showNotice(text) {
+    el.notice.textContent = text;
+    noticeUntil = performance.now() + NOTICE_MS;
+  }
+
   el.upgrade.addEventListener("click", () => {
     const button = rodButton(game);
     if (!button.enabled) return;
@@ -212,6 +227,15 @@ function main() {
     if (text === false) return;
     saveProgress(game.progress);
     if (text) addRodEffects(effects, text, performance.now());
+    // 進化で段階が進んだら、残りの餌の払い戻しを知らせる(D-263)。
+    const refund = refundMessage(game.baitRefund);
+    if (refund) showNotice(refund);
+  });
+
+  // 「餌を使う」のスイッチ(D-263)。次の投げから効く。
+  el.baitSwitch.addEventListener("click", () => {
+    setUseBait(game.progress, !game.progress.useBait);
+    saveProgress(game.progress);
   });
 
   // 目次(ドロワー)と全画面(D-152・D-153)。どちらかが開いている間は、釣りを止める(D-134)。
@@ -328,6 +352,17 @@ function main() {
     el.need.textContent = needLabel(game);
     el.rodName.textContent = rodName(game.progress, game.content);
     el.message.textContent = messageFor(game);
+    const bait = baitHud(game);
+    el.baitRow.hidden = bait === null;
+    if (bait) {
+      el.baitCount.textContent = bait.countText;
+      el.baitSwitch.textContent = bait.switchText;
+      el.baitSwitch.setAttribute("aria-pressed", String(bait.on));
+    }
+    if (noticeUntil && now > noticeUntil) {
+      el.notice.textContent = "";
+      noticeUntil = 0;
+    }
     const button = rodButton(game);
     el.upgrade.textContent = button.label;
     el.upgrade.disabled = !button.enabled;

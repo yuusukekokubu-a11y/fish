@@ -41,6 +41,7 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {{ knee: number, soft: number }} justMultiplierCurve ジャスト倍率の合計の逓減(D-257)
  * @property {number} referenceDrawsFirst 基準の回数 N(g) = referenceDrawsFirst × g^referenceDrawsExponent(D-254)
  * @property {number} referenceDrawsExponent
+ * @property {number} baitPriceRatio 餌の価格 = 強い魚 1 匹のウロコイン × これ(D-265)
  * @property {number} defenseStartStage 防御を持ち始める通し番号(それより前は 0%:D-237)
  * @property {number} defensePenPerLevel 防御の式が前提にする、貫通の 1 レベルの量(スキルの表の貫通と同じ値)
  * @property {number} defenseFloor 5 体目のヌシ(s=5)の防御の下限(1 以上=貫通なしでは実効防御 100% 以上)
@@ -98,6 +99,16 @@ export function fishCoins(kind, g, f) {
   const c = conf(f);
   const ratio = kind === "weak" ? 1 : kind === "strong" ? c.strongCoinRatio : c.strongCoinRatio * c.bossCoinRatio;
   return round2(c.weakCoins * ratio * coinScale(g, c));
+}
+
+/**
+ * 餌の 1 個の価格(D-265):強い魚 1 匹のウロコイン × baitPriceRatio を、上から 2 けたに丸める(1 以上)。
+ * 強い魚のウロコインはジャストで変わらないので、上手(ジャスト 70%)の期待報酬と同じ。
+ * @param {number} g @param {FormulaConfig} [f]
+ */
+export function baitPrice(g, f) {
+  const c = conf(f);
+  return Math.max(1, round2(fishCoins("strong", g, c) * c.baitPriceRatio));
 }
 
 /** 1 匹が落とす鱗の数(弱い魚は 0)。 @param {"weak" | "strong" | "boss"} kind @param {number} _g @param {FormulaConfig} [f] */
