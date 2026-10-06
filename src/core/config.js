@@ -120,6 +120,8 @@ export const DEFAULT_CONFIG = Object.freeze({
     // 基準の回数 N(g) = 10 × g^0.5(N(1) = 10・N(100) = 100):育てた装備は、各枠で g のクレートを N(g) 個引いた中の最良(D-254)。
     referenceDrawsFirst: 10,
     referenceDrawsExponent: 0.5,
+    // 餌の価格 = 強い魚 1 匹のウロコイン × 0.8(期待報酬の 7〜9 割:D-265)。
+    baitPriceRatio: 0.8,
     penetrationCurve: Object.freeze({ knee: 0.7, soft: 0.25 }),
     // 防御(D-235・D-260):通し番号 3 から。5 体目のヌシ = max(1.02, 最大レベルの貫通 + 0.35)、ほかは割合(上限 0.9)。
     defenseStartStage: 3,
@@ -137,7 +139,9 @@ export const DEFAULT_CONFIG = Object.freeze({
     noPenTapsFactor: 1,
     noPenBonusDraws: 45,
   }),
-  // クレートガチャ(D-140・D-253・D-147・D-149)。
+  // 餌(D-263):所持数の上限。
+  bait: Object.freeze({ max: 99 }),
+  // クレートガチャ(D-140・D-147・D-149・D-253)。
   gacha: Object.freeze({
     targetSeconds: 60, // クレート 1 回分が貯まる目標の時間(D-253:120 → 60)
     justRate: 0.7, // 価格の稼ぎを見積もるときの、ジャストの割合(「上手」:D-259)

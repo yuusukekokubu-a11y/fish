@@ -1,4 +1,4 @@
-// 保存の形(版 2)とセーブコード(TSURI2。TSURI1 も読む)のテスト(②-4c 土台の条件 6・7・8、装備のロックの条件 4:D-223・D-232・D-247)。
+// 保存の形(版 3)とセーブコード(TSURI3。TSURI1・TSURI2 も読む)のテスト(②-4c 土台の条件 6・7・8、装備のロックの条件 4、餌と自動分解の条件 6:D-223・D-232・D-247・D-267)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -47,30 +47,58 @@ function withField(i, text) {
 // 版 1 の本文(sample() を版 1 で書いたもの)。
 const V1_BODY = "9ix~2.1~kurodai:3,nushi-kurodai:1~aji,kurodai~5.3f.6~1.1,0.4~1.7.1.5A2B1Q2,3.1.2.15oR1,1.8.1.5";
 
-test("版 2 の形:8 つの欄(ウロコイン・竿・鱗・釣れた魚・ガチャ・装着・持ち物・ロック)を 36 進数の数と記号で書く", () => {
-  assert.equal(SAVE_VERSION, 2);
-  assert.equal(encodeSave(sample()), `${V1_BODY}~000`);
+// 版 2 の本文(sample() を版 2 で書いたもの)。
+const V2_BODY = `${V1_BODY}~000`;
+
+test("版 3 の形:9 つの欄(ウロコイン・竿・鱗・釣れた魚・ガチャ・装着・持ち物・ロック・餌と自動分解)を 36 進数の数と記号で書く", () => {
+  assert.equal(SAVE_VERSION, 3);
+  assert.equal(encodeSave(sample()), `${V2_BODY}~0.0.0`);
   const p = sample();
   p.gear.items[1].locked = true;
-  assert.equal(encodeSave(p), `${V1_BODY}~010`, "ロックは持ち物の順に 1 個 1 字");
-  assert.match(encodeSaveCode(sample()), /^TSURI2-[0-9A-Za-z.,:~-]+-[0-9a-f]{8}$/);
+  assert.equal(encodeSave(p), `${V1_BODY}~010~0.0.0`, "ロックは持ち物の順に 1 個 1 字");
+  assert.match(encodeSaveCode(sample()), /^TSURI3-[0-9A-Za-z.,:~-]+-[0-9a-f]{8}$/);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p)), { ok: true, progress: p }, "ロックも往復で元に戻る");
+  // 餌 99 個(36 進数で 2r)・スイッチ入り・自動分解「エピックまで」(番号 3)。
+  const b = { ...sample(), bait: 99, useBait: true, autoScrap: "epic" };
+  assert.equal(encodeSave(b), `${V2_BODY}~2r.1.3`);
+  assert.deepEqual(decodeSaveCode(encodeSaveCode(b)), { ok: true, progress: b }, "餌・スイッチ・自動分解も往復で元に戻る");
+  for (const [id, n] of [["normal", 1], ["rare", 2]]) {
+    const q = { ...sample(), bait: 1, autoScrap: id };
+    assert.equal(encodeSave(q).split("~")[8], `1.0.${n}`);
+    assert.deepEqual(decodeSaveCode(encodeSaveCode(q)).progress, q);
+  }
 });
 
-test("版 1(TSURI1)のコードと本文を読み、版 2 に読み替える(ロックは全てなし。ほかは変わらない)", () => {
+test("版 2(TSURI2)のコードと本文を読み、版 3 に読み替える(餌 0・スイッチはオフ・自動分解はオフ。ほかは変わらない)", () => {
+  assert.equal(UPGRADES[2](V2_BODY), `${V2_BODY}~0.0.0`);
+  assert.equal(upgradeSave(V2_BODY, 2), `${V2_BODY}~0.0.0`);
+  assert.equal(UPGRADES[2](V1_BODY), null, "欄の数がちがう版 2 は読み替えない");
+  const p = sample();
+  p.gear.items[0].locked = true;
+  const body2 = `${V1_BODY}~100`;
+  const r = decodeSaveCode(`TSURI2-${body2}-${checksum(body2)}`);
+  assert.deepEqual(r, { ok: true, progress: p });
+  assert.ok(r.ok && !("bait" in r.progress) && !("useBait" in r.progress) && !("autoScrap" in r.progress));
+  assert.deepEqual(parseSave(`TSURI2-${body2}-${checksum(body2)}`), p, "ブラウザに残った版 2 の保存データも読める");
+  assert.match(encodeSaveCode(p), /^TSURI3-/);
+  // 版 2 なのに 9 つの欄は拒否。
+  assert.equal(decodeSaveCode(`TSURI2-${V2_BODY}~0.0.0-${checksum(`${V2_BODY}~0.0.0`)}`).error, "content");
+});
+
+test("版 1(TSURI1)のコードと本文を読み、版 2 → 版 3 と順に読み替える(ロックは全てなし。ほかは変わらない)", () => {
   assert.equal(UPGRADES[1](V1_BODY), `${V1_BODY}~000`);
-  assert.equal(upgradeSave(V1_BODY, 1), `${V1_BODY}~000`);
-  assert.equal(upgradeSave(`${V1_BODY}~000`, 2), `${V1_BODY}~000`, "今の版はそのまま");
+  assert.equal(upgradeSave(V1_BODY, 1), `${V1_BODY}~000~0.0.0`, "版 1 → 2 → 3");
+  assert.equal(upgradeSave(`${V2_BODY}~0.0.0`, 3), `${V2_BODY}~0.0.0`, "今の版はそのまま");
   assert.equal(upgradeSave(V1_BODY, 0), null);
-  assert.equal(upgradeSave(V1_BODY, 3), null);
+  assert.equal(upgradeSave(V1_BODY, 4), null);
   assert.equal(UPGRADES[1]("1~2"), null, "欄の数がちがう版 1 は読み替えない");
   const r = decodeSaveCode(`TSURI1-${V1_BODY}-${checksum(V1_BODY)}`);
   assert.deepEqual(r, { ok: true, progress: sample() });
   assert.ok(r.ok && r.progress.gear.items.every((it) => !("locked" in it)));
-  // ブラウザに残った版 1 の保存データも読める(次に保存するときは版 2)。
+  // ブラウザに残った版 1 の保存データも読める(次に保存するときは版 3)。
   assert.deepEqual(parseSave(`TSURI1-${V1_BODY}-${checksum(V1_BODY)}`), sample());
-  // 読み替えたものを書くと版 2。
-  assert.match(encodeSaveCode(r.ok ? r.progress : sample()), /^TSURI2-/);
+  // 読み替えたものを書くと版 3。
+  assert.match(encodeSaveCode(r.ok ? r.progress : sample()), /^TSURI3-/);
   // 版 1 なのに 8 つの欄(ロックの欄つき)は拒否。
   assert.equal(decodeSaveCode(`TSURI1-${V1_BODY}~000-${checksum(`${V1_BODY}~000`)}`).error, "content");
 });
@@ -127,9 +155,9 @@ test("空・切れた・1 文字ちがう・ちがう形・ちがう版のコー
   const i = code.indexOf("kurodai");
   assert.equal(decodeSaveCode(code.slice(0, i) + "x" + code.slice(i + 1)).error, "checksum");
   assert.equal(decodeSaveCode("hello").error, "format");
-  assert.equal(decodeSaveCode("TSURI2-abc").error, "format");
+  assert.equal(decodeSaveCode("TSURI3-abc").error, "format");
   const body = encodeSave(sample());
-  for (const v of [0, 3, 10]) assert.equal(decodeSaveCode(`TSURI${v}-${body}-${checksum(body)}`).error, "version", `版 ${v}`);
+  for (const v of [0, 4, 10]) assert.equal(decodeSaveCode(`TSURI${v}-${body}-${checksum(body)}`).error, "version", `版 ${v}`);
   assert.equal(decodeSaveCode("TSURI1-" + "a".repeat(60000) + "-00000000").error, "format");
 });
 
@@ -172,8 +200,16 @@ test("壊れた・範囲外・存在しない魚や工程・重複・装着の�
     ロックが記号: withField(7, "0.0"),
     ロックの数が持ち物より少ない: withField(7, "00"),
     ロックの数が持ち物より多い: withField(7, "0000"),
-    版2なのにロックの欄がない: codeOf(V1_BODY),
-    版2で欄が多い: codeOf(`${V1_BODY}~000~0`),
+    版3なのにロックと餌の欄がない: codeOf(V1_BODY),
+    版3なのに餌の欄がない: codeOf(V2_BODY),
+    版3で欄が多い: codeOf(`${V2_BODY}~0.0.0~0`),
+    餌が上限をこえる: withField(8, "2s.0.0"),
+    餌が負: withField(8, "-1.0.0"),
+    餌の数の先頭が0: withField(8, "01.0.0"),
+    スイッチが0と1以外: withField(8, "1.2.0"),
+    自動分解の設定が表にない: withField(8, "1.0.4"),
+    餌の欄の形: withField(8, "1.0"),
+    餌の欄が空: withField(8, ""),
   };
   for (const [name, code] of Object.entries(bad)) {
     const r = decodeSaveCode(code);
@@ -186,6 +222,7 @@ test("壊れた・範囲外・存在しない魚や工程・重複・装着の�
   parts[5] = "";
   parts[6] = Array.from({ length: 101 }, () => "1.8.1.5").join(",");
   parts[7] = "0".repeat(101);
+  parts[8] = "0.0.0";
   assert.equal(decodeSaveCode(codeOf(parts.join("~"))).error, "content");
   parts[6] = Array.from({ length: 100 }, () => "1.8.1.5").join(",");
   parts[7] = "1".repeat(100);
@@ -225,14 +262,18 @@ test("セーブコードの長さ:持ち物 100 個(全部スキル 3 つ・最�
   assert.deepEqual(decodeSaveCode(code, content).progress, p);
   // 版 2 のロックの欄で増えた長さ(全部ロック中でも同じ):200 文字以内(D-247)。
   for (const it of items) it.locked = true;
-  const body = encodeSave(p, content);
-  const added = body.length - body.slice(0, body.lastIndexOf("~")).length;
-  assert.ok(added <= 200, `増え ${added} 文字`);
+  const parts = encodeSave(p, content).split("~");
+  const lockAdded = parts[7].length + 1;
+  assert.ok(lockAdded <= 200, `ロックの増え ${lockAdded} 文字`);
+  // 版 3 の餌と自動分解の欄で増えた長さ(餌は最大・スイッチ入り・エピックまで):50 文字以内(D-267)。
+  Object.assign(p, { bait: 99, useBait: true, autoScrap: "epic" });
+  const baitAdded = encodeSave(p, content).split("~")[8].length + 1;
+  assert.ok(baitAdded <= 50, `餌の欄の増え ${baitAdded} 文字`);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p, content), content).progress, p);
 });
 
-test("互換の正解データ(compat_v1.json・compat_v2.json):いつまでも読めて、同じ結果になる(消さない:DESIGN の決まり)", () => {
-  for (const version of [1, 2]) {
+test("互換の正解データ(compat_v1.json・compat_v2.json・compat_v3.json):いつまでも読めて、同じ結果になる(消さない:DESIGN の決まり)", () => {
+  for (const version of [1, 2, 3]) {
     const fixture = JSON.parse(readText(`tests/fixtures/compat_v${version}.json`));
     assert.equal(fixture.version, version);
     for (const c of fixture.cases) {
@@ -243,6 +284,12 @@ test("互換の正解データ(compat_v1.json・compat_v2.json):いつまでも�
       if (version === SAVE_VERSION) assert.equal(code, c.code, `${c.name}:書き出しも同じ`);
       assert.deepEqual(decodeSaveCode(code), { ok: true, progress: c.progress }, `${c.name}:今の版で往復`);
     }
-    for (const c of fixture.rejected) assert.equal(decodeSaveCode(c.code).error, c.error, c.name);
+    for (const c of fixture.rejected) {
+      const r = decodeSaveCode(c.code);
+      // 「まだない版」の例は、その版ができたあとは、中身の形がちがうので「中身が正しくありません」で拒否される(D-267)。
+      const later = c.error === "version" && Number(c.code.match(/^TSURI(\d+)-/)?.[1]) <= SAVE_VERSION;
+      assert.equal(r.ok, false, c.name);
+      if (!later) assert.equal(r.error, c.error, c.name);
+    }
   }
 });

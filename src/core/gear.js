@@ -423,6 +423,59 @@ export function dismantleRarity(progress, rarityId, crates, coinMax) {
 }
 
 /**
+ * 自動分解のしきい値の表(D-266)。upTo は対象にするレア度の番号の上限(RARITY_ROWS の順。-1 は何も分解しない)。
+ * レジェンドは、どの設定でも対象にしない。表の順は保存に使うので並べ替えない。
+ * @type {readonly { id: string, label: string, upTo: number }[]}
+ */
+export const AUTO_SCRAP_ROWS = Object.freeze([
+  { id: "off", label: "オフ", upTo: -1 },
+  { id: "normal", label: "ノーマルまで", upTo: 0 },
+  { id: "rare", label: "レアまで", upTo: 1 },
+  { id: "epic", label: "エピックまで", upTo: 2 },
+]);
+
+/** 自動分解の設定(なければ "off")。 @param {{ autoScrap?: string }} progress */
+export function autoScrapSetting(progress) {
+  return progress.autoScrap ?? "off";
+}
+
+/** 自動分解の設定を変える("off" なら欄を消す:D-269)。表にない値は変えない。 @param {{ autoScrap?: string }} progress @param {string} id */
+export function setAutoScrap(progress, id) {
+  if (!AUTO_SCRAP_ROWS.some((r) => r.id === id)) return false;
+  if (id === "off") delete progress.autoScrap;
+  else progress.autoScrap = id;
+  return true;
+}
+
+/**
+ * 引いた装備のうち、自動分解するもの(D-266)。しきい値のレア度以下で、レジェンドでなく、ロック中・装着中でなく、
+ * ▲(引いた時点の装着中の同じ種類の装備より基本効果が高い。空き枠なら全部)でないもの。全部を同じ装着の状態で判定する。
+ * @param {Gear} gear @param {readonly Item[]} items @param {string} setting
+ */
+export function autoScrapTargets(gear, items, setting) {
+  const row = AUTO_SCRAP_ROWS.find((r) => r.id === setting);
+  if (!row || row.upTo < 0) return [];
+  const legend = RARITY_ROWS.length - 1;
+  return items.filter((it) => {
+    const r = RARITY_ROWS.findIndex((x) => x.id === it.rarity);
+    return r >= 0 && r <= row.upTo && r < legend && !it.locked && !isEquipped(gear, it.id) && effectDiff(gear, it) <= 0;
+  });
+}
+
+/**
+ * 引いた直後の自動分解(D-266)。引いた装備 items のうち対象を分解し、ウロコインを足す。{ items: 分解した装備, coins }。
+ * 判定は分解の前に全部すませる(10 連でも同じ基準)。持ち物に元からある装備は分解しない。
+ * @param {{ coins: number, gear: Gear, autoScrap?: string }} progress @param {readonly Item[]} items @param {Crate[]} crates
+ * @param {number} coinMax
+ */
+export function autoScrap(progress, items, crates, coinMax) {
+  const targets = autoScrapTargets(progress.gear, items, autoScrapSetting(progress));
+  let coins = 0;
+  for (const it of targets) coins += dismantleItem(progress, it.id, crates, coinMax);
+  return { items: targets, coins };
+}
+
+/**
  * 装備を反映した戦闘の数値の表(D-181)。基本の表 → 足し算(装着中の装備の基本効果)。
  * 掛け算の効果は ②-4b 以降で、足し算のあとに掛ける。丸めと安全上限は、呼ぶ側の normalizeCombat が行う。
  * @template {Record<string, any>} T

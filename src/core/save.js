@@ -1,11 +1,12 @@
 // @ts-check
-// 保存の形(版 2:D-223・D-232・D-247)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 3:D-223・D-232・D-247・D-267)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
-// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 8 つの欄に分ける:
+// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 9 つの欄に分ける:
 //   ウロコイン ~ 竿の段階.工程の番号 ~ 鱗(魚の id:数 を「,」で) ~ 釣れた魚(魚の id を「,」で)
 //   ~ 引いた回数.ガチャの種.次の個体の番号 ~ 装着(種類の番号.個体の番号 を「,」で) ~ 持ち物(装備を「,」で)
 //   ~ ロック(持ち物の順に、1 個 1 字で「1」ロック中・「0」ロックなし。版 2 で足した:D-247)
+//   ~ 餌の所持数.餌を使うスイッチ(0/1).自動分解の設定の番号(AUTO_SCRAP_ROWS の順。版 3 で足した:D-267)
 // 装備 1 個:前の個体の番号との差.種類とレア度の番号.グレード.基本効果の値 のあとに、スキルを「英大文字 1 字(スキルの番号)+ レベル」で並べる。
 //   例:「1.b.5.2s」+「B7C7D7」。種類とレア度の番号 = 種類の番号 × レア度の数 + レア度の番号。
 // - 魚は id で書く(D-228)。鱗は持っているもの(1 以上)だけを書く。
@@ -18,14 +19,14 @@
 
 import { DEFAULT_CONFIG } from "./config.js";
 import { DEFAULT_CONTENT } from "./fish.js";
-import { effectRange, emptyGear, RARITY_ROWS } from "./gear.js";
+import { AUTO_SCRAP_ROWS, effectRange, emptyGear, RARITY_ROWS } from "./gear.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 import { levelRange } from "./skills.js";
 
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -33,7 +34,7 @@ export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_
 /** スキルの番号を書く文字(26 個まで)。 */
 const SKILL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SEED_MAX = 4294967295;
-const FIELDS = 8;
+const FIELDS = 9;
 
 /**
  * 進み具合。
@@ -44,6 +45,9 @@ const FIELDS = 8;
  * @property {string} rodStep 工程
  * @property {string[]} seen 一度でも釣れた魚の id
  * @property {Gear} gear
+ * @property {number} [bait] 餌の所持数(1 以上のときだけ持つ:D-263・D-269)
+ * @property {boolean} [useBait] 餌を使うスイッチ(入っているときだけ持つ)
+ * @property {string} [autoScrap] 自動分解の設定(オフでないときだけ持つ:D-266)
  */
 
 /**
@@ -66,6 +70,12 @@ export const UPGRADES = Object.freeze({
     const parts = body.split("~");
     if (parts.length !== 7) return null;
     return [...parts, "0".repeat(list(parts[6]).length)].join("~");
+  },
+  // 版 2 → 3:餌と自動分解の欄を足す(餌 0・スイッチはオフ・自動分解はオフ:D-267)。
+  2: (body) => {
+    const parts = body.split("~");
+    if (parts.length !== 8) return null;
+    return [...parts, "0.0.0"].join("~");
   },
 });
 
@@ -138,6 +148,7 @@ export function encodeSave(progress, content = DEFAULT_CONTENT) {
     equipped,
     itemText,
     items.map((it) => (it.locked ? "1" : "0")).join(""),
+    `${num(progress.bait ?? 0)}.${progress.useBait ? 1 : 0}.${num(Math.max(0, AUTO_SCRAP_ROWS.findIndex((r) => r.id === (progress.autoScrap ?? "off"))))}`,
   ].join("~");
 }
 
@@ -181,7 +192,7 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (typeof body !== "string") return fail;
   const parts = body.split("~");
   if (parts.length !== FIELDS) return fail;
-  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText] = parts;
+  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText] = parts;
 
   const coins = readNum(coinText);
   if (coins === null) return fail;
@@ -243,8 +254,18 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
     equipped[kind.id] = item.id;
   }
 
-  return {
-    ok: true,
-    progress: { coins, scales, rodStage: stage, rodStep: step, seen, gear: { items, equipped, draws, seed, nextId } },
-  };
+  // 餌と自動分解(D-267):所持数は 0〜上限、スイッチは 0 か 1、設定は表の番号。既定の値は欄を持たない(D-269)。
+  const bait = baitText.split(".");
+  if (bait.length !== 3) return fail;
+  const baitCount = readNum(bait[0]);
+  const scrapIndex = readNum(bait[2]);
+  const scrap = scrapIndex === null ? undefined : AUTO_SCRAP_ROWS[scrapIndex];
+  if (baitCount === null || baitCount > config.bait.max || (bait[1] !== "0" && bait[1] !== "1") || !scrap) return fail;
+
+  /** @type {Progress} */
+  const progress = { coins, scales, rodStage: stage, rodStep: step, seen, gear: { items, equipped, draws, seed, nextId } };
+  if (baitCount > 0) progress.bait = baitCount;
+  if (bait[1] === "1") progress.useBait = true;
+  if (scrap.id !== "off") progress.autoScrap = scrap.id;
+  return { ok: true, progress };
 }
