@@ -10,7 +10,7 @@ import { DEFAULT_CONFIG } from "../core/config.js";
 import { makeCrates, pullCrate } from "../core/gear.js";
 import { SKILL_ROWS } from "../core/skills.js";
 import { playPull } from "./gacha_fx.js";
-import { crateCards, inventorySpaceLabel, PULL_MESSAGES, pullResultView } from "./gear_view.js";
+import { crateCards, inventorySpaceLabel, inventoryWarning, PULL_MESSAGES, pullResultView } from "./gear_view.js";
 import { button, el } from "./list_view.js";
 
 /** @typedef {import("./equip_screen.js").ScreenContext} ScreenContext */
@@ -33,7 +33,21 @@ export function mountCrates(container, ctx) {
   const space = el("div", "screen-header crate-space", inventorySpaceLabel(game));
   const message = el("p", "gacha-message");
   message.setAttribute("role", "status");
-  container.append(space, message);
+  container.append(space);
+  // 持ち物の空きの警告(D-216):空き 10 以下は黄、0 は赤と「装備へ(分解する)」。
+  const warning = inventoryWarning(game);
+  if (warning.level) {
+    const box = el("div", `space-warning ${warning.level}`);
+    box.setAttribute("role", "alert");
+    box.append(el("p", "space-warning-text", warning.text));
+    if (warning.level === "full") {
+      const go = button("装備へ(分解する)", "primary-button space-warning-go");
+      go.addEventListener("click", () => ctx.navigate("equipment"));
+      box.append(go);
+    }
+    container.append(box);
+  }
+  container.append(message);
 
   // スキルの抽選に使う表と数値(ゲームの表を使う:D-207)。
   const skillDraw = { skills: game.content.skills ?? SKILL_ROWS, config: game.config.skills ?? DEFAULT_CONFIG.skills };
@@ -65,8 +79,9 @@ export function mountCrates(container, ctx) {
     ])) {
       const b = button(label, "primary-button pull-button");
       b.dataset.count = String(count);
-      // ウロコインが足りないときは押せない見た目。持ち物がいっぱいのときは、押すと理由を出す(前と同じ)。
+      // ウロコインが足りないとき・空きが足りないとき(10 連は空き 10、1 回は空き 1:D-216)は押せない。
       if (blocker === "coins" || blocker === "locked" || blocker === "seed") b.disabled = true;
+      if (count === 1 ? warning.oneBlocked : warning.tenBlocked) b.disabled = true;
       b.addEventListener("click", () => {
         const result = pullCrate(game.progress, card.crate, count, game.content.equipKinds, game.config.gacha, skillDraw);
         if (!result.ok) {
@@ -82,7 +97,9 @@ export function mountCrates(container, ctx) {
       });
       buttons.append(b);
     }
-    box.append(head, price, buttons, detail);
+    box.append(head, price, buttons);
+    if (warning.tenNote) box.append(el("p", "pull-note", warning.tenNote));
+    box.append(detail);
     list.append(box);
   }
   container.append(list);

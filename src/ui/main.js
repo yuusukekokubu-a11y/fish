@@ -25,10 +25,12 @@ import { DEFAULT_CONFIG } from "../core/config.js";
 import { normalizeSeed } from "../core/rng.js";
 import { formatCount } from "./format.js";
 import { createScreenShell } from "./screen_shell.js";
-import { initialNav, isPaused, SCREENS, setDrawer, showScreen } from "./screens.js";
+import { initialNav, isPaused, screensFor, setDrawer, showScreen } from "./screens.js";
 import { act, advance, createSession, setPaused, tapSession } from "./session.js";
 import { parseSave, SAVE_KEY, toSaveData } from "../core/save.js";
 import { versionLabel } from "../version.js";
+import { DEBUG_SAVE_KEY, parseDebugSave } from "./debug_view.js";
+import { readUrlOptions } from "./url_params.js";
 import { createDrawer } from "./drawer.js";
 import { fightBadges, gaugeBands } from "./fight_view.js";
 import { drawScene } from "./draw.js";
@@ -43,6 +45,11 @@ import {
   shakeOffset,
 } from "./effects.js";
 
+// URL の指定(確認用の仕組み:D-215)。読むのは url_params.js だけ。?debug がなければ、どれも本番に効かない。
+const URL_OPTIONS = readUrlOptions(location.search);
+// 保存場所:?debug のときは、デバッグ専用の場所を使う。本番の保存データは読みも書きもしない(D-214)。
+const STORE_KEY = URL_OPTIONS.debug ? DEBUG_SAVE_KEY : SAVE_KEY;
+
 // 1 回の描画で進める時間の上限。裏に回って戻ったときに、一気に何匹も進まないようにする。
 const MAX_STEP_MS = 100;
 
@@ -52,20 +59,19 @@ function randomSeed() {
 }
 
 /**
- * ガチャの乱数の種を決める(D-148)。URL に ?seed= があればそれ(確認用)、なければ毎回ちがう数。
+ * ガチャの乱数の種を決める(D-148)。URL に ?debug&seed= があればそれ(確認用:D-215)、なければ毎回ちがう数。
  * 計算本体では Math.random を使わない(D-021)ので、画面の側で決める。
  */
 function newGachaSeed() {
-  const value = new URLSearchParams(location.search).get("seed");
-  if (value !== null && value !== "") return normalizeSeed(value);
+  if (URL_OPTIONS.seed !== null) return normalizeSeed(URL_OPTIONS.seed);
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);
   return buf[0];
 }
 
+/** 魚の並びのシード。?debug&seed= があればそれ(確認用:D-215)、なければ毎回ちがう数。 */
 function readSeed() {
-  const value = new URLSearchParams(location.search).get("seed");
-  return value === null || value === "" ? randomSeed() : value;
+  return URL_OPTIONS.seed ?? randomSeed();
 }
 
 /**
@@ -73,16 +79,14 @@ function readSeed() {
  * `?debug` がないときは、いつも基本の表を使う。
  */
 function readDebugCombat() {
-  const params = new URLSearchParams(location.search);
-  const crit = params.get("crit");
-  if (!params.has("debug") || crit === null || crit === "") return DEFAULT_CONFIG.combat;
-  return { ...DEFAULT_CONFIG.combat, critChance: Number(crit) / 100 };
+  if (URL_OPTIONS.crit === null) return DEFAULT_CONFIG.combat;
+  return { ...DEFAULT_CONFIG.combat, critChance: URL_OPTIONS.crit / 100 };
 }
 
 // 保存の読み書き。ブラウザの設定で使えないときも、エラーで止めずに遊べるようにする(D-050)。
 function loadText() {
   try {
-    return localStorage.getItem(SAVE_KEY);
+    return localStorage.getItem(STORE_KEY);
   } catch {
     return null;
   }
@@ -91,7 +95,7 @@ function loadText() {
 /** 保存する。できたら true(保存できなくても遊びは続ける)。 */
 function saveProgress(progress) {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(toSaveData(progress)));
+    localStorage.setItem(STORE_KEY, JSON.stringify(toSaveData(progress)));
     return true;
   } catch {
     return false;
@@ -100,7 +104,7 @@ function saveProgress(progress) {
 
 function clearSave() {
   try {
-    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(STORE_KEY);
   } catch {
     // 消せなくても続ける。
   }
@@ -174,7 +178,8 @@ function main() {
     version: document.getElementById("version"),
   };
 
-  const progress = parseSave(loadText());
+  // デバッグのデータは、スキルのレベルをそのスキルの最大まで許して読む(本番の点検は変えない:D-219)。
+  const progress = URL_OPTIONS.debug ? parseDebugSave(loadText()) : parseSave(loadText());
   // ガチャの種がまだなければ(初めて遊ぶ・データを消した・前の版から読んだ)、ここで決めて保存する(D-141・D-148)。
   if (progress.gear.seed === null) {
     progress.gear.seed = newGachaSeed();
@@ -217,6 +222,14 @@ function main() {
 
   // 目次(ドロワー)と全画面(D-152・D-153)。どちらかが開いている間は、釣りを止める(D-134)。
   const app = document.getElementById("app");
+  const screens = screensFor(URL_OPTIONS.debug);
+  // ?debug のときは、いつも見える「DEBUG」の印を出す(D-214)。
+  if (URL_OPTIONS.debug) {
+    const badge = document.createElement("div");
+    badge.id = "debug-badge";
+    badge.textContent = "DEBUG";
+    document.body.append(badge);
+  }
   let nav = initialNav();
   const applyNav = (next) => {
     nav = next;
@@ -224,7 +237,7 @@ function main() {
   };
   const shell = createScreenShell({
     app,
-    screens: SCREENS,
+    screens,
     ctx: {
       game,
       app,
@@ -242,12 +255,13 @@ function main() {
     app,
     toggle: el.menu,
     hud: el.hud,
-    screens: SCREENS,
+    screens,
+    badgeFor: (id) => screens.find((s) => s.id === id)?.badge?.(game) ?? null,
     onSelect: (id, replace) => shell.navigate(id, { replace }),
     onOpenChange: (open) => applyNav(setDrawer(nav, open)),
   });
   // ?debug を付けたときだけ、ブラウザの自動操作の確認用に状態を見せる(読むだけ。結果には関係しない)。
-  if (new URLSearchParams(location.search).has("debug")) {
+  if (URL_OPTIONS.debug) {
     window.fishDebug = game;
     window.fishSession = session;
     window.fishNav = () => nav;

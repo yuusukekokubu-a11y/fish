@@ -18,8 +18,9 @@ import { drawerItems } from "./screens.js";
  * @param {readonly { id: string, title: string }[]} options.screens 画面の表
  * @param {(id: string, replace: boolean) => void} options.onSelect 項目を押したとき(replace は、目次の履歴を置き換えるか)
  * @param {(open: boolean) => void} options.onOpenChange 開閉を知らせる
+ * @param {(id: string) => "warn" | "full" | null} [options.badgeFor] 項目の「!」の印(開くたびに作り直す:D-216)
  */
-export function createDrawer({ app, toggle, hud, screens, onSelect, onOpenChange }) {
+export function createDrawer({ app, toggle, hud, screens, onSelect, onOpenChange, badgeFor = () => null }) {
   const backdrop = el("div", "drawer-backdrop");
   const drawer = el("nav", "drawer");
   drawer.id = "drawer";
@@ -29,6 +30,9 @@ export function createDrawer({ app, toggle, hud, screens, onSelect, onOpenChange
     const li = el("li");
     const b = button(item.label, "drawer-item");
     b.dataset.screen = item.id;
+    const badge = el("span", "drawer-badge", "!");
+    badge.hidden = true;
+    b.append(badge);
     b.addEventListener("click", () => {
       const replace = isDrawerEntry();
       setOpen(false, "select");
@@ -41,6 +45,17 @@ export function createDrawer({ app, toggle, hud, screens, onSelect, onOpenChange
   app.append(backdrop, drawer);
 
   let open = false;
+  /** 項目の「!」の印を、今の状態に合わせる(黄:もうすぐいっぱい・赤:いっぱい)。 */
+  function refreshBadges() {
+    for (const b of Array.from(drawer.querySelectorAll("[data-screen]"))) {
+      const node = /** @type {HTMLElement} */ (b);
+      const badge = /** @type {HTMLElement} */ (node.querySelector(".drawer-badge"));
+      const level = badgeFor(node.dataset.screen ?? "");
+      badge.hidden = level === null;
+      badge.className = `drawer-badge ${level ?? ""}`.trim();
+      badge.setAttribute("aria-label", level === "full" ? "いっぱい" : "もうすぐいっぱい");
+    }
+  }
   /** 今の履歴が、目次を開いたときに足したものか。 */
   function isDrawerEntry() {
     return history.state?.drawer === true;
@@ -55,6 +70,7 @@ export function createDrawer({ app, toggle, hud, screens, onSelect, onOpenChange
     if (open) history.pushState({ drawer: true }, "", location.href);
     else if (how === "ui" && isDrawerEntry()) history.back();
     if (open) drawer.style.top = `${hud.offsetHeight}px`;
+    if (open) refreshBadges();
     app.classList.toggle("menu-open", open);
     toggle.setAttribute("aria-expanded", String(open));
     toggle.textContent = open ? "✕" : "☰";
