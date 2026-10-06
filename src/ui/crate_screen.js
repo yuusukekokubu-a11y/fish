@@ -3,12 +3,14 @@
 // - 上に持ち物の空き(「あと 12 個」)。クレートを段階の新しい順に、名前・価格(1 回/10 連)・引くボタン。
 // - 「くわしく」で、排出率・装備の種類・基本効果の範囲が開く。
 // - 引く演出は gacha_fx.js(今のまま)。結果の下に「装備を見る」を置き、装備の画面に移れる。
+// - 引くボタンの上に自動分解の設定(オフ・ノーマルまで・レアまで・エピックまで:D-266)。引いた直後に分解して保存する。
 // 結果は演出の前に確定し、保存してから見せる(D-148)。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { DEFAULT_CONFIG } from "../core/config.js";
-import { makeCrates, pullCrate } from "../core/gear.js";
+import { autoScrap, makeCrates, pullCrate, setAutoScrap } from "../core/gear.js";
 import { SKILL_ROWS } from "../core/skills.js";
+import { autoScrapChoices, autoScrapText } from "./bait_view.js";
 import { playPull } from "./gacha_fx.js";
 import { crateCards, inventorySpaceLabel, inventoryWarning, PULL_MESSAGES, pullResultView } from "./gear_view.js";
 import { button, el } from "./list_view.js";
@@ -50,6 +52,7 @@ export function mountCrates(container, ctx) {
     container.append(box);
   }
   container.append(message);
+  container.append(autoScrapBox(ctx));
 
   // スキルの抽選に使う表と数値(ゲームの表を使う:D-207)。
   const skillDraw = { skills: game.content.skills ?? SKILL_ROWS, config: game.config.skills ?? DEFAULT_CONFIG.skills };
@@ -91,11 +94,15 @@ export function mountCrates(container, ctx) {
           message.classList.add("error");
           return;
         }
+        // 見せ方(▲ など)は分解の前に作る。引いた直後に自動分解して、まとめて保存する(D-266)。
+        const view = pullResultView(game, result.items, crates);
+        const scrap = autoScrap(game.progress, result.items, crates, Number.MAX_SAFE_INTEGER);
         ctx.storage.save(game.progress);
-        playPull(ctx.app, pullResultView(game, result.items, crates), card.name, () => ctx.rerender(), {
+        const scrapped = new Set(scrap.items.map((it) => it.id));
+        playPull(ctx.app, view, card.name, () => ctx.rerender(), {
           label: "装備を見る",
           onClick: () => ctx.navigate("equipment"),
-        });
+        }, { text: autoScrapText(scrap), ids: result.items.map((it) => scrapped.has(it.id)) });
       });
       buttons.append(b);
     }
@@ -105,4 +112,29 @@ export function mountCrates(container, ctx) {
     list.append(box);
   }
   container.append(list);
+}
+
+/**
+ * 自動分解の設定(D-266)。4 つのボタンから 1 つを選ぶ。選んだら保存する。
+ * @param {ScreenContext & { storage: { save: (progress: any) => boolean } }} ctx
+ */
+function autoScrapBox(ctx) {
+  const box = el("section", "auto-scrap");
+  box.append(el("h2", "auto-scrap-title", "自動分解(引いた直後)"));
+  const row = el("div", "auto-scrap-choices");
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", "自動分解");
+  for (const c of autoScrapChoices(ctx.game)) {
+    const b = button(c.label, "chip auto-scrap-choice");
+    b.dataset.scrap = c.id;
+    b.setAttribute("aria-pressed", String(c.selected));
+    b.addEventListener("click", () => {
+      setAutoScrap(ctx.game.progress, c.id);
+      ctx.storage.save(ctx.game.progress);
+      ctx.rerender();
+    });
+    row.append(b);
+  }
+  box.append(row, el("p", "auto-scrap-note", "レジェンド・ロック中・装着中・▲は分解しません"));
+  return box;
 }

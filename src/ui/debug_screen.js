@@ -1,12 +1,13 @@
 // @ts-check
 // デバッグ画面(全画面:D-214)。?debug のときだけ、画面の表に行が足される(screens.js)。
 // 中身の計算は debug_view.js。ここは入力欄とボタンを並べるだけ。
-// - 決める:ウロコイン・魚ごとの鱗・竿の段階と工程。
+// - 決める:ウロコイン・魚ごとの鱗・竿の段階と工程・餌の所持数。餌のスイッチと自動分解の設定(D-263・D-266)。
 // - 装備を作る:種類・レア度・グレード・値・スキル(最大 3 個)。すぐ装着もできる。
 // - プリセット・すぐ戦う・クリティカルの確率とシード(URL を変えて開き直す)・デバッグのデータを消す。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
-import { EQUIP_KIND_ROWS, RARITY_ROWS } from "../core/gear.js";
+import { setUseBait } from "../core/bait.js";
+import { AUTO_SCRAP_ROWS, autoScrapSetting, EQUIP_KIND_ROWS, RARITY_ROWS, setAutoScrap } from "../core/gear.js";
 import { SKILL_ROWS } from "../core/skills.js";
 import {
   addDebugItem,
@@ -105,6 +106,31 @@ export function mountDebug(container, ctx) {
     values.append(row);
   }
 
+  // 餌のスイッチと自動分解の設定(D-263・D-266)。
+  const baitBox = section("餌と自動分解");
+  const useBait = /** @type {HTMLInputElement} */ (el("input"));
+  useBait.type = "checkbox";
+  useBait.dataset.field = "useBait";
+  useBait.checked = Boolean(game.progress.useBait);
+  useBait.addEventListener("change", () => {
+    setUseBait(game.progress, useBait.checked);
+    saved();
+    say(`餌を使う:${useBait.checked ? "オン" : "オフ"}にしました`);
+  });
+  const useBaitLabel = el("label", "debug-check");
+  useBaitLabel.append(useBait, el("span", "", "餌を使う"));
+  const scrap = select(AUTO_SCRAP_ROWS.map((r) => [r.id, r.label]), autoScrapSetting(game.progress));
+  scrap.dataset.field = "autoScrap";
+  const scrapSet = button("決める", "chip debug-button");
+  scrapSet.addEventListener("click", () => {
+    setAutoScrap(game.progress, scrap.value);
+    saved();
+    say(`自動分解を「${AUTO_SCRAP_ROWS.find((r) => r.id === scrap.value)?.label}」にしました`);
+  });
+  const scrapRow = el("div", "debug-row");
+  scrapRow.append(field("自動分解", scrap), scrapSet);
+  baitBox.append(useBaitLabel, scrapRow);
+
   // 装備を作る。
   const make = section("装備を作る");
   const kinds = game.content.equipKinds ?? EQUIP_KIND_ROWS;
@@ -202,5 +228,5 @@ export function mountDebug(container, ctx) {
   });
   reset.append(clear);
 
-  container.append(values, make, presets, fight, url, reset);
+  container.append(values, baitBox, make, presets, fight, url, reset);
 }

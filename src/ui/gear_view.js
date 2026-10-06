@@ -28,7 +28,7 @@ import { itemSkillLines, skillLevelChanges } from "./skill_view.js";
 /**
  * タブが読むゲームの状態(fishing.js の createGame の一部)。
  * @typedef {object} GameLike
- * @property {{ coins: number, rodStage: number, gear: Gear }} progress
+ * @property {{ coins: number, rodStage: number, gear: Gear, autoScrap?: string }} progress
  * @property {ContentLike} content
  * @property {{ gacha: GachaConfig, skills?: import("../core/skills.js").SkillConfig }} config
  */

@@ -14,6 +14,7 @@ import { inventoryWarning } from "./gear_view.js";
 import { mountList } from "./list_view.js";
 import { materialsView, statusView } from "./screen_views.js";
 import { mountSettings } from "./settings.js";
+import { mountShop } from "./shop_screen.js";
 import { mountSkills } from "./skill_screen.js";
 
 /**
@@ -30,6 +31,7 @@ export const SCREENS = Object.freeze([
   { id: "equipment", title: "装備", mount: mountEquipment, badge: (game) => inventoryWarning(game).level },
   { id: "skills", title: "スキル", mount: mountSkills },
   { id: "crates", title: "クレート", mount: mountCrates },
+  { id: "shop", title: "店", mount: mountShop },
   { id: "materials", title: "素材", mount: mountList(materialsView) },
   { id: "status", title: "ステータス", mount: mountList(statusView) },
   { id: "settings", title: "設定", mount: mountSettings },

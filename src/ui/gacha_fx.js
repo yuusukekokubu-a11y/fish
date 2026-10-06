@@ -43,8 +43,10 @@ function card(v, big) {
  * link を渡すと、結果の下にそのボタン(例:「装備を見る」)を出す。押すと閉じてから link.onClick を呼ぶ。
  * @param {HTMLElement} root 画面全体の要素 @param {PullResult} result @param {string} crateName
  * @param {() => void} onClose @param {{ label: string, onClick: () => void } | null} [link]
+ * @param {{ text: string, ids: boolean[] } | null} [scrap] 自動分解(D-266):見出しと、引いた順に分解したかどうか。
+ *   分解したものは、結果の一覧から外して、折りたたみの一覧に入れる(黙って消さない)。
  */
-export function playPull(root, result, crateName, onClose, link = null) {
+export function playPull(root, result, crateName, onClose, link = null, scrap = null) {
   const overlay = el("div", "fx-overlay");
   overlay.dataset.best = result.best;
   const bestColor = result.items.find((v) => v.rarityId === result.best)?.color ?? "#ffffff";
@@ -73,12 +75,21 @@ export function playPull(root, result, crateName, onClose, link = null) {
     const single = result.items.length === 1;
     const title = el("div", "fx-title", single ? "手に入れた!" : `${result.items.length} 個 手に入れた!`);
     const list = el("div", single ? "fx-list single" : "fx-list");
-    for (const v of result.items) {
+    const scrapList = el("div", "fx-list fx-scrap-list");
+    result.items.forEach((v, i) => {
       const c = card(v, single);
       if (!single && v.rarityId === result.best && result.best !== "normal") c.classList.add("best");
-      list.append(c);
-    }
+      if (scrap?.ids[i]) scrapList.append(c);
+      else list.append(c);
+    });
     stage.append(title, list);
+    if (scrap?.text) {
+      const details = el("details", "fx-scrap");
+      details.append(el("summary", "fx-scrap-title", scrap.text), scrapList);
+      // 開く・閉じるのタップで、演出を閉じない。
+      details.addEventListener("click", (event) => event.stopPropagation());
+      stage.append(details);
+    }
     if (link) {
       const go = el("button", "fx-link", link.label);
       go.setAttribute("type", "button");
