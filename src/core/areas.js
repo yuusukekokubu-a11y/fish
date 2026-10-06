@@ -121,6 +121,16 @@ export function setArea(progress, id, content) {
 }
 
 /**
+ * 釣り場の欄をそろえる(竿の段階を変えたあとなど)。未解放・表にない・いちばん新しい釣り場なら欄を消す。
+ * @param {AreaProgress} progress @param {AreaContent} content
+ */
+export function normalizeArea(progress, content) {
+  if (progress.area === undefined) return;
+  const own = content.areas.find((a) => a.id === progress.area);
+  if (!own || !isAreaUnlocked(progress, own) || own === newestArea(progress, content)) delete progress.area;
+}
+
+/**
  * いまいる釣り場で出る魚の段階の範囲(D-275)。いちばん新しい釣り場は、最初の段階〜竿の段階。古い釣り場は全段階。
  * @param {AreaProgress} progress @param {AreaContent} content @returns {{ area: AreaRow, min: number, max: number }}
  */

@@ -1,7 +1,7 @@
 // @ts-check
 // セーブコード(D-059・D-223・D-232):進み具合を 1 行の文字列に書き出し、読み込む。ブラウザの保存も同じ文字列を使う。
-// 形:TSURI2-(本文)-(印)(数字は保存の版)
-// - 本文:保存の形(版 2。save.js)。版 1(TSURI1)のコードも読み、版 2 に読み替える(D-247)。英数字と「. , : ~ -」だけで書く(コピーしても崩れない)。
+// 形:TSURI4-(本文)-(印)(数字は保存の版)
+// - 本文:保存の形(版 4。save.js)。版 1〜3(TSURI1〜3)のコードも読み、版 4 に読み替える(D-247・D-267・D-280)。英数字と「. , : ~ -」だけで書く(コピーしても崩れない)。
 // - 印:本文から計算する 8 けたの 16 進数(FNV-1a)。壊れたコードを見つけるためのもの。
 // - 先頭の名前は、②-4c で互換性を切る前の「FISH」と区別するため「TSURI」にした。FISH で始まるコードは「古い版のコードは読めません」。
 // 暗号化はしない。改ざんの防止は目的にしない。
@@ -68,7 +68,7 @@ export function decodeSaveCode(text, content = DEFAULT_CONTENT, config = DEFAULT
   // 読めるのは版 1 〜 今の版。古い版は、読み替えの関数で今の版の本文にしてから点検する。
   const version = Number(codeVersion);
   if (version < 1 || version > SAVE_VERSION) return fail("version");
-  const current = upgradeSave(body, version);
+  const current = upgradeSave(body, version, content);
   if (current === null) return fail("content");
   const result = decodeSave(current, content, config);
   return result.ok ? /** @type {const} */ ({ ok: true, progress: result.progress }) : fail("content");
