@@ -1,3 +1,5 @@
+import { softCurve } from "./formula.js";
+
 // 戦闘の数値の表と、クリティカルの判定(D-068〜D-071・D-078〜D-080)。
 // 表の形:{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs, zoneWidthBonus, hook }
 // - damage:命中 1 回で減る体力(通常ダメージ)
@@ -6,6 +8,7 @@
 // - missHeal:ミスしたときに回復する体力
 // - timeLimitBonusMs:魚ごとの制限時間に足す時間(装備の糸などで増える)
 // - zoneWidthBonus:命中範囲の幅を広げる割合(%。装備のルアー:D-181)。幅 ×(1 + n / 100)
+// - penetration:貫通(魚の防御から引く割合。1 で 100%:D-235)
 // - hook:合わせの縮む輪 { normal: { ringMs, successMs, justMs }, strong: {...}, justMultiplier }(D-084・D-087)
 // 装備は、基本の表に足し算した表を作り、ここで点検してから使う(gear.js の applyGear:D-181)。
 
@@ -38,6 +41,7 @@ export function normalizeCombat(stats, base, limits) {
       limits.maxTimeLimitBonusMs,
     ),
     zoneWidthBonus: clamp(finiteOr(s.zoneWidthBonus, base.zoneWidthBonus ?? 0), 0, limits.maxZoneWidthBonus),
+    penetration: clamp(finiteOr(s.penetration, base.penetration ?? 0), 0, limits.maxPenetration ?? Infinity),
     hook: normalizeHook(s.hook, base.hook, limits),
   };
 }
@@ -166,6 +170,43 @@ export function hitDamage(stats, critical, limits = null) {
   const multiplier = Math.min(limits?.maxCritTotalMultiplier ?? Infinity, stats.critMultiplier ** stages);
   const damage = Math.max(stats.damage, Math.round(stats.damage * multiplier));
   return Math.min(limits?.maxHitDamage ?? Infinity, damage);
+}
+
+/**
+ * 会心率・会心の倍率・貫通の合計に、逓減をかけた値(D-239・D-245)。knee までは そのまま、こえた分は log で緩やか(上限なし)。
+ * curves がなければ、そのまま(前と同じ)。
+ * @param {{ critChance: number, critMultiplier: number, penetration?: number }} stats
+ * @param {{ critChanceCurve?: Curve, critMultiplierCurve?: Curve, penetrationCurve?: Curve } | null} curves
+ */
+export function effectiveStats(stats, curves) {
+  if (!curves) return stats;
+  return {
+    ...stats,
+    critChance: curves.critChanceCurve ? softCurve(stats.critChance, curves.critChanceCurve) : stats.critChance,
+    critMultiplier: curves.critMultiplierCurve ? softCurve(stats.critMultiplier, curves.critMultiplierCurve) : stats.critMultiplier,
+    penetration: curves.penetrationCurve ? softCurve(stats.penetration ?? 0, curves.penetrationCurve) : (stats.penetration ?? 0),
+  };
+}
+
+/** @typedef {{ knee: number, soft: number }} Curve */
+
+/**
+ * 実効防御 = 防御 − 貫通(下限 0)(D-235)。
+ * @param {number} defense @param {number} penetration
+ */
+export function effectiveDefense(defense, penetration) {
+  return Math.max(0, Math.round(((defense ?? 0) - (penetration ?? 0)) * 1e9) / 1e9);
+}
+
+/**
+ * 防御で減らしたダメージ(D-235)。通常の計算(基本 → とどめ・縁 → クリティカル → ジャスト)のあとに掛ける。
+ * 最小 1。実効防御が 100% 以上なら、いつも 1。実効防御 0 なら、そのまま。
+ * @param {number} damage @param {number} effDefense
+ */
+export function defendedDamage(damage, effDefense) {
+  if (!(effDefense > 0)) return damage;
+  if (effDefense >= 1) return 1;
+  return Math.max(1, Math.round(damage * (1 - effDefense)));
 }
 
 /** ミニゲームの種から、クリティカル専用の小さな系統の種を作る(D-079)。 */

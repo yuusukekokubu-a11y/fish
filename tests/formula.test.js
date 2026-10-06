@@ -60,14 +60,13 @@ test("式の数(config.formula)を変えると、表の数値・価格・ゲー�
 });
 
 // ②-4b4 のときの手書きの値(段階 1〜5)。手触りを ±15% 以内に保つ(D-226)。
+// ヌシの体力と制限時間は、②-4c 防御で「育てた装備で決まった命中回数」の式に作り直したので、ここでは比べない(D-238・D-245)。
 const OLD = {
   weakCoins: [1, 3, 8, 20, 50],
   strongCoins: [5, 15, 40, 100, 250],
   bossCoins: [50, 150, 400, 1000, 2500],
   strongHp: [20, 30, 40, 50, 60],
-  bossHp: [70, 105, 140, 175, 210],
   strongTime: [8000, 9000, 10000, 11000, 12000],
-  bossTime: [30000, 35000, 40000, 45000, 50000],
   craft: [3, 4, 4, 5, 6],
   price: [20, 46, 110, 260, 630],
 };
@@ -79,9 +78,7 @@ test("g=1〜5 の値は、②-4b4 のときの値から ±15% 以内(体力・�
     strongCoins: [1, 2, 3, 4, 5].map((g) => fishCoins("strong", g)),
     bossCoins: [1, 2, 3, 4, 5].map((g) => fishCoins("boss", g)),
     strongHp: [1, 2, 3, 4, 5].map((g) => fishMinigame("strong", g).hp),
-    bossHp: [1, 2, 3, 4, 5].map((g) => fishMinigame("boss", g).hp),
     strongTime: [1, 2, 3, 4, 5].map((g) => fishMinigame("strong", g).timeLimitMs),
-    bossTime: [1, 2, 3, 4, 5].map((g) => fishMinigame("boss", g).timeLimitMs),
     craft: [1, 2, 3, 4, 5].map((g) => craftCount(g)),
     price: prices,
   };

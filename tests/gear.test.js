@@ -262,7 +262,7 @@ test("効果はヌシ戦にも効き、外すと元に戻る", () => {
   const gear = { ...emptyGear(), items: [itemOf(1, "reel", "legend", 5, 15), itemOf(2, "line", "normal", 1, 1000)], equipped: { reel: 1, line: 2 }, nextId: 3 };
   const game = createGame(5, { combat: noCrit, progress: progressAt(1, ROD_STEPS.CRAFTED, { gear }) });
   assert.equal(challengeBoss(game), true);
-  assert.equal(game.fight.timeLimitMs, 31000);
+  assert.equal(game.fight.timeLimitMs, 21000, "ヌシ・クロダイ 20 秒 + 糸 1 秒(D-245 で 30 秒 → 20 秒)");
   assert.equal(hitOnce(game).damage, 25);
   unequipKind(game.progress.gear, "reel");
   refreshCombat(game);

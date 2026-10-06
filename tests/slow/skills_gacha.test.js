@@ -14,7 +14,7 @@ import { progressAt } from "../helpers.js";
 
 const GACHA = DEFAULT_CONFIG.gacha;
 
-test("10 万回引くと:スキルの数はレア度どおり、重複なし、レベルは範囲の中、18 個がほぼ均等(各 5.6% ± 0.4)", () => {
+test("10 万回引くと:スキルの数はレア度どおり、重複なし、レベルは範囲の中、20 個がほぼ均等(各 5% ± 0.4)", () => {
   const crates = makeCrates(makeContent(), DEFAULT_CONFIG);
   const skillCount = Object.fromEntries(RARITY_ROWS.map((r) => [r.id, r.skillCount]));
   const appear = Object.fromEntries(SKILL_ROWS.map((s) => [s.id, 0]));
@@ -70,7 +70,7 @@ test("クレートの画面に出すスキルの数は、実際に付く数と�
   }
 });
 
-test("再現性:同じ種と引いた回数なら、同じ結果(スキル 18 個の抽選でも)", () => {
+test("再現性:同じ種と引いた回数なら、同じ結果(スキル 20 個の抽選でも)", () => {
   const crates = makeCrates(makeContent(), DEFAULT_CONFIG);
   const run = () => {
     const progress = progressAt(5, "none", { coins: Number.MAX_SAFE_INTEGER, gear: { ...emptyGear(), seed: 77 } });

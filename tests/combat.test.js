@@ -18,14 +18,15 @@ const norm = (stats) => {
   return rest;
 };
 
-test("基本の表:ダメージ 10・確率 10%・倍率 2・回復 10・時間の増減 0", () => {
+test("基本の表:ダメージ 10・確率 10%・倍率 1.5(D-239)・回復 10・時間の増減 0・貫通 0", () => {
   assert.deepEqual(norm(BASE), {
     damage: 10,
     critChance: 0.1,
-    critMultiplier: 2,
+    critMultiplier: 1.5,
     missHeal: 10,
     timeLimitBonusMs: 0,
     zoneWidthBonus: 0,
+    penetration: 0,
   });
   assert.deepEqual(norm(undefined), norm(BASE), "表がなければ基本の表");
 });
@@ -39,6 +40,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     missHeal: 0,
     timeLimitBonusMs: 0,
     zoneWidthBonus: 0,
+    penetration: 0,
   });
   assert.deepEqual(norm({ damage: 0, critChance: -0.2, critMultiplier: 0.5, missHeal: 0, timeLimitBonusMs: 0 }), {
     damage: 1,
@@ -47,6 +49,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     missHeal: 0,
     timeLimitBonusMs: 0,
     zoneWidthBonus: 0,
+    penetration: 0,
   });
   // 境目ちょうどはそのまま。
   assert.deepEqual(norm({ damage: 1, critChance: 1, critMultiplier: 10, missHeal: 0, timeLimitBonusMs: 0 }).critChance, 1);
@@ -111,17 +114,18 @@ test("クリティカルの判定は規則の一覧で、後から条件を足�
   assert.ok(waitForCenter(game));
   const r = tap(game);
   assert.equal(r.critical, true);
-  assert.equal(r.damage, 20);
+  assert.equal(r.damage, 15, "倍率 1.5(D-239)");
 });
 
 test("確率 0% の戦闘では一度も出ず、100% では毎回出て倍率どおりに削る", () => {
   for (const [critChance, critMultiplier, expected] of [
     [0, 2, 10],
     [1, 2, 20],
-    [1, 3, 30],
+    [1, 1.5, 15],
   ]) {
-    const game = untilFight("buri", { combat: { ...BASE, critChance, critMultiplier } });
-    let hp = 60;
+    // 倍率は逓減の始まり(2.2 倍)より小さい値で確かめる(こえた分は逓減:D-239)。
+    const game = untilFight("suzuki", { combat: { ...BASE, critChance, critMultiplier } });
+    let hp = 30;
     while (game.phase === PHASES.MINIGAME) {
       assert.ok(waitForCenter(game));
       const r = tap(game);
@@ -131,7 +135,7 @@ test("確率 0% の戦闘では一度も出ず、100% では毎回出て倍率�
       assert.equal(r.hp, hp);
     }
     assert.equal(game.lastResult.reason, REASONS.HP_ZERO);
-    assert.equal(game.lastResult.hits, Math.ceil(60 / expected));
+    assert.equal(game.lastResult.hits, Math.ceil(30 / expected));
     assert.equal(game.lastResult.crits, critChance === 1 ? game.lastResult.hits : 0);
   }
 });
@@ -152,7 +156,7 @@ test("表を書き換えると、回復と制限時間にも反映される", ()
 
 test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より短くしない)", () => {
   const weird = { damage: -100, critChance: 99, critMultiplier: -1, missHeal: 1e9, timeLimitBonusMs: -1e9 };
-  const game = untilFight("buri", { combat: weird });
+  const game = untilFight("suzuki", { combat: weird });
   const { hook, ...combat } = game.combat;
   // 回復と時間の増減は、計算が壊れないための安全上限で止まる(D-181)。
   assert.deepEqual(combat, {
@@ -162,6 +166,7 @@ test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より�
     missHeal: LIMITS.maxMissHeal,
     timeLimitBonusMs: -LIMITS.maxTimeLimitBonusMs,
     zoneWidthBonus: 0,
+    penetration: 0,
   });
   assert.equal(game.fight.timeLimitMs, LIMITS.minTimeLimitMs);
   const rng = createRng(3);

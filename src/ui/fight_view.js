@@ -3,6 +3,9 @@
 // 説明の文章は置かず、短い名前だけ。条件発動型のスキルを持っていない条件は出さない。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
+import { effectiveDefense } from "../core/combat.js";
+import { softCurve } from "../core/formula.js";
+
 /** 条件の短い名前(スキルの表の when と同じ名前)。 */
 export const TRIGGER_LABELS = Object.freeze({
   combo: "連撃",
@@ -45,4 +48,28 @@ export function fightBadges(game) {
   if (t.fullHp && fight.hp >= fight.maxHp && fight.hits === 0) labels.push(TRIGGER_LABELS.fullHp);
   if (t.lowHp && fight.hp <= fight.maxHp * lowHpRatio) labels.push(TRIGGER_LABELS.lowHp);
   return { combo: n >= 2 ? `連撃 ×${n}` : null, labels };
+}
+
+/** 割合(1 で 100%)を「80%」「12.5%」の形に。 @param {number} v */
+function percent(v) {
+  return `${Math.round(v * 1000) / 10}%`;
+}
+
+/**
+ * 魚の防御の表示(D-235・D-245)。防御のない魚は null。貫通があれば「防御 80% → 30%」(実効防御)。
+ * 貫通は、戦闘の数値の表の貫通に、連撃・貫(いまの連撃の段数ぶん)を足して、逓減をかけたもの。
+ * high:実効防御が 100% 以上(貫通が足りず、命中は 1 ダメージ)。
+ * @param {{ cast?: any, fight?: any, combat?: any, triggers?: Record<string, any>, config: any } | null} game
+ * @returns {{ text: string, high: boolean, effective: number } | null}
+ */
+export function defenseBadge(game) {
+  const defense = game?.cast?.minigame?.defense ?? 0;
+  if (!game || !(defense > 0)) return null;
+  const stages = Math.min(game.fight?.combo ?? 0, game.config.skills.comboMax);
+  const raw = (game.combat?.penetration ?? 0) + (game.triggers?.combo?.penetration ?? 0) * stages;
+  const curve = game.config.formula?.penetrationCurve;
+  const pen = curve ? softCurve(raw, curve) : raw;
+  const effective = effectiveDefense(defense, pen);
+  const text = pen > 0 ? `防御 ${percent(defense)} → ${percent(effective)}` : `防御 ${percent(defense)}`;
+  return { text, high: effective >= 1, effective };
 }

@@ -45,7 +45,7 @@ function gearWith(skillPoints, extra = {}) {
 /** レベル L の装備のスキル(完全レベル制:D-195。前はポイントだった)。 */
 const pts = (level) => level;
 
-test("スキルは 18 個:数値型 9 個(成長型 5・頭打ち型 4。目利きはない)、条件発動型 7 個、ゲージ系 2 個(芯・縁)", () => {
+test("スキルは 20 個:数値型 10 個(成長型 6・頭打ち型 4。目利きはない)、条件発動型 8 個、ゲージ系 2 個(芯・縁)。貫通と連撃・貫は表の末尾(D-236)", () => {
   assert.deepEqual(
     SKILL_ROWS.map((s) => [s.name, s.type]),
     [
@@ -67,10 +67,14 @@ test("スキルは 18 個:数値型 9 個(成長型 5・頭打ち型 4。目利�
       ["先制", "growth"],
       ["芯", "growth"],
       ["縁", "growth"],
+      ["貫通", "growth"],
+      ["連撃・貫", "growth"],
     ],
   );
-  assert.equal(new Set(SKILL_ROWS.map((s) => s.id)).size, 18);
-  assert.ok(SKILL_ROWS.slice(9).every((s) => s.target.kind === "trigger"));
+  assert.equal(new Set(SKILL_ROWS.map((s) => s.id)).size, 20);
+  assert.ok(SKILL_ROWS.slice(9, 18).every((s) => s.target.kind === "trigger"));
+  assert.deepEqual(SKILL_ROWS[18].target, { kind: "combat", stat: "penetration", op: "add" });
+  assert.deepEqual(SKILL_ROWS[19].target, { kind: "trigger", when: "combo", effect: "penetration" });
   assert.ok(!SKILL_ROWS.some((s) => s.id === "appraisal"), "目利きはない");
 });
 
@@ -116,7 +120,7 @@ function withLevel(id, level, rodStage = 6) {
   return game;
 }
 
-test("効果の反映:18 個のスキルの、レベル 0〜最大(条件発動型は戦闘の数値の表を変えず、条件ごとの量だけ)", () => {
+test("効果の反映:20 個のスキルの、レベル 0〜最大(条件発動型は戦闘の数値の表を変えず、条件ごとの量だけ)", () => {
   const base = createGame(1, { progress: progressAt(6, ROD_STEPS.NONE, { gear: gearWith({}, { equipped: { reel: 1 } }) }) });
   for (const skill of SKILL_ROWS) {
     const max = maxLevel(skill, 6, SK);
@@ -133,7 +137,10 @@ test("効果の反映:18 個のスキルの、レベル 0〜最大(条件発動�
           assert.ok(Math.abs(c.critChance - (b.critChance + 0.15 * level)) < 1e-9);
           break;
         case "crit-power":
-          assert.ok(Math.abs(c.critMultiplier - (b.critMultiplier + 0.2 * level)) < 1e-9);
+          assert.ok(Math.abs(c.critMultiplier - (b.critMultiplier + 0.1 * level)) < 1e-9, "1 レベル +0.1(D-239)");
+          break;
+        case "penetration":
+          assert.ok(Math.abs(c.penetration - (b.penetration + 0.1 * level)) < 1e-9, "1 レベル +10%");
           break;
         case "tenacity":
           assert.equal(c.timeLimitBonusMs, b.timeLimitBonusMs + 1000 * level);

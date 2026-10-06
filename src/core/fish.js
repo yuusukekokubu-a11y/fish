@@ -130,6 +130,7 @@ export function checkContent(content) {
     if (f.minigame && !MINIGAME_KEYS.every((k) => Number.isFinite(f.minigame[k]) && f.minigame[k] > 0)) {
       problems.push(`ミニゲームの数がおかしい:${f.id}`);
     }
+    if (f.minigame && !(Number.isFinite(f.minigame.defense) && f.minigame.defense >= 0)) problems.push(`防御がおかしい:${f.id}`);
     if (f.kind === FISH_KINDS.WEAK && f.reward.scales !== 0) problems.push(`弱い魚は鱗を落とさない:${f.id}`);
     if (f.kind !== FISH_KINDS.WEAK && f.reward.scales < 1) problems.push(`強い魚とヌシは鱗を落とす:${f.id}`);
   }
@@ -196,5 +197,6 @@ export function effectiveMinigame(f, limits) {
     zoneWidth: Math.max(limits.minZoneWidth, f.minigame.zoneWidth),
     hp: f.minigame.hp,
     timeLimitMs: f.minigame.timeLimitMs,
+    defense: f.minigame.defense ?? 0,
   };
 }

@@ -9,7 +9,7 @@ import { challengeBoss, createGame, currentMarker, PHASES, tap, triggeredStats, 
 import { emptyGear } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
 import { advance, createSession, setPaused, tapSession } from "../src/ui/session.js";
-import { progressAt } from "./helpers.js";
+import { NO_DEFENSE_CONTENT, progressAt } from "./helpers.js";
 
 const noCrit = { ...DEFAULT_CONFIG.combat, critChance: 0 };
 
@@ -33,7 +33,7 @@ function untilFight(game, hookAt = 1100) {
 
 /** ヌシ戦を始める(合わせなし)。 */
 function bossFight(levels, combat = noCrit, config = DEFAULT_CONFIG) {
-  const game = createGame(5, { combat, config, progress: progressWith(levels, 1) });
+  const game = createGame(5, { content: NO_DEFENSE_CONTENT, combat, config, progress: progressWith(levels, 1) });
   assert.equal(challengeBoss(game), true);
   return game;
 }
@@ -84,7 +84,7 @@ test("連撃・心:段数 × 3% × Lv を会心率に足す。連撃の段数は
 });
 
 test("先手:合わせ成功(ふつう・ジャスト)とヌシ戦の始まりのあと、最初の命中だけ +4 × Lv", () => {
-  const good = untilFight(createGame(3, { combat: noCrit, progress: progressWith({ "first-hit": 2 }) }), 1100);
+  const good = untilFight(createGame(3, { content: NO_DEFENSE_CONTENT, combat: noCrit, progress: progressWith({ "first-hit": 2 }) }), 1100);
   assert.equal(good.hookGrade, "good");
   // ミスをはさんでも、最初の命中まで残る。
   missOnce(good);
@@ -92,24 +92,24 @@ test("先手:合わせ成功(ふつう・ジャスト)とヌシ戦の始まり�
   assert.equal(first.damage, 18);
   assert.ok(first.triggers.includes("firstHit"));
   if (good.phase === PHASES.MINIGAME) assert.equal(hitOnce(good).damage, 10, "2 回目からは効かない");
-  const just = untilFight(createGame(3, { combat: noCrit, progress: progressWith({ "first-hit": 2 }) }), 1000);
+  const just = untilFight(createGame(3, { content: NO_DEFENSE_CONTENT, combat: noCrit, progress: progressWith({ "first-hit": 2 }) }), 1000);
   assert.equal(just.hookGrade, "just");
   assert.equal(hitOnce(just).damage, Math.round(18 * 1.5), "先手を足してからジャスト倍率");
   assert.equal(hitOnce(bossFight({ "first-hit": 1 })).damage, 14, "ヌシ戦は合わせの成功とみなす(D-187)");
   // 合わせの失敗(早すぎ)では戦いにならない。
-  const early = createGame(3, { combat: noCrit, progress: progressWith({ "first-hit": 2 }) });
+  const early = createGame(3, { content: NO_DEFENSE_CONTENT, combat: noCrit, progress: progressWith({ "first-hit": 2 }) });
   for (let t = 0; t < 900000 && !(early.phase === PHASES.BITE && early.cast.kind === "strong"); t += 5) update(early, 5);
   assert.deepEqual(tap(early), { action: "hook", grade: "early" });
   assert.notEqual(early.phase, PHASES.MINIGAME);
 });
 
 test("ジャスト・ブースト:ジャストのときだけ、最初の命中のジャスト倍率 +0.15 × Lv。ふつうの成功とヌシ戦では効かない", () => {
-  const just = untilFight(createGame(3, { combat: noCrit, progress: progressWith({ "just-boost": 2 }) }), 1000);
+  const just = untilFight(createGame(3, { content: NO_DEFENSE_CONTENT, combat: noCrit, progress: progressWith({ "just-boost": 2 }) }), 1000);
   const hit = hitOnce(just);
   assert.equal(hit.damage, Math.round(10 * 1.8));
   assert.equal(hit.boosted, true);
   if (just.phase === PHASES.MINIGAME) assert.equal(hitOnce(just).damage, 10);
-  const good = untilFight(createGame(3, { combat: noCrit, progress: progressWith({ "just-boost": 2 }) }), 1100);
+  const good = untilFight(createGame(3, { content: NO_DEFENSE_CONTENT, combat: noCrit, progress: progressWith({ "just-boost": 2 }) }), 1100);
   assert.equal(hitOnce(good).damage, 10);
   assert.equal(hitOnce(bossFight({ "just-boost": 7 })).damage, 10);
 });
@@ -187,7 +187,7 @@ test("条件発動型があっても、クリティカルの乱数は命中の�
 });
 
 test("計算の順:基本(表 + 連撃・攻 × 段数 + 先手)→ とどめを掛けて四捨五入 → クリティカルの段数 → ジャスト倍率", () => {
-  const just = untilFight(createGame(3, { combat: { ...noCrit, critChance: 1, critMultiplier: 2 }, progress: progressWith({ "first-hit": 1, finisher: 1, "combo-power": 1 }) }), 1000);
+  const just = untilFight(createGame(3, { content: NO_DEFENSE_CONTENT, combat: { ...noCrit, critChance: 1, critMultiplier: 2 }, progress: progressWith({ "first-hit": 1, finisher: 1, "combo-power": 1 }) }), 1000);
   just.fight.hp = Math.floor(just.fight.maxHp * 0.25);
   just.fight.combo = 3;
   just.fight.critRng = () => 0.5;
@@ -199,7 +199,7 @@ test("計算の順:基本(表 + 連撃・攻 × 段数 + 先手)→ とどめを
   over.fight.critRng = () => 0.03;
   const hit = hitOnce(over);
   assert.equal(hit.critStages, 2);
-  assert.equal(hit.damage, 40);
+  assert.equal(hit.damage, 23, "10 × 1.5 × 1.5 = 22.5 → 23(倍率 1.5:D-239)");
 });
 
 test("戦闘の画面の小さな表示:連撃は 2 段から「連撃 ×n」、次の命中で効く条件の短い名前(持っているスキルだけ)", async () => {

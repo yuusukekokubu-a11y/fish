@@ -18,30 +18,30 @@ function hit(game) {
 }
 
 test("ジャストのあとは、最初の当たりだけ 1.5 倍(10 → 15)、次からは 10", () => {
-  const game = untilJustFight("buri");
+  const game = untilJustFight("suzuki");
   assert.deepEqual(game.fight.boosts, [{ id: "just", damageMultiplier: 1.5, uses: 1 }]);
   let r = hit(game);
-  assert.deepEqual([r.damage, r.boosted, r.hp], [15, true, 45]);
+  assert.deepEqual([r.damage, r.boosted, r.hp], [15, true, 15]);
   assert.deepEqual(game.fight.boosts, []);
   r = hit(game);
-  assert.deepEqual([r.damage, r.boosted, r.hp], [10, false, 35]);
+  assert.deepEqual([r.damage, r.boosted, r.hp], [10, false, 5]);
 });
 
 test("通常の成功では、上乗せはかからない", () => {
-  const game = untilFight("buri");
+  const game = untilFight("suzuki");
   assert.deepEqual(game.fight.boosts, []);
   assert.equal(hit(game).damage, 10);
 });
 
-test("クリティカルと重なると掛け算:20 × 1.5 = 30", () => {
-  const game = untilJustFight("buri", { combat: { ...BASE, critChance: 1 } });
+test("クリティカルと重なると掛け算:15 × 1.5 = 22.5 → 23(倍率 1.5:D-239)", () => {
+  const game = untilJustFight("suzuki", { combat: { ...BASE, critChance: 1 } });
   const r = hit(game);
-  assert.deepEqual([r.critical, r.boosted, r.damage], [true, true, 30]);
-  assert.equal(hit(game).damage, 20, "2 回目はクリティカルだけ");
+  assert.deepEqual([r.critical, r.boosted, r.damage], [true, true, 23]);
+  assert.equal(hit(game).damage, 15, "2 回目はクリティカルだけ");
 });
 
 test("最初のタップが外れても、上乗せは次の当たりに持ち越す", () => {
-  const game = untilJustFight("buri");
+  const game = untilJustFight("suzuki");
   assert.ok(waitForOutside(game));
   const miss = tap(game);
   assert.equal(miss.action, "miss");
@@ -50,7 +50,7 @@ test("最初のタップが外れても、上乗せは次の当たりに持ち�
 });
 
 test("倍率は表の値で変えられ、丸めは四捨五入", () => {
-  const game = untilJustFight("buri", { combat: { ...NO_CRIT, hook: { ...BASE.hook, justMultiplier: 2 } } });
+  const game = untilJustFight("suzuki", { combat: { ...NO_CRIT, hook: { ...BASE.hook, justMultiplier: 2 } } });
   assert.equal(hit(game).damage, 20);
   assert.equal(boostedDamage(7, [{ damageMultiplier: 1.5 }]), 11, "10.5 → 11");
   assert.equal(boostedDamage(10, []), 10);

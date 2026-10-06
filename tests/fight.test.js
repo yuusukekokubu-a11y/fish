@@ -14,11 +14,13 @@ import { progressAt } from "./helpers.js";
 const STRONG = FISH_LIST.filter((f) => f.kind === FISH_KINDS.STRONG).sort((a, b) => a.stage - b.stage);
 const NO_CRIT = { ...DEFAULT_CONFIG.combat, critChance: 0 };
 
-test("体力は 10 + 10g(式)で、段階が上の強い魚ほど多い。制限時間は 8 秒 + 4 秒 × log5(g)", () => {
+test("体力は (10 + 10g)×(1 − 防御)(式)で、段階が上の強い魚ほど多い。制限時間は 8 秒 + 4 秒 × log5(g)", () => {
   assert.deepEqual(
     STRONG.map((f) => f.minigame.hp),
-    [20, 30, 40, 50, 60],
+    STRONG.map((f) => Math.round((10 + 10 * f.stage) * (1 - f.minigame.defense))),
   );
+  assert.deepEqual(STRONG.map((f) => f.minigame.hp).slice(0, 2), [20, 30], "段階 1〜2 は防御 0 で前のまま");
+  for (let i = 1; i < STRONG.length; i++) assert.ok(STRONG[i].minigame.hp > STRONG[i - 1].minigame.hp);
   for (let i = 1; i < STRONG.length; i++) {
     assert.ok(STRONG[i].minigame.timeLimitMs >= STRONG[i - 1].minigame.timeLimitMs);
   }
@@ -28,8 +30,8 @@ test("体力は 10 + 10g(式)で、段階が上の強い魚ほど多い。制限
   );
 });
 
-test("確率 0%:当たるたびに体力が 10 減り、「体力 ÷ 10」回でゼロになって釣り上げ", () => {
-  for (const fish of STRONG) {
+test("確率 0%:当たるたびに体力が 10 減り、「体力 ÷ 10」回でゼロになって釣り上げ(防御 0 の段階 1〜2)", () => {
+  for (const fish of STRONG.filter((f) => f.minigame.defense === 0)) {
     const game = untilFight(fish.id);
     assert.equal(game.phase, PHASES.MINIGAME, fish.name);
     assert.equal(game.fight.hp, fish.minigame.hp);

@@ -170,7 +170,7 @@ test("装備を作る:種類・レア度・グレード・値・スキル(最大
 });
 
 test("プリセット:表の行ごとに 3 個作って装着。追加クリティカルは会心率が 100% をこえ、最強の装備は数値型が全部最大", () => {
-  assert.deepEqual(DEBUG_PRESETS.map((p) => p.name), ["連撃", "先手とジャスト", "芯と縁", "追加クリティカル", "最強の装備"]);
+  assert.deepEqual(DEBUG_PRESETS.map((p) => p.name), ["連撃", "先手とジャスト", "芯と縁", "追加クリティカル", "最強の装備", "貫通"]);
   for (const p of DEBUG_PRESETS) {
     const game = freshGame(5);
     assert.equal(applyPreset(game, p.id).ok, true, p.id);
@@ -185,7 +185,7 @@ test("プリセット:表の行ごとに 3 個作って装着。追加クリテ�
   const best = freshGame(5);
   applyPreset(best, "best");
   const states = skillStates(best.progress.gear, 5, DEFAULT_CONFIG.skills);
-  for (const id of DEBUG_PRESETS.at(-1).skills) assert.equal(states[id].level, states[id].max, id);
+  for (const id of DEBUG_PRESETS.find((p) => p.id === "best").skills) assert.equal(states[id].level, states[id].max, id);
   // 持ち物の空きが足りないと当てない。
   const full = freshGame(5);
   full.progress.gear.items = Array.from({ length: 99 }, (_, i) => ({ id: i + 1, kind: "line", rarity: "normal", grade: 1, value: 500, skills: [] }));

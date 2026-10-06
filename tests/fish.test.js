@@ -51,11 +51,12 @@ test("id は重ならず、強い魚とヌシだけがミニゲームの重さ�
   }
 });
 
-test("ヌシの体力は同じ段階の強い魚の 3〜4 倍で、制限時間は長く、印と幅は同じか厳しい(限界の中)", () => {
+test("ヌシの体力は同じ段階の強い魚より多く、防御は高く、制限時間は長く、印と幅は同じか厳しい(限界の中)", () => {
   for (const { stage, craft, boss } of STAGE_LIST) {
     const s = FISH_LIST.find((f) => f.id === craft.scale).minigame;
     const b = FISH_LIST.find((f) => f.id === boss).minigame;
-    assert.ok(b.hp >= 3 * s.hp && b.hp <= 4 * s.hp, `段階 ${stage}`);
+    assert.ok(b.hp > 2 * s.hp, `段階 ${stage}`);
+    assert.ok(stage <= 2 ? b.defense === 0 && s.defense === 0 : b.defense > s.defense, `段階 ${stage} の防御`);
     assert.ok(b.timeLimitMs > s.timeLimitMs);
     assert.ok(b.sweepMs <= s.sweepMs && b.zoneWidth <= s.zoneWidth);
     assert.deepEqual(effectiveMinigame({ minigame: b }, LIMITS), { ...b }, "限界で直されない");

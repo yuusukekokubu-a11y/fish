@@ -35,7 +35,7 @@ import { clearText, loadText as loadKey, OLD_DATA_MESSAGE, OLD_SAVE_KEYS, saveTe
 import { openSheet } from "./sheet.js";
 import { readUrlOptions } from "./url_params.js";
 import { createDrawer } from "./drawer.js";
-import { fightBadges, gaugeBands } from "./fight_view.js";
+import { defenseBadge, fightBadges, gaugeBands } from "./fight_view.js";
 import { drawScene } from "./draw.js";
 import {
   addHitEffects,
@@ -313,6 +313,7 @@ function main() {
       caught: game.lastResult?.outcome === OUTCOMES.CAUGHT,
       badges: game.phase === PHASES.MINIGAME ? fightBadges(game) : null,
       bands: game.phase === PHASES.MINIGAME ? gaugeBands(game) : null,
+      defense: game.phase === PHASES.MINIGAME ? defenseBadge(game) : null,
     };
     ctx.save();
     ctx.translate(shakeOffset(effects, now), 0);
