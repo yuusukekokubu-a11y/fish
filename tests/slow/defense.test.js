@@ -10,6 +10,8 @@ import { effectiveStats, hitDamage } from "../../src/core/combat.js";
 import { createGame } from "../../src/core/fishing.js";
 import { bossHitTarget, fishDefense, softCurve, stagePosition } from "../../src/core/formula.js";
 import { skillAmount, SKILL_ROWS } from "../../src/core/skills.js";
+import { areaPosition } from "../../src/core/areas.js";
+import { DEFAULT_CONTENT } from "../../src/core/fish.js";
 import { syntheticContent } from "../../src/core/synthetic.js";
 import { averageItems, fightOnce, grownItems, measure, progressWith, skillSummary, strongestItems } from "./builds.js";
 
@@ -53,6 +55,34 @@ test("ヌシの命中回数(育てた装備・貫通を含む):s=1 は 4〜6 回
 });
 
 // 線は 6% 未満(ガチャの種を 15 個にして、g=10 が 5.7% になったため:D-269)。
+test("磯の実データ(g=6〜10、ヌシ・メジナ〜ヌシ・クエ):s=1 は 4〜6 回、s=5 は 10〜15 回。s=5 は貫通なしで勝率 6% 未満。ガチャの運のぶれも出す(D-276)", () => {
+  const ISO = DEFAULT_CONTENT;
+  const bosses = ["nushi-mejina", "nushi-ishidai", "nushi-budai", "nushi-ishigakidai", "nushi-kue"];
+  const lines = ["| g | 位置 s | ヌシ | 体力 | 防御 | 育てた装備(ガチャの種 15 個)| 中央値 | 最小〜最大 |"];
+  bosses.forEach((id, i) => {
+    const g = 6 + i;
+    const s = areaPosition(ISO, g);
+    const per = GACHA_SEEDS.map((gs) => measure(ISO, g, grownItems(ISO, g, id, gs * 1000 + g), id, FIGHT_SEEDS).median);
+    const m = median(per);
+    const fish = ISO.byId.get(id);
+    const finite = per.filter(Number.isFinite);
+    lines.push(`| ${g} | ${s} | ${fish.name} | ${fish.minigame.hp} | ${Math.round(fish.minigame.defense * 1000) / 10}% | ${per.join("・")} | ${m} | ${Math.min(...finite)}〜${Math.max(...finite)}(倒せない種 ${per.length - finite.length}) |`);
+    if (s === 1) assert.ok(m >= 4 && m <= 6, `${fish.name}:${m} 回`);
+    if (s === 5) assert.ok(m >= 10 && m <= 15, `${fish.name}:${m} 回`);
+  });
+  // 5 体目(ヌシ・クエ)は貫通なしで倒せない。
+  let wins = 0;
+  let total = 0;
+  for (const gs of GACHA_SEEDS) {
+    const r = measure(ISO, 10, grownItems(ISO, 10, "nushi-kue", gs * 1000 + 10, { noPen: true }), "nushi-kue", Array.from({ length: 20 }, (_, i) => i + 1));
+    wins += r.runs.filter((x) => x.caught).length;
+    total += r.runs.length;
+  }
+  lines.push(`ヌシ・クエ:貫通なしの育てた装備の勝率 ${((wins / total) * 100).toFixed(1)}%(${wins} / ${total})`);
+  console.log(lines.join("\n"));
+  assert.ok(wins / total < 0.06);
+});
+
 test("貫通必須:s=5 のヌシは、貫通なしの育てた装備で、制限時間のうちに倒せる確率が 6% 未満", () => {
   const lines = [];
   for (const g of [5, 10, 15, 20, 50, 100]) {

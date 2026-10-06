@@ -7,6 +7,7 @@
 // ここは画面に触らない(テストで確かめられる)。画面の枠は screen_shell.js が作る。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
+import { mountAreas } from "./area_screen.js";
 import { mountCrates } from "./crate_screen.js";
 import { mountDebug } from "./debug_screen.js";
 import { mountEquipment } from "./equip_screen.js";
@@ -28,6 +29,7 @@ import { mountSkills } from "./skill_screen.js";
 
 /** @type {readonly Screen[]} */
 export const SCREENS = Object.freeze([
+  { id: "areas", title: "釣り場", mount: mountAreas },
   { id: "equipment", title: "装備", mount: mountEquipment, badge: (game) => inventoryWarning(game).level },
   { id: "skills", title: "スキル", mount: mountSkills },
   { id: "crates", title: "クレート", mount: mountCrates },

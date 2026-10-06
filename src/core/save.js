@@ -1,12 +1,13 @@
 // @ts-check
-// 保存の形(版 3:D-223・D-232・D-247・D-267)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 4:D-223・D-232・D-247・D-267・D-280)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
-// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 9 つの欄に分ける:
+// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 10 の欄に分ける:
 //   ウロコイン ~ 竿の段階.工程の番号 ~ 鱗(魚の id:数 を「,」で) ~ 釣れた魚(魚の id を「,」で)
 //   ~ 引いた回数.ガチャの種.次の個体の番号 ~ 装着(種類の番号.個体の番号 を「,」で) ~ 持ち物(装備を「,」で)
 //   ~ ロック(持ち物の順に、1 個 1 字で「1」ロック中・「0」ロックなし。版 2 で足した:D-247)
 //   ~ 餌の所持数.餌を使うスイッチ(0/1).自動分解の設定の番号(AUTO_SCRAP_ROWS の順。版 3 で足した:D-267)
+//   ~ いまいる釣り場の id(古い釣り場にいるときだけ。いちばん新しい釣り場なら空。版 4 で足した:D-280)
 // 装備 1 個:前の個体の番号との差.種類とレア度の番号.グレード.基本効果の値 のあとに、スキルを「英大文字 1 字(スキルの番号)+ レベル」で並べる。
 //   例:「1.b.5.2s」+「B7C7D7」。種類とレア度の番号 = 種類の番号 × レア度の数 + レア度の番号。
 // - 魚は id で書く(D-228)。鱗は持っているもの(1 以上)だけを書く。
@@ -21,12 +22,12 @@ import { DEFAULT_CONFIG } from "./config.js";
 import { DEFAULT_CONTENT } from "./fish.js";
 import { AUTO_SCRAP_ROWS, effectRange, emptyGear, RARITY_ROWS } from "./gear.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
-import { levelRange } from "./skills.js";
+import { itemLevelRange } from "./skills.js";
 
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -34,7 +35,7 @@ export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_
 /** スキルの番号を書く文字(26 個まで)。 */
 const SKILL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SEED_MAX = 4294967295;
-const FIELDS = 9;
+const FIELDS = 10;
 
 /**
  * 進み具合。
@@ -48,12 +49,14 @@ const FIELDS = 9;
  * @property {number} [bait] 餌の所持数(1 以上のときだけ持つ:D-263・D-269)
  * @property {boolean} [useBait] 餌を使うスイッチ(入っているときだけ持つ)
  * @property {string} [autoScrap] 自動分解の設定(オフでないときだけ持つ:D-266)
+ * @property {string} [area] いまいる釣り場の id(古い釣り場にいるときだけ持つ:D-280)
  */
 
 /**
  * 読むときに使う表(魚・装備の種類・スキル)。
  * @typedef {{ fish: readonly { id: string }[], byId: Map<string, unknown>, maxStage: number,
- *   equipKinds: readonly import("./gear.js").EquipKind[], skills?: readonly { id: string }[] }} SaveContent
+ *   equipKinds: readonly import("./gear.js").EquipKind[], skills?: readonly { id: string, type?: string }[],
+ *   areas?: readonly import("./areas.js").AreaRow[], stageByNumber?: Map<number, unknown> }} SaveContent
  */
 
 /** 「,」で区切った一覧(空なら空の配列)。 @param {string} text */
@@ -62,7 +65,8 @@ const list = (text) => (text === "" ? [] : text.split(","));
 /**
  * 読み替えの関数(D-247)。UPGRADES[v] は、版 v の本文を版 v + 1 の本文にする。形がちがえば null。
  * 中身の点検は、今の版になってから decodeSave が行う。
- * @type {Readonly<Record<number, (body: string) => string | null>>}
+ * 版 3 → 4 だけは、表(content)を見る(頭打ち型のスキルと、次の段階の有無)。
+ * @type {Readonly<Record<number, (body: string, content: SaveContent) => string | null>>}
  */
 export const UPGRADES = Object.freeze({
   // 版 1 → 2:ロックの欄を足す(全てロックなし)。
@@ -77,17 +81,30 @@ export const UPGRADES = Object.freeze({
     if (parts.length !== 8) return null;
     return [...parts, "0.0.0"].join("~");
   },
+  // 版 3 → 4(D-280):いまいる釣り場の欄を足す(空 = 竿の段階が属する釣り場)。
+  // 頭打ち型のスキルは Lv1 に丸める(D-279)。表の最後で「進化済み」だった竿は、表に次の段階があれば、その段階の未製作にする
+  // (港の 5 段階目の進化は、いまは磯の解放になる:D-273)。
+  3: (body, content) => {
+    const parts = body.split("~");
+    if (parts.length !== 9) return null;
+    const rod = parts[1].split(".");
+    const stage = readNum(rod[0] ?? "");
+    if (rod.length === 2 && rod[1] === "3" && stage !== null && content.stageByNumber?.has(stage + 1)) parts[1] = `${num(stage + 1)}.0`;
+    const skills = skillTable(content);
+    parts[6] = parts[6].replace(/([A-Z])([0-9a-z]+)/g, (m, letter) => (skills[SKILL_LETTERS.indexOf(letter)]?.type === "capped" ? `${letter}1` : m));
+    return [...parts, ""].join("~");
+  },
 });
 
 /**
  * 版 version の本文を、今の版の本文にする。読めない版・形がちがうときは null。
- * @param {string} body @param {number} version
+ * @param {string} body @param {number} version @param {SaveContent} [content]
  */
-export function upgradeSave(body, version) {
+export function upgradeSave(body, version, content = DEFAULT_CONTENT) {
   if (!Number.isInteger(version) || version < 1 || version > SAVE_VERSION) return null;
   /** @type {string | null} */
   let text = body;
-  for (let v = version; v < SAVE_VERSION && text !== null; v++) text = UPGRADES[v](text);
+  for (let v = version; v < SAVE_VERSION && text !== null; v++) text = UPGRADES[v](text, content);
   return text;
 }
 
@@ -149,6 +166,7 @@ export function encodeSave(progress, content = DEFAULT_CONTENT) {
     itemText,
     items.map((it) => (it.locked ? "1" : "0")).join(""),
     `${num(progress.bait ?? 0)}.${progress.useBait ? 1 : 0}.${num(Math.max(0, AUTO_SCRAP_ROWS.findIndex((r) => r.id === (progress.autoScrap ?? "off"))))}`,
+    progress.area ?? "",
   ].join("~");
 }
 
@@ -168,12 +186,13 @@ function readItem(text, prev, content, config) {
   const range = effectRange(kind, rarity, grade, config.gacha.gradeGrowth);
   if (value < range.min || value > range.max) return null;
   const skills = skillTable(content);
-  const levels = levelRange(rarity.id, grade, config.skills);
   /** @type {{ id: string, level: number }[]} */
   const own = [];
   for (const [, letter, lv] of m[5].matchAll(/([A-Z])([0-9a-z]+)/g)) {
     const skill = skills[SKILL_LETTERS.indexOf(letter)];
     const level = readNum(lv);
+    // 頭打ち型は Lv1 だけ(D-279)。成長型は、レア度とグレードの範囲の中。
+    const levels = itemLevelRange(skill, rarity.id, grade, config.skills);
     if (!skill || own.some((s) => s.id === skill.id) || level === null || level < levels.min || level > levels.max) return null;
     own.push({ id: skill.id, level });
   }
@@ -192,7 +211,7 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (typeof body !== "string") return fail;
   const parts = body.split("~");
   if (parts.length !== FIELDS) return fail;
-  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText] = parts;
+  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText, areaText] = parts;
 
   const coins = readNum(coinText);
   if (coins === null) return fail;
@@ -267,5 +286,15 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (baitCount > 0) progress.bait = baitCount;
   if (bait[1] === "1") progress.useBait = true;
   if (scrap.id !== "off") progress.autoScrap = scrap.id;
+
+  // いまいる釣り場(D-280):空か、表にあり、解放済み(最初の段階が竿の段階以下)の釣り場。
+  // いちばん新しい釣り場なら欄を持たない(書くときも空にする)。
+  if (areaText !== "") {
+    const areas = content.areas ?? [];
+    const area = areas.find((a) => a.id === areaText);
+    if (!area || area.firstStage > stage) return fail;
+    const newest = areas.find((a) => stage >= a.firstStage && stage < a.firstStage + a.stages);
+    if (area !== newest) progress.area = area.id;
+  }
   return { ok: true, progress };
 }

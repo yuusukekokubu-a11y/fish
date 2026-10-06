@@ -46,14 +46,16 @@ export function shopView(game) {
 }
 
 /**
- * メイン画面の餌の欄。餌が 0 なら null(出さない)。
- * @param {{ progress: any }} game
+ * メイン画面の餌のボタン(釣りの絵の左上:D-271)。餌が 0 なら null(出さない)。
+ * 入っている状態は、文字の印(✓)でも分かる。古い釣り場(newestName にいちばん新しい釣り場の名前)では押せない。
+ * @param {{ progress: any }} game @param {string | null} [newestName]
  */
-export function baitHud(game) {
+export function baitHud(game, newestName = null) {
   const n = baitCount(game.progress);
   if (n <= 0) return null;
   const on = Boolean(game.progress.useBait);
-  return { countText: `餌 ${n}`, on, switchText: on ? "餌を使う:オン" : "餌を使う:オフ" };
+  if (newestName) return { countText: `餌 ${n}`, on, disabled: true, stateText: `${newestName}で使える` };
+  return { countText: `餌 ${n}`, on, disabled: false, stateText: on ? "✓ 使う" : "使わない" };
 }
 
 /** 払い戻しの知らせ。払い戻しがなければ空。 @param {{ count: number, coins: number } | null | undefined} refund */

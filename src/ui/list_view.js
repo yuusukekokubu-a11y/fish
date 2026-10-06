@@ -7,7 +7,8 @@
  * 一覧の中身。行の detail は押すと出る [見出し, 中身] の一覧(null なら押せない)。
  * @typedef {object} ListView
  * @property {string | null} header
- * @property {{ title: string, rows: { label: string, value: string, detail: string[][] | null }[] }[]} sections
+ * @property {{ title: string, rows: { label: string, value: string, detail: string[][] | null }[], collapsible?: boolean, open?: boolean }[]} sections
+ *   collapsible のグループは、見出しを押すと閉じる・開く(open が初めの状態:D-272)。
  */
 
 /**
@@ -33,8 +34,20 @@ export function renderListView(container, view) {
   if (view.header) container.append(el("div", "screen-header", view.header));
   for (const section of view.sections) {
     const box = el("section", "screen-section");
-    if (section.title) box.append(el("h2", "section-title", section.title));
     const list = el("ul", "menu-list");
+    if (section.collapsible) {
+      // 折りたためるグループ:見出しのボタンで開く・閉じる。
+      const head = button("", "group-head");
+      head.append(el("span", "section-title", section.title), el("span", "group-mark", ""));
+      head.setAttribute("aria-expanded", String(Boolean(section.open)));
+      list.hidden = !section.open;
+      head.addEventListener("click", () => {
+        list.hidden = !list.hidden;
+        head.setAttribute("aria-expanded", String(!list.hidden));
+      });
+      box.classList.add("group");
+      box.append(head);
+    } else if (section.title) box.append(el("h2", "section-title", section.title));
     for (const row of section.rows) {
       const item = el("li");
       const head = button("", "menu-row");

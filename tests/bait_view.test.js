@@ -37,11 +37,12 @@ test("店:ウロコインが足りない・上限のときは押せない(理由
   assert.deepEqual(near.buttons.map((b) => b.disabled), [false, true, false], "10 個は上限をこえる");
 });
 
-test("メイン画面:餌が 0 なら出さない。あれば所持数とスイッチの文字", () => {
+test("メイン画面の餌のボタン:餌が 0 なら出さない。あれば数と状態(✓ は形でも分かる)。古い釣り場では押せない(D-271)", () => {
   assert.equal(baitHud(gameAt(1)), null);
   assert.equal(baitHud(gameAt(1, { useBait: true })), null);
-  assert.deepEqual(baitHud(gameAt(1, { bait: 12 })), { countText: "餌 12", on: false, switchText: "餌を使う:オフ" });
-  assert.deepEqual(baitHud(gameAt(1, { bait: 12, useBait: true })), { countText: "餌 12", on: true, switchText: "餌を使う:オン" });
+  assert.deepEqual(baitHud(gameAt(1, { bait: 12 })), { countText: "餌 12", on: false, disabled: false, stateText: "使わない" });
+  assert.deepEqual(baitHud(gameAt(1, { bait: 12, useBait: true })), { countText: "餌 12", on: true, disabled: false, stateText: "✓ 使う" });
+  assert.deepEqual(baitHud(gameAt(7, { bait: 3, useBait: true, area: "minato" }), "磯"), { countText: "餌 3", on: true, disabled: true, stateText: "磯で使える" });
 });
 
 test("払い戻しの知らせと、自動分解の文字", () => {

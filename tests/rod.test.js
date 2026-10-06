@@ -19,7 +19,7 @@ import {
 } from "../src/core/rod.js";
 import { progressAt } from "./helpers.js";
 
-test("製作に要る鱗は、その段階の強い魚の鱗(3・4・4・5・6)、進化はヌシの鱗 1", () => {
+test("製作に要る鱗は、その段階の強い魚の鱗(港も磯も 3・4・4・5・6)、進化はヌシの鱗 1", () => {
   assert.deepEqual(
     STAGE_LIST.map((s) => [s.craft.scale, s.craft.count, s.evolve.scale, s.evolve.count]),
     [
@@ -28,6 +28,12 @@ test("製作に要る鱗は、その段階の強い魚の鱗(3・4・4・5・6)�
       ["hirame", 4, "nushi-hirame", 1],
       ["warasa", 5, "nushi-warasa", 1],
       ["buri", 6, "nushi-buri", 1],
+      // 磯も、釣り場の中の位置で 3・4・4・5・6(D-282)。
+      ["mejina", 3, "nushi-mejina", 1],
+      ["ishidai", 4, "nushi-ishidai", 1],
+      ["budai", 4, "nushi-budai", 1],
+      ["ishigakidai", 5, "nushi-ishigakidai", 1],
+      ["kue", 6, "nushi-kue", 1],
     ],
   );
 });
@@ -76,7 +82,7 @@ test("進化:ヌシ撃破でヌシの鱗があれば、ヌシの鱗を使って�
 
 test("表の最後の段階を進化すると「進化済み」で止まり、エラーにならない", () => {
   const last = DEFAULT_CONTENT.maxStage;
-  const p = progressAt(last, ROD_STEPS.DEFEATED, { scales: { "nushi-buri": 1 } });
+  const p = progressAt(last, ROD_STEPS.DEFEATED, { scales: { "nushi-kue": 1 } });
   assert.equal(evolveRod(p), true);
   assert.equal(p.rodStage, last);
   assert.equal(p.rodStep, ROD_STEPS.EVOLVED);

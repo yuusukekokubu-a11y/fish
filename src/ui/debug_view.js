@@ -5,6 +5,8 @@
 // - すぐ戦う:ヌシ戦と同じく、シードと回数から作る別の乱数で魚を用意する(魚の系統は引かない:D-115・D-220)。
 // 計算本体(src/core)は変えない。JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
+import { normalizeArea } from "../core/areas.js";
+import { stageLabel } from "./area_view.js";
 import { baitCount, refundBait, setBait } from "../core/bait.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { DEFAULT_CONTENT } from "../core/fish.js";
@@ -89,6 +91,8 @@ export function debugFields(content = DEFAULT_CONTENT) {
         p.rodStage = v;
         // 「進化済み」は最後の段階でだけありうる(保存の点検と同じ)。
         if (p.rodStep === ROD_STEPS.EVOLVED && v !== content.maxStage) p.rodStep = ROD_STEPS.DEFEATED;
+        // いまいる釣り場は、新しい段階で行ける釣り場にそろえる(D-273)。
+        normalizeArea(p, content);
       },
     },
     {
@@ -173,7 +177,9 @@ export function buildDebugItem(game, spec) {
   const own = [];
   for (const s of spec.skills) {
     if (!skills.some((/** @type {{ id: string }} */ r) => r.id === s.id) || own.some((x) => x.id === s.id)) continue;
-    const level = clampInt(s.level, 1, levelMax);
+    // 頭打ち型は Lv1 まで(D-279)。
+    const capped = skills.find((/** @type {{ id: string, type?: string }} */ r) => r.id === s.id)?.type === "capped";
+    const level = clampInt(s.level, 1, capped ? 1 : levelMax);
     if (level !== null) own.push({ id: s.id, level });
   }
   if (own.length > rarity.skillCount) {
@@ -251,7 +257,7 @@ export function quickFightTargets(content = DEFAULT_CONTENT) {
     .filter((/** @type {{ kind: string }} */ f) => f.kind === FISH_KINDS.STRONG || f.kind === FISH_KINDS.BOSS)
     .map((/** @type {{ id: string, name: string, stage: number, kind: string }} */ f) => ({
       id: f.id,
-      label: `${f.name}(段階 ${f.stage}・${f.kind === FISH_KINDS.BOSS ? "ヌシ" : "強い魚"})`,
+      label: `${f.name}(${stageLabel(content, f.stage)}・${f.kind === FISH_KINDS.BOSS ? "ヌシ" : "強い魚"})`,
     }));
 }
 

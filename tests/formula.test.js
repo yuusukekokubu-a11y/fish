@@ -74,7 +74,7 @@ const OLD = {
 const OLD_PRICE = [20, 46, 110, 260, 630];
 
 test("g=1〜5 の値は、②-4b4 のときの値から ±15% 以内(体力・報酬・製作の数・装備)。価格はおよそ半分", () => {
-  const prices = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG).map((c) => c.price);
+  const prices = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG).map((c) => c.price).slice(0, 5);
   const now = {
     weakCoins: [1, 2, 3, 4, 5].map((g) => fishCoins("weak", g)),
     strongCoins: [1, 2, 3, 4, 5].map((g) => fishCoins("strong", g)),
@@ -111,8 +111,8 @@ test("伸び方は緩やか:報酬の 1 段ごとの伸びは下がり続け、g
   assert.ok(fishCoins("boss", 100) < Number.MAX_SAFE_INTEGER / 100);
 });
 
-test("2 けたの丸めと、製作の数は 3・4・4・5・6 から上限 10 に近づく", () => {
+test("2 けたの丸めと、製作の数は釣り場の中の位置で 3・4・4・5・6(どの釣り場も同じ:D-282)", () => {
   assert.deepEqual([47.6, 238, 0.4, 1, 12345].map(round2), [48, 240, 1, 1, 12000]);
-  assert.deepEqual([1, 2, 3, 4, 5, 10, 25, 100].map((g) => craftCount(g)), [3, 4, 4, 5, 6, 8, 10, 10]);
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 10, 11, 25, 100].map((g) => craftCount(g)), [3, 4, 4, 5, 6, 3, 6, 3, 6, 6]);
   assert.throws(() => craftCount(0));
 });

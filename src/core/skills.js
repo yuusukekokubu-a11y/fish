@@ -276,6 +276,16 @@ export function levelRange(rarityId, grade, config) {
 }
 
 /**
+ * 装備 1 個に付く、あるスキルのレベルの範囲(D-279)。頭打ち型は 1 に固定(最大 Lv3 は 3 個の装備で届く)。
+ * 成長型は levelRange のまま。
+ * @param {{ type?: string } | undefined} skill @param {string} rarityId @param {number} grade @param {SkillConfig} config
+ * @returns {{ min: number, max: number }}
+ */
+export function itemLevelRange(skill, rarityId, grade, config) {
+  return skill?.type === "capped" ? { min: 1, max: 1 } : levelRange(rarityId, grade, config);
+}
+
+/**
  * 装備 1 個のスキル(スキルの id とレベル)。
  * @typedef {{ id: string, level: number }} ItemSkill
  */

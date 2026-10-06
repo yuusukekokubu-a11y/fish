@@ -6,7 +6,9 @@
 // - プリセット・すぐ戦う・クリティカルの確率とシード(URL を変えて開き直す)・デバッグのデータを消す。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
+import { currentArea, unlockedAreas } from "../core/areas.js";
 import { setUseBait } from "../core/bait.js";
+import { moveArea } from "../core/fishing.js";
 import { AUTO_SCRAP_ROWS, autoScrapSetting, EQUIP_KIND_ROWS, RARITY_ROWS, setAutoScrap } from "../core/gear.js";
 import { SKILL_ROWS } from "../core/skills.js";
 import {
@@ -105,6 +107,20 @@ export function mountDebug(container, ctx) {
     row.append(field(f.label, box), set);
     values.append(row);
   }
+
+  // 釣り場(D-273):解放済みの釣り場から選ぶ。竿の段階を決めると、釣り場は自動で決まる(行けない釣り場からは外れる)。
+  const areaBox = section("釣り場");
+  const areaSelect = select(unlockedAreas(game.progress, game.content).map((a) => [a.id, a.name]), currentArea(game.progress, game.content).id);
+  areaSelect.dataset.field = "area";
+  const areaSet = button("移る", "chip debug-button");
+  areaSet.addEventListener("click", () => {
+    if (!moveArea(game, areaSelect.value)) return say("その釣り場には移れません", true);
+    saved();
+    say(`釣り場を「${currentArea(game.progress, game.content).name}」にしました`);
+  });
+  const areaRow = el("div", "debug-row");
+  areaRow.append(field("いまいる釣り場", areaSelect), areaSet);
+  areaBox.append(areaRow, el("p", "debug-note", "竿の段階を決めると、釣り場は自動で決まります(その段階の釣り場)。"));
 
   // 餌のスイッチと自動分解の設定(D-263・D-266)。
   const baitBox = section("餌と自動分解");
@@ -228,5 +244,5 @@ export function mountDebug(container, ctx) {
   });
   reset.append(clear);
 
-  container.append(values, baitBox, make, presets, fight, url, reset);
+  container.append(values, areaBox, baitBox, make, presets, fight, url, reset);
 }

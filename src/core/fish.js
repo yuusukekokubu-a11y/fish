@@ -4,6 +4,7 @@
 // - 数値(報酬・鱗の数・ミニゲームの設定・製作と進化の数)は、通し番号 g の式(formula.js)から作る。表に手書きの数を置かない。
 // - 段階の表は、魚の表から作る(製作はその段階の強い魚の鱗、進化はその段階のヌシの鱗)。
 
+import { AREA_ROWS, checkAreas, makeAreas } from "./areas.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { craftCount, evolveCount, fishCoins, fishMinigame, fishScales } from "./formula.js";
 import { EQUIP_KIND_ROWS } from "./gear.js";
@@ -57,7 +58,10 @@ export function stagesFromFish(fish, formula = DEFAULT_CONFIG.formula) {
   });
 }
 
-/** 魚の表(港:段階の順)。足すときは 1 行足す(DESIGN の「段階や魚を足す手順」)。数値は式から作る。 */
+/**
+ * 魚の表(釣り場ごと・段階の順:港 g=1〜5、磯 g=6〜10。D-277)。足すときは 1 行足す(DESIGN の「段階や魚を足す手順」)。
+ * 釣り場は段階(通し番号 g)で決まる(areas.js の釣り場の表)。数値は式から作る。
+ */
 export const FISH_ROWS = Object.freeze([
   // 段階 1
   { id: "aji", name: "アジ", kind: "weak", stage: 1, color: "#a8dadc", size: 22 },
@@ -79,24 +83,47 @@ export const FISH_ROWS = Object.freeze([
   { id: "kawahagi", name: "カワハギ", kind: "weak", stage: 5, color: "#f9c74f", size: 26 },
   { id: "buri", name: "ブリ", kind: "strong", stage: 5, color: "#7b8cde", size: 44 },
   { id: "nushi-buri", name: "ヌシ・ブリ", kind: "boss", stage: 5, color: "#2f3e9e", size: 60 },
+  // 磯 段階 1(g=6)
+  { id: "bera", name: "ベラ", kind: "weak", stage: 6, color: "#f28482", size: 22 },
+  { id: "mejina", name: "メジナ", kind: "strong", stage: 6, color: "#457b9d", size: 36 },
+  { id: "nushi-mejina", name: "ヌシ・メジナ", kind: "boss", stage: 6, color: "#1d3557", size: 54 },
+  // 磯 段階 2(g=7)
+  { id: "kasago", name: "カサゴ", kind: "weak", stage: 7, color: "#e76f51", size: 24 },
+  { id: "ishidai", name: "イシダイ", kind: "strong", stage: 7, color: "#d9d9d9", size: 38 },
+  { id: "nushi-ishidai", name: "ヌシ・イシダイ", kind: "boss", stage: 7, color: "#495057", size: 56 },
+  // 磯 段階 3(g=8)
+  { id: "mebaru", name: "メバル", kind: "weak", stage: 8, color: "#8d99ae", size: 24 },
+  { id: "budai", name: "ブダイ", kind: "strong", stage: 8, color: "#80b918", size: 40 },
+  { id: "nushi-budai", name: "ヌシ・ブダイ", kind: "boss", stage: 8, color: "#2b9348", size: 58 },
+  // 磯 段階 4(g=9)
+  { id: "ainame", name: "アイナメ", kind: "weak", stage: 9, color: "#bc8a5f", size: 26 },
+  { id: "ishigakidai", name: "イシガキダイ", kind: "strong", stage: 9, color: "#c9ada7", size: 42 },
+  { id: "nushi-ishigakidai", name: "ヌシ・イシガキダイ", kind: "boss", stage: 9, color: "#6d597a", size: 60 },
+  // 磯 段階 5(g=10)
+  { id: "soi", name: "ソイ", kind: "weak", stage: 10, color: "#6c757d", size: 26 },
+  { id: "kue", name: "クエ", kind: "strong", stage: 10, color: "#a68a64", size: 46 },
+  { id: "nushi-kue", name: "ヌシ・クエ", kind: "boss", stage: 10, color: "#582f0e", size: 62 },
 ]);
 
 export const FISH_LIST = Object.freeze(FISH_ROWS.map((r) => defineFish(r)));
 export const STAGE_LIST = Object.freeze(stagesFromFish(FISH_LIST));
 
 /**
- * 設定表 1 組(魚と段階と装備の種類とスキル)。テストや将来の追加では、別の組を作って渡せる。
- * 段階は魚の表から作る。クレートは段階の表から作る(gear.js の makeCrates)。
+ * 設定表 1 組(魚と段階と装備の種類とスキルと釣り場)。テストや将来の追加では、別の組を作って渡せる。
+ * 段階は魚の表から作る。クレートは段階の表から作る(gear.js の makeCrates)。釣り場は釣り場の表から、
+ * 最後の段階までを覆うように作る(表にない段階には自動で作る:areas.js の makeAreas)。
  */
-export function makeContent(fish = FISH_LIST, stages = stagesFromFish(fish), equipKinds = EQUIP_KIND_ROWS, skills = SKILL_ROWS) {
+export function makeContent(fish = FISH_LIST, stages = stagesFromFish(fish), equipKinds = EQUIP_KIND_ROWS, skills = SKILL_ROWS, areaRows = AREA_ROWS) {
   const byId = new Map(fish.map((f) => [f.id, f]));
   const sortedStages = [...stages].sort((a, b) => a.stage - b.stage);
+  const maxStage = sortedStages.length > 0 ? sortedStages[sortedStages.length - 1].stage : 1;
   return Object.freeze({
+    areas: makeAreas(areaRows, maxStage),
     fish,
     stages: sortedStages,
     byId,
     stageByNumber: new Map(sortedStages.map((s) => [s.stage, s])),
-    maxStage: sortedStages.length > 0 ? sortedStages[sortedStages.length - 1].stage : 1,
+    maxStage,
     equipKinds,
     skills,
   });
@@ -143,6 +170,7 @@ export function checkContent(content) {
     if (!isCountAtLeast(s.craft.count, 1) || !isCountAtLeast(s.evolve.count, 1)) problems.push(`製作と進化の数は 1 以上:${s.stage}`);
     if (!content.fish.some((f) => f.kind === FISH_KINDS.WEAK && f.stage === s.stage)) problems.push(`弱い魚がいない:${s.stage}`);
   });
+  problems.push(...checkAreas(content.areas, content.maxStage));
   return problems;
 }
 
@@ -157,9 +185,12 @@ export function scaleName(id, content = DEFAULT_CONTENT) {
   return f ? `${f.name}の鱗` : `${id}の鱗`;
 }
 
-/** 竿の段階 rodStage で釣れる、区分 kind の魚(段階の小さい順)。ヌシはランダムには出ない。 */
-export function availableFish(rodStage, kind, list = FISH_LIST) {
-  return list.filter((f) => f.kind === kind && f.stage <= rodStage).sort((a, b) => a.stage - b.stage);
+/**
+ * 段階 min〜max で釣れる、区分 kind の魚(段階の小さい順)。ヌシはランダムには出ない。
+ * 釣り場の中だけにするときは、min に釣り場の最初の段階を渡す(D-275)。min を省くと段階 1 から。
+ */
+export function availableFish(max, kind, list = FISH_LIST, min = 1) {
+  return list.filter((f) => f.kind === kind && f.stage >= min && f.stage <= max).sort((a, b) => a.stage - b.stage);
 }
 
 /** 竿の段階 rodStage で新しく釣れるようになる魚(ヌシを除く)。 */
@@ -167,20 +198,23 @@ export function fishUnlockedAt(rodStage, list = FISH_LIST) {
   return list.filter((f) => f.stage === rodStage && f.kind !== FISH_KINDS.BOSS);
 }
 
-/** 抽選の重み:新しい魚ほど出やすい。段階が 1 上がるごとに 2 倍(D-046)。 */
-export function fishWeight(f) {
-  return 2 ** (f.stage - 1);
+/**
+ * 抽選の重み:新しい魚ほど出やすい。段階が 1 上がるごとに 2 倍(D-046)。
+ * 釣り場の中の位置で数える(first は釣り場の最初の段階。位置 1 の重みが 1:D-275)。
+ */
+export function fishWeight(f, first = 1) {
+  return 2 ** (f.stage - first);
 }
 
 /**
- * 0 以上 1 未満の数 v で、候補から重みづけで 1 匹選ぶ。
+ * 0 以上 1 未満の数 v で、候補から重みづけで 1 匹選ぶ(first は釣り場の最初の段階)。
  * 乱数は呼ぶ側が渡す(ここでは乱数を引かない)。
  */
-export function pickWeighted(candidates, v) {
-  const total = candidates.reduce((sum, f) => sum + fishWeight(f), 0);
+export function pickWeighted(candidates, v, first = 1) {
+  const total = candidates.reduce((sum, f) => sum + fishWeight(f, first), 0);
   let target = v * total;
   for (const f of candidates) {
-    target -= fishWeight(f);
+    target -= fishWeight(f, first);
     if (target < 0) return f;
   }
   return candidates[candidates.length - 1];

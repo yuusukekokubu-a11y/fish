@@ -9,7 +9,7 @@ import { createGame, PHASES, tap, update } from "../src/core/fishing.js";
 import { emptyGear } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
 import { encodeSaveCode, parseSave } from "../src/core/savecode.js";
-import { skillStates } from "../src/core/skills.js";
+import { SKILL_ROWS, skillStates } from "../src/core/skills.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import {
   addDebugItem,
@@ -169,13 +169,16 @@ test("装備を作る:種類・レア度・グレード・値・スキル(最大
   assert.ok(mid.item.value >= 500 && mid.item.value <= 1000 && mid.item.value % 100 === 0);
 });
 
-test("プリセット:表の行ごとに 3 個作って装着。追加クリティカルは会心率が 100% をこえ、最強の装備は数値型が全部最大", () => {
+const isCapped = (id) => SKILL_ROWS.find((x) => x.id === id)?.type === "capped";
+
+test("プリセット:表の行ごとに 3 個作って装着。追加クリティカルは会心率が 100% をこえ、最強の装備は成長型が全部最大(頭打ち型は Lv1)", () => {
   assert.deepEqual(DEBUG_PRESETS.map((p) => p.name), ["連撃", "先手とジャスト", "芯と縁", "追加クリティカル", "最強の装備", "貫通"]);
   for (const p of DEBUG_PRESETS) {
     const game = freshGame(5);
     assert.equal(applyPreset(game, p.id).ok, true, p.id);
     assert.equal(Object.keys(game.progress.gear.equipped).length, 3);
-    for (const sid of p.skills) assert.equal(game.skills[sid].level, game.skills[sid].max, `${p.id} ${sid}`);
+    // 頭打ち型は装備 1 個に Lv1(3 個そろえないと最大の Lv3 に届かない:D-279)。成長型は最大。
+    for (const sid of p.skills) assert.equal(game.skills[sid].level, isCapped(sid) ? 1 : game.skills[sid].max, `${p.id} ${sid}`);
     assert.deepEqual(reload(game).gear, game.progress.gear, "読み直しても残る");
   }
   const crit = freshGame(1);
@@ -185,7 +188,7 @@ test("プリセット:表の行ごとに 3 個作って装着。追加クリテ�
   const best = freshGame(5);
   applyPreset(best, "best");
   const states = skillStates(best.progress.gear, 5, DEFAULT_CONFIG.skills);
-  for (const id of DEBUG_PRESETS.find((p) => p.id === "best").skills) assert.equal(states[id].level, states[id].max, id);
+  for (const id of DEBUG_PRESETS.find((p) => p.id === "best").skills) assert.equal(states[id].level, isCapped(id) ? 1 : states[id].max, id);
   // 持ち物の空きが足りないと当てない。
   const full = freshGame(5);
   full.progress.gear.items = Array.from({ length: 99 }, (_, i) => ({ id: i + 1, kind: "line", rarity: "normal", grade: 1, value: 500, skills: [] }));

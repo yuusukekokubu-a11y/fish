@@ -13,12 +13,16 @@ import { progressAt } from "./helpers.js";
 
 const rowsOf = (view) => view.sections.flatMap((s) => s.rows);
 
-test("素材の画面:鱗を段階の順に並べ、未入手は「?」で名前と詳細を隠す", () => {
+test("素材の画面:鱗を釣り場ごとのグループに段階の順で並べ、未入手は「?」で名前と詳細を隠す(D-272)", () => {
   const game = createGame(1, { progress: progressAt(2, ROD_STEPS.NONE, { scales: { kurodai: 2, "nushi-kurodai": 1 }, seen: ["aji", "kurodai", "nushi-kurodai"] }) });
   const view = materialsView({ game });
-  assert.deepEqual(view.sections.map((s) => s.title), ["段階 1", "段階 2", "段階 3", "段階 4", "段階 5"]);
+  // いちばん新しい釣り場(港)だけ開く。未解放の釣り場は名前を隠す。
+  assert.deepEqual(view.sections.map((s) => [s.title, s.collapsible, s.open]), [["港", true, true], ["???", true, false]]);
   const rows = rowsOf(view);
-  assert.equal(rows.length, 10, "強い魚とヌシの鱗(弱い魚は鱗を落とさない)");
+  assert.equal(rows.length, 20, "強い魚とヌシの鱗(弱い魚は鱗を落とさない)");
+  // 磯にいると磯が開き、港は折りたたむ。
+  const iso = createGame(1, { progress: progressAt(7, ROD_STEPS.NONE, { area: "minato" }) });
+  assert.deepEqual(materialsView({ game: iso }).sections.map((s) => [s.title, s.open]), [["港", false], ["磯", true]]);
   assert.deepEqual(rows.slice(0, 3).map((r) => [r.label, r.value]), [
     ["クロダイの鱗", "2"],
     ["ヌシ・クロダイの鱗", "1"],
@@ -33,11 +37,11 @@ test("素材の画面の詳細:入手元の魚と使い道(魚と段階の表か
   const game = createGame(1, { progress: progressAt(1, ROD_STEPS.NONE, { scales: { kurodai: 1, "nushi-kurodai": 0 } }) });
   const [kurodai, nushi] = rowsOf(materialsView({ game }));
   assert.deepEqual(kurodai.detail, [
-    ["入手元", "クロダイ(段階 1 の強い魚)"],
+    ["入手元", "クロダイ(港 段階 1 の強い魚)"],
     ["使い道", "クロダイの釣竿の製作に使う(3 枚)"],
   ]);
   assert.deepEqual(nushi.detail, [
-    ["入手元", "ヌシ・クロダイ(段階 1 のヌシ)"],
+    ["入手元", "ヌシ・クロダイ(港 段階 1 のヌシ)"],
     ["使い道", "ヌシ・クロダイの釣竿への進化に使う(1 枚)"],
   ]);
 });
@@ -61,7 +65,7 @@ test("素材の画面の数は短く出す", () => {
 test("ステータスの画面:竿の名前と段階、戦闘の数値の表から作った値", () => {
   const game = createGame(1, { progress: progressAt(2, ROD_STEPS.CRAFTED) });
   const view = statusView({ game });
-  assert.equal(view.header, "スズキの釣竿(段階 2)");
+  assert.equal(view.header, "スズキの釣竿(港 段階 2)");
   // 項目はグループ(戦闘・時間・合わせ)に分けて並べる(D-163)。
   assert.deepEqual(
     view.sections.map((s) => [s.title, s.rows.map((r) => [r.label, r.value])]),

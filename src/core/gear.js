@@ -283,7 +283,11 @@ export function drawItem(seed, index, crate, kinds, gradeGrowth, skillDraw = DEF
     picked.push(pool.splice(at, 1)[0]);
   }
   const lr = levelRange(rarity.id, crate.grade, skillDraw.config);
-  const skills = picked.map((s) => ({ id: s.id, level: lr.min + Math.min(lr.max - lr.min, Math.floor(rng() * (lr.max - lr.min + 1))) }));
+  // 頭打ち型も、乱数は成長型と同じく 1 回引いたうえで、レベルを 1 に固定する(ほかのスキルの結果は変わらない:D-279)。
+  const skills = picked.map((s) => {
+    const level = lr.min + Math.min(lr.max - lr.min, Math.floor(rng() * (lr.max - lr.min + 1)));
+    return { id: s.id, level: /** @type {{ type?: string }} */ (s).type === "capped" ? 1 : level };
+  });
   return { kind: kind.id, rarity: rarity.id, grade: crate.grade, value, skills };
 }
 

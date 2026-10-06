@@ -1,5 +1,6 @@
 // @ts-check
 // 限界の確かめ用の、大きな魚の表(D-204・D-233)。段階 n まで、段階ごとに 弱い魚・強い魚・ヌシ を 1 匹ずつ作る。
+// 釣り場は 5 段階ずつ自動で作る(名前は「釣り場 n」)。
 // 数値は本番と同じ式(formula.js)から作る。本番の表(fish.js の FISH_ROWS)は変えない。
 // テストと、?debug&stages=n のときのデバッグだけで使う。
 
@@ -35,5 +36,7 @@ export function syntheticFishRows(stages) {
  * @param {number} stages @param {object} [formula]
  */
 export function syntheticContent(stages, formula = DEFAULT_CONFIG.formula) {
-  return makeContent(syntheticFishRows(stages).map((r) => defineFish(r, formula)));
+  const fish = syntheticFishRows(stages).map((r) => defineFish(r, formula));
+  // 釣り場は、5 段階ずつ自動で作る(「釣り場 1」〜。D-272)。
+  return makeContent(fish, undefined, undefined, undefined, []);
 }

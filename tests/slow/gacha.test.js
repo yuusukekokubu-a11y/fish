@@ -7,7 +7,7 @@ import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { makeContent } from "../../src/core/fish.js";
 import { createGame, update } from "../../src/core/fishing.js";
 import { emptyGear, EQUIP_KIND_ROWS, makeCrates, pullCrate } from "../../src/core/gear.js";
-import { progressAt, stage6Content } from "../helpers.js";
+import { progressAt, riverContent } from "../helpers.js";
 import { averageItems, progressWith } from "./builds.js";
 import { policyOf, SKILLED, SLOPPY } from "./policy.js";
 
@@ -73,10 +73,10 @@ test("価格と時間:各段階で、上手なら 30〜90 秒、ときどき失�
   }
 });
 
-test("段階 6 を表に足しても、数式のままで 30〜90 秒(ときどき失敗 120 秒以内)に収まる", () => {
-  const content = stage6Content();
-  const six = measure(content).at(-1);
-  console.log(`段階 6:${six.crate.name} ${six.crate.price}:上手 ${six.skilled.toFixed(0)} 秒、ときどき失敗 ${six.sloppy.toFixed(0)} 秒`);
-  assert.ok(six.skilled >= 30 && six.skilled <= 90);
-  assert.ok(six.sloppy <= 120);
+test("釣り場(川)を表に足しても、数式のままで 30〜90 秒(ときどき失敗 120 秒以内)に収まる", () => {
+  const content = riverContent();
+  const last = measure(content).at(-1);
+  console.log(`段階 ${last.crate.stage}:${last.crate.name} ${last.crate.price}:上手 ${last.skilled.toFixed(0)} 秒、ときどき失敗 ${last.sloppy.toFixed(0)} 秒`);
+  assert.ok(last.skilled >= 30 && last.skilled <= 90);
+  assert.ok(last.sloppy <= 120);
 });

@@ -1,6 +1,7 @@
 // @ts-check
 // クレートの画面(全画面:D-139・D-152・D-162)。
-// - 上に持ち物の空き(「あと 12 個」)。クレートを段階の新しい順に、名前・価格(1 回/10 連)・引くボタン。
+// - 上に持ち物の空き(「あと 12 個」)。クレートを釣り場ごとのグループ(新しい釣り場が上。いちばん新しい釣り場だけ開く:D-272)に、
+//   段階の新しい順で、名前・価格(1 回/10 連)・引くボタン。
 // - 「くわしく」で、排出率・装備の種類・基本効果の範囲が開く。
 // - 引く演出は gacha_fx.js(今のまま)。結果の下に「装備を見る」を置き、装備の画面に移れる。
 // - 引くボタンの上に自動分解の設定(オフ・ノーマルまで・レアまで・エピックまで:D-266)。引いた直後に分解して保存する。
@@ -10,6 +11,7 @@
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { autoScrap, makeCrates, pullCrate, setAutoScrap } from "../core/gear.js";
 import { SKILL_ROWS } from "../core/skills.js";
+import { groupByArea } from "./area_view.js";
 import { autoScrapChoices, autoScrapText } from "./bait_view.js";
 import { playPull } from "./gacha_fx.js";
 import { crateCards, inventorySpaceLabel, inventoryWarning, PULL_MESSAGES, pullResultView } from "./gear_view.js";
@@ -56,8 +58,26 @@ export function mountCrates(container, ctx) {
 
   // スキルの抽選に使う表と数値(ゲームの表を使う:D-207)。
   const skillDraw = { skills: game.content.skills ?? SKILL_ROWS, config: game.config.skills ?? DEFAULT_CONFIG.skills };
-  const list = el("div", "crate-list");
-  for (const card of crateCards(game, crates)) {
+  const groups = groupByArea(game, crateCards(game, crates), (card) => card.crate.stage, { skipEmpty: true }).reverse();
+  for (const group of groups) {
+    const box = el("section", "crate-group group");
+    box.dataset.area = group.id;
+    const head = button("", "group-head crate-group-head");
+    head.append(el("span", "section-title", group.title), el("span", "group-mark", ""));
+    head.setAttribute("aria-expanded", String(group.open));
+    const list = el("div", "crate-list");
+    list.hidden = !group.open;
+    head.addEventListener("click", () => {
+      list.hidden = !list.hidden;
+      head.setAttribute("aria-expanded", String(!list.hidden));
+    });
+    for (const card of group.items) list.append(crateCard(card));
+    box.append(head, list);
+    container.append(box);
+  }
+
+  /** クレート 1 枚。 @param {ReturnType<typeof crateCards>[number]} card */
+  function crateCard(card) {
     const box = el("section", "crate-card");
     box.dataset.crate = card.crate.id;
     const head = el("div", "crate-head");
@@ -109,9 +129,8 @@ export function mountCrates(container, ctx) {
     box.append(head, price, buttons);
     if (warning.tenNote) box.append(el("p", "pull-note", warning.tenNote));
     box.append(detail);
-    list.append(box);
+    return box;
   }
-  container.append(list);
 }
 
 /**
