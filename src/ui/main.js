@@ -230,7 +230,7 @@ function main() {
       app,
       storage: { save: saveProgress, clear: clearSave },
       reload: () => location.reload(),
-      // 装着・外す・分解のあと:装備を反映した戦闘の数値の表を作り直して保存する(D-145)。
+      // 装着・外す・分解のあと:装備を反映した戦闘の数値の表を作り直して保存する(D-181)。
       onGearChanged: () => {
         refreshCombat(game);
         saveProgress(game.progress);

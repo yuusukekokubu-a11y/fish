@@ -61,7 +61,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
   assert.equal(norm({ ...BASE, damage: 12.4 }).damage, 12);
 });
 
-test("安全上限:とても大きな値は、計算が壊れない範囲で止める(ゲームデザイン上の上限は置かない:D-145)", () => {
+test("安全上限:とても大きな値は、計算が壊れない範囲で止める(ゲームデザイン上の上限は置かない:D-181)", () => {
   const big = norm({ ...BASE, damage: 1e12, missHeal: 1e12, timeLimitBonusMs: 1e12, zoneWidthBonus: 1e12 });
   assert.deepEqual(
     [big.damage, big.missHeal, big.timeLimitBonusMs, big.zoneWidthBonus],
@@ -154,7 +154,7 @@ test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より�
   const weird = { damage: -100, critChance: 99, critMultiplier: -1, missHeal: 1e9, timeLimitBonusMs: -1e9 };
   const game = untilFight("maguro", { combat: weird });
   const { hook, ...combat } = game.combat;
-  // 回復と時間の増減は、計算が壊れないための安全上限で止まる(D-145)。
+  // 回復と時間の増減は、計算が壊れないための安全上限で止まる(D-181)。
   assert.deepEqual(combat, {
     damage: 1,
     critChance: LIMITS.maxCritChance,

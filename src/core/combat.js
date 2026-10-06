@@ -135,7 +135,7 @@ export function chanceRule({ roll, stats }) {
   return roll < stats.critChance;
 }
 
-/** 規則の一覧の基本。腕前型(命中範囲の中心の帯)などは、ここに規則を足す(D-070・D-080)。 */
+/** 規則の一覧の基本。腕前型(命中範囲の中心の帯)などは、ここに規則を足す(D-182・D-080)。 */
 export const DEFAULT_CRIT_RULES = Object.freeze([chanceRule]);
 
 /** 規則の一覧のどれか 1 つでも当てはまれば、クリティカル。 */
