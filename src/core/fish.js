@@ -1,7 +1,7 @@
 // 魚と段階の設定表(D-093・D-094・D-099・D-111・D-112)。
 // 段階の数と魚の種類は、この表だけで決まる(データ駆動)。段階や魚を足すときは、表に行を足すだけでよい。
 // - 魚:名前・区分(弱い/強い/ヌシ)・解放される段階・報酬(ウロコインと鱗)・見た目(色と大きさ)、
-//   強い魚とヌシはミニゲームの設定(印の速さ・当たり範囲の幅・体力・制限時間)。
+//   強い魚とヌシはミニゲームの設定(印の速さ・命中範囲の幅・体力・制限時間)。
 // - 段階:製作に使う鱗(その段階の強い魚の鱗)と数、ヌシ、進化に使う鱗(ヌシの鱗)と数。
 
 import { EQUIP_KIND_ROWS } from "./gear.js";
@@ -16,7 +16,7 @@ export const FISH_KINDS = Object.freeze({ WEAK: "weak", STRONG: "strong", BOSS: 
  * - name:画面に出す名前。kind:"weak"(弱い魚)・"strong"(強い魚)・"boss"(ヌシ)。stage:解放される段階。
  * - coins:釣り上げたときのウロコイン。scales:釣り上げたときに落とす「その魚の鱗」の数(弱い魚は 0)。
  * - color・size:見た目(色と大きさ)。
- * - minigame:強い魚とヌシだけ。{ sweepMs(印が端から端まで), zoneWidth(当たり範囲の幅), hp(体力), timeLimitMs(制限時間) }。
+ * - minigame:強い魚とヌシだけ。{ sweepMs(印が端から端まで), zoneWidth(命中範囲の幅), hp(体力), timeLimitMs(制限時間) }。
  * 中では、報酬を reward: { coins, scales } にまとめた形で持つ。
  */
 export function defineFish({ id, name, kind, stage, coins, scales, color, size, minigame = null }) {

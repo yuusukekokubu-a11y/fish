@@ -232,7 +232,7 @@ function missOnce(game) {
 const noCrit = { ...DEFAULT_CONFIG.combat, critChance: 0 };
 
 for (const rarity of RARITY_ROWS) {
-  test(`効果の反映(${rarity.name}・境界の値):糸は制限時間、リールはダメージ、ルアーは外したあとの次の当たり(回復した量まで)`, () => {
+  test(`効果の反映(${rarity.name}・境界の値):糸は制限時間、リールはダメージ、ルアーは命中範囲の幅(割合)`, () => {
     for (const grade of [1, 5]) {
       const ranges = Object.fromEntries(KINDS.map((k) => [k.id, effectRange(k, rarity, grade, GACHA.gradeGrowth)]));
       for (const edge of ["min", "max"]) {
@@ -242,17 +242,17 @@ for (const rarity of RARITY_ROWS) {
         assert.equal(game.combat.damage, 10 + ranges.reel[edge]);
         assert.equal(game.combat.timeLimitBonusMs, ranges.line[edge]);
         assert.equal(game.fight.timeLimitMs, 8000 + ranges.line[edge], "クロダイ 8 秒 + 糸");
-        // 満タンの体力で外しても回復しないので、ルアーは乗らない(回復した量まで:D-176)。
-        missOnce(game);
+        // ルアー:命中範囲の幅を (1 + n%) 倍に。クロダイの幅 0.22(上限 0.7)。真ん中は引いた位置のまま(D-181)。
+        const width = Math.min(0.7, 0.22 * (1 + ranges.lure[edge] / 100));
+        assert.ok(Math.abs(game.fight.zone.end - game.fight.zone.start - width) < 1e-9);
+        assert.ok(Math.abs((game.fight.zone.start + game.fight.zone.end) / 2 - (game.cast.zone.start + game.cast.zone.end) / 2) < 1e-9);
+        // ミスは回復だけ(ミスのボーナスはない)。
         const first = hitOnce(game);
-        assert.equal(first.damage, 10 + ranges.reel[edge], "回復 0 ならルアー 0");
+        assert.equal(first.damage, 10 + ranges.reel[edge]);
         if (game.phase !== PHASES.MINIGAME) continue;
-        const healed = missOnce(game).heal;
-        missOnce(game); // 外し続けても積み上げない
-        const hit = hitOnce(game);
-        assert.ok(healed > 0);
-        assert.equal(hit.damage, 10 + ranges.reel[edge] + Math.min(ranges.lure[edge], healed), "次の当たりにルアー(回復した量まで)");
-        if (game.phase === PHASES.MINIGAME) assert.equal(hitOnce(game).damage, 10 + ranges.reel[edge], "1 回だけ");
+        assert.ok(Math.abs(game.fight.zone.end - game.fight.zone.start - width) < 1e-9, "命中のあとの範囲も同じ幅");
+        assert.ok(missOnce(game).heal > 0);
+        assert.equal(hitOnce(game).damage, 10 + ranges.reel[edge], "ミスのあとも同じダメージ");
       }
     }
   });
@@ -267,16 +267,19 @@ test("効果はヌシ戦にも効き、外すと元に戻る", () => {
   unequipKind(game.progress.gear, "reel");
   refreshCombat(game);
   assert.equal(hitOnce(game).damage, 10);
-  const lured = applyGear(noCrit, { ...emptyGear(), items: [itemOf(1, "lure", "normal", 1, 3)], equipped: { lure: 1 } }, KINDS);
-  assert.equal(lured.missBonusDamage, 3);
+  const lured = applyGear(noCrit, { ...emptyGear(), items: [itemOf(1, "lure", "normal", 1, 6)], equipped: { lure: 1 } }, KINDS);
+  assert.equal(lured.zoneWidthBonus, 6);
+  // ヌシ戦でも、ルアーで命中範囲が広がる。
+  const g2 = createGame(5, { combat: noCrit, progress: progressAt(1, ROD_STEPS.CRAFTED, { gear: { ...emptyGear(), items: [itemOf(1, "lure", "legend", 1, 20)], equipped: { lure: 1 }, nextId: 2 } }) });
+  challengeBoss(g2);
+  assert.ok(Math.abs(g2.fight.zone.end - g2.fight.zone.start - 0.19 * 1.2) < 1e-9, "ヌシ・クロダイの幅 0.19 × 1.2");
 });
 
-test("ダメージの順:通常 → クリティカルの倍率 → ジャストの倍率(四捨五入)→ ルアーを足す", () => {
+test("ダメージの順:通常 → クリティカルの倍率 → ジャストの倍率(四捨五入)。足し算の上乗せはダメージに直接は足さない", () => {
   const just = { id: "just", damageMultiplier: 1.5, uses: 1 };
-  const lure = { id: "lure", damageBonus: 3, uses: 1 };
-  assert.equal(boostedDamage(15, [just, lure]), 26, "15 × 1.5 = 22.5 → 23、+3");
-  assert.equal(boostedDamage(15, [lure]), 18);
-  assert.equal(boostedDamage(15, [just]), 23, "ルアーがなければ前と同じ");
+  const first = { id: "first-hit", when: "firstHit", effects: { damage: 3 }, uses: 1 };
+  assert.equal(boostedDamage(15, [just]), 23, "15 × 1.5 = 22.5 → 23");
+  assert.equal(boostedDamage(15, [just, first]), 23, "先手の足し算は、基本のダメージの側で足す");
   assert.equal(boostedDamage(15, []), 15);
 });
 

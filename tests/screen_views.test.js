@@ -72,8 +72,8 @@ test("ステータスの画面:竿の名前と段階、戦闘の数値の表か�
           ["通常ダメージ", "10"],
           ["クリティカルの確率", "10%"],
           ["クリティカルの倍率", "2 倍"],
-          ["外したときの回復", "10"],
-          ["外したあとの次の当たり", "+0"],
+          ["ミスしたときの回復", "10"],
+          ["命中範囲の広さ(ルアー)", "+0%"],
         ],
       ],
       ["時間", [["制限時間の増減", "+0 秒"]]],
@@ -93,10 +93,11 @@ test("ステータスの画面:竿の名前と段階、戦闘の数値の表か�
           ["待ち時間", "+0%"],
         ],
       ],
+      ["条件つき", [["なし", ""]]],
     ],
   );
   assert.equal(STATUS_SECTIONS.length, 4);
-  assert.equal(rowsOf(view).length, STATUS_ITEMS.length);
+  assert.equal(rowsOf(view).length, STATUS_ITEMS.length + 1, "項目 + 条件つきの「なし」");
 });
 
 test("ステータスの画面:戦闘の数値の表を書き換えると、表示も変わる(基本の値は詳細に残る)", () => {
@@ -111,7 +112,7 @@ test("ステータスの画面:戦闘の数値の表を書き換えると、表�
   };
   const game = createGame(1, { combat });
   const rows = rowsOf(statusView({ game }));
-  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.5 倍", "4", "+0", "+1.5 秒", "0.5 秒", "0.2 秒", "2 倍", "+0%", "+0%", "+0%"]);
+  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.5 倍", "4", "+0%", "+1.5 秒", "0.5 秒", "0.2 秒", "2 倍", "+0%", "+0%", "+0%", ""]);
   // マイナスの増減。
   const minus = createGame(1, { combat: { ...DEFAULT_CONFIG.combat, timeLimitBonusMs: -2000 } });
   assert.equal(rowsOf(statusView({ game: minus }))[5].value, "−2 秒");
@@ -123,7 +124,7 @@ test("ステータスの画面:装備を反映した今の値と、装備なし�
     items: [
       { id: 1, kind: "reel", rarity: "legend", grade: 5, value: 15, skills: [] },
       { id: 2, kind: "line", rarity: "normal", grade: 1, value: 700, skills: [] },
-      { id: 3, kind: "lure", rarity: "rare", grade: 1, value: 4, skills: [] },
+      { id: 3, kind: "lure", rarity: "rare", grade: 1, value: 8, skills: [] },
     ],
     equipped: { reel: 1, line: 2, lure: 3 },
     nextId: 4,
@@ -137,7 +138,7 @@ test("ステータスの画面:装備を反映した今の値と、装備なし�
     ["基本の値", "10"],
   ]);
   assert.equal(byLabel["制限時間の増減"].value, "+0.7 秒");
-  assert.equal(byLabel["外したあとの次の当たり"].value, "+4");
+  assert.equal(byLabel["命中範囲の広さ(ルアー)"].value, "+8%");
   assert.equal(byLabel["クリティカルの確率"].value, "10%", "装備のない項目はそのまま");
 });
 
@@ -175,4 +176,31 @@ test("クリティカルの段の内わけ:120% は 1 段 80% / 2 段 20%、250%
   assert.equal(critStageText(0.1), "なし 90% / 1 段 10%");
   assert.equal(critStageText(1), "1 段 100%");
   assert.equal(critStageText(0), "なし 100%");
+});
+
+test("ステータスの画面:条件発動型は「条件つき」の節に出し、今の値には含めない。ルアーの命中範囲の幅の変化も出す", () => {
+  const gear = {
+    ...emptyGear(),
+    items: [
+      { id: 1, kind: "reel", rarity: "legend", grade: 5, value: 15, skills: [{ id: "combo-power", points: 8 }, { id: "first-strike", points: 4 }] },
+      { id: 2, kind: "lure", rarity: "legend", grade: 5, value: 50, skills: [] },
+    ],
+    equipped: { reel: 1, lure: 2 },
+    nextId: 3,
+  };
+  const game = createGame(1, { progress: progressAt(5, ROD_STEPS.NONE, { gear }) });
+  const view = statusView({ game });
+  const cond = view.sections.find((s) => s.title === "条件つき");
+  assert.deepEqual(cond.rows.map((r) => [r.label, r.value, r.detail]), [
+    ["連撃・攻", "Lv2", [["条件つき", "連続命中 1 段ごとにダメージ +2(最大 10 段)"]]],
+    ["先制", "Lv1", [["条件つき", "戦いの最初の命中で会心率 +10%"]]],
+  ]);
+  const byLabel = Object.fromEntries(rowsOf(view).map((r) => [r.label, r]));
+  assert.equal(byLabel["通常ダメージ"].value, "25", "条件つきは今の値に含めない");
+  assert.equal(byLabel["クリティカルの確率"].value, "10%");
+  assert.equal(byLabel["命中範囲の広さ(ルアー)"].value, "+50%");
+  assert.deepEqual(byLabel["命中範囲の広さ(ルアー)"].detail.slice(2), [
+    ["命中範囲(マグロ)", "11% → 16.5%"],
+    ["命中範囲(ヌシ・マグロ)", "10% → 15%"],
+  ]);
 });

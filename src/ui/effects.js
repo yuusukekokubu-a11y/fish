@@ -51,7 +51,7 @@ export function addHookEffects(effects, grade, now) {
 }
 
 /**
- * ミニゲームで当たったときの演出(D-092)。魚の近くにダメージの数字を浮かべる。
+ * ミニゲームで命中したときの演出(D-092)。魚の近くにダメージの数字を浮かべる。
  * クリティカルは、大きなオレンジの数字と「CRITICAL!」、大きめの揺れ。
  * 追加クリティカル(2 段以上:D-169)は「CRITICAL ×2!」のように段数を出し、段数が多いほど少し大きく揺らす。
  */
@@ -60,20 +60,22 @@ export function critLabel(stages) {
 }
 
 export function addHitEffects(effects, hit, now) {
+  // 条件発動型が効いた命中は、数字の色を変える(ふつうは水色で少し大きく、クリティカルは少し明るいオレンジ:D-191)。
+  const triggered = (hit.triggers ?? []).length > 0;
   if (hit.critical) {
     const stages = hit.critStages ?? 1;
     const extra = Math.min(3, stages - 1);
     effects.shake = { start: now, ms: 260 + 60 * extra, amplitude: 9 + 2 * extra };
     effects.flash = { color: "255,140,0", start: now, ms: 220, strength: 0.25 + 0.05 * extra };
     effects.floats.push({ text: critLabel(stages), start: now, ms: 800, y: 0.5, size: 22 + 2 * extra, color: "#ffd166" });
-    effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 800, y: 0.58, size: 34, color: "#ff8c00" });
+    effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 800, y: 0.58, size: 34, color: triggered ? "#ffb347" : "#ff8c00" });
     return;
   }
   effects.shake = { start: now, ms: 150, amplitude: 4 };
-  effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 650, y: 0.58, size: 24, color: "#ffd166" });
+  effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 650, y: 0.58, size: triggered ? 28 : 24, color: triggered ? "#8be9fd" : "#ffd166" });
 }
 
-/** ミニゲームで外したときの演出。回復した数を別の色で出す。 */
+/** ミニゲームでミスしたときの演出。回復した数を別の色で出す。 */
 export function addMissEffects(effects, miss, now) {
   effects.flash = { color: "230,57,70", start: now, ms: 200, strength: 0.2 };
   effects.floats.push({ text: `+${miss.heal}`, start: now, ms: 650, y: 0.58, size: 24, color: "#ff8fa3" });

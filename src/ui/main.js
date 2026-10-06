@@ -30,6 +30,7 @@ import { act, advance, createSession, setPaused, tapSession } from "./session.js
 import { parseSave, SAVE_KEY, toSaveData } from "../core/save.js";
 import { versionLabel } from "../version.js";
 import { createDrawer } from "./drawer.js";
+import { fightBadges } from "./fight_view.js";
 import { drawScene } from "./draw.js";
 import {
   addHitEffects,
@@ -229,7 +230,7 @@ function main() {
       app,
       storage: { save: saveProgress, clear: clearSave },
       reload: () => location.reload(),
-      // 装着・外す・分解のあと:装備を反映した戦闘の数値の表を作り直して保存する(D-145)。
+      // 装着・外す・分解のあと:装備を反映した戦闘の数値の表を作り直して保存する(D-181)。
       onGearChanged: () => {
         refreshCombat(game);
         saveProgress(game.progress);
@@ -278,6 +279,7 @@ function main() {
       timeLeft: game.phase === PHASES.MINIGAME ? 1 - game.phaseMs / phaseDuration(game) : 0,
       hook: game.phase === PHASES.BITE ? { t: game.phaseMs, timing: currentHookTiming(game) } : null,
       caught: game.lastResult?.outcome === OUTCOMES.CAUGHT,
+      badges: game.phase === PHASES.MINIGAME ? fightBadges(game) : null,
     };
     ctx.save();
     ctx.translate(shakeOffset(effects, now), 0);

@@ -1,13 +1,13 @@
 // 戦闘の数値の表と、クリティカルの判定(D-068〜D-071・D-078〜D-080)。
-// 表の形:{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs, missBonusDamage, hook }
-// - damage:当たり 1 回で減る体力(通常ダメージ)
+// 表の形:{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs, zoneWidthBonus, hook }
+// - damage:命中 1 回で減る体力(通常ダメージ)
 // - critChance:クリティカルの確率(0〜1)
 // - critMultiplier:クリティカルのときの倍率
-// - missHeal:外したときに回復する体力
+// - missHeal:ミスしたときに回復する体力
 // - timeLimitBonusMs:魚ごとの制限時間に足す時間(装備の糸などで増える)
-// - missBonusDamage:外したあと、次の当たり 1 回に足すダメージ(装備のルアー。積み上げない:D-145)
+// - zoneWidthBonus:命中範囲の幅を広げる割合(%。装備のルアー:D-181)。幅 ×(1 + n / 100)
 // - hook:合わせの縮む輪 { normal: { ringMs, successMs, justMs }, strong: {...}, justMultiplier }(D-084・D-087)
-// 装備は、基本の表に足し算した表を作り、ここで点検してから使う(gear.js の applyGear:D-145)。
+// 装備は、基本の表に足し算した表を作り、ここで点検してから使う(gear.js の applyGear:D-181)。
 
 function finiteOr(value, fallback) {
   return Number.isFinite(value) ? value : fallback;
@@ -37,7 +37,7 @@ export function normalizeCombat(stats, base, limits) {
       -limits.maxTimeLimitBonusMs,
       limits.maxTimeLimitBonusMs,
     ),
-    missBonusDamage: clamp(Math.round(finiteOr(s.missBonusDamage, base.missBonusDamage ?? 0)), 0, limits.maxMissBonusDamage),
+    zoneWidthBonus: clamp(finiteOr(s.zoneWidthBonus, base.zoneWidthBonus ?? 0), 0, limits.maxZoneWidthBonus),
     hook: normalizeHook(s.hook, base.hook, limits),
   };
 }
@@ -86,16 +86,37 @@ export function judgeHook(timing, t) {
 }
 
 /**
- * 戦闘中の一時的な上乗せ(D-089・D-145)。{ id, damageMultiplier, damageBonus, uses } の一覧。
- * 当たりのダメージに、残っている上乗せの倍率を全部かけて四捨五入し、そのあと足し算の分(ルアー)を足す。
+ * 戦闘中の一時的な上乗せ(D-089・D-186)。{ id, damageMultiplier?, when?, effects?, uses } の一覧。
+ * - damageMultiplier:命中のダメージに掛ける倍率(ジャスト)。クリティカルのあとに掛けて四捨五入する。
+ * - when・effects:条件発動型の「次の命中に効く」効果(先手・勢いなど)。fishing.js の triggeredStats が使う。
  */
 export function boostedDamage(damage, boosts) {
   const multiplier = boosts.reduce((m, b) => m * (b.damageMultiplier ?? 1), 1);
-  const bonus = boosts.reduce((sum, b) => sum + (b.damageBonus ?? 0), 0);
-  return Math.max(damage, Math.round(damage * multiplier)) + bonus;
+  return Math.max(damage, Math.round(damage * multiplier));
 }
 
-/** 当たったあと、上乗せの残り回数を 1 減らし、0 になったものを消す。 */
+/**
+ * ルアーで広げた命中範囲の幅(D-181)。幅 ×(1 + n / 100)を、上限(ゲージの 70%)と下限(10%)の中にする。
+ * 広げないとき(n が 0)は、元の幅をそのまま返す(前と同じ結果)。
+ */
+export function lureZoneWidth(width, stats, limits) {
+  const bonus = stats.zoneWidthBonus ?? 0;
+  if (!(bonus > 0)) return width;
+  return clamp(width * (1 + bonus / 100), limits.minZoneWidth, Math.max(width, limits.maxZoneWidth));
+}
+
+/**
+ * 命中範囲を、真ん中を保ったまま幅 width に広げる(D-181)。ゲージの端から margin 以上はなす。
+ * 幅が同じなら、元の範囲をそのまま返す(乱数の引き方も、結果も変わらない)。
+ */
+export function widenZone(zone, width, margin) {
+  if (width === zone.end - zone.start) return zone;
+  const center = (zone.start + zone.end) / 2;
+  const start = clamp(center - width / 2, margin, Math.max(margin, 1 - margin - width));
+  return { start, end: start + width };
+}
+
+/** 命中したあと、上乗せの残り回数を 1 減らし、0 になったものを消す。 */
 export function consumeBoosts(boosts) {
   return boosts.map((b) => ({ ...b, uses: b.uses - 1 })).filter((b) => b.uses > 0);
 }
@@ -107,14 +128,14 @@ export function fightTimeLimit(fishTimeLimitMs, stats, limits) {
 
 /**
  * クリティカルの規則:確率で出る。
- * 規則は、当たりのたびに次の値を受け取り、クリティカルなら true を返す関数。
- * { roll: 0 以上 1 未満の乱数, stats: 戦闘の数値の表, position: 印の位置, zone: 当たり範囲 }
+ * 規則は、命中のたびに次の値を受け取り、クリティカルなら true を返す関数。
+ * { roll: 0 以上 1 未満の乱数, stats: 戦闘の数値の表, position: 印の位置, zone: 命中範囲 }
  */
 export function chanceRule({ roll, stats }) {
   return roll < stats.critChance;
 }
 
-/** 規則の一覧の基本。腕前型(当たり範囲の中心の帯)などは、ここに規則を足す(D-070・D-080)。 */
+/** 規則の一覧の基本。腕前型(命中範囲の中心の帯)などは、ここに規則を足す(D-182・D-080)。 */
 export const DEFAULT_CRIT_RULES = Object.freeze([chanceRule]);
 
 /** 規則の一覧のどれか 1 つでも当てはまれば、クリティカル。 */
@@ -124,7 +145,7 @@ export function isCritical(context, rules = DEFAULT_CRIT_RULES) {
 
 /**
  * クリティカルの段数(D-169)。会心率 c の整数部分は必ず起きる段数、小数部分は、もう 1 段増える確率。
- * 乱数 roll は当たりのたびに 1 回だけ引いたもの。c が 1 以下なら、前と同じ(0 段か 1 段)。
+ * 乱数 roll は命中のたびに 1 回だけ引いたもの。c が 1 以下なら、前と同じ(0 段か 1 段)。
  * 規則の一覧(腕前型など)のどれかに当てはまれば、少なくとも 1 段。段数は安全上限で止める。
  */
 export function critStages(context, rules = DEFAULT_CRIT_RULES, maxStages = Infinity) {
@@ -136,7 +157,7 @@ export function critStages(context, rules = DEFAULT_CRIT_RULES, maxStages = Infi
 }
 
 /**
- * 当たり 1 回のダメージ。クリティカルは「通常ダメージ × 倍率の段数乗」を四捨五入(通常ダメージより小さくしない)。
+ * 命中 1 回のダメージ。クリティカルは「通常ダメージ × 倍率の段数乗」を四捨五入(通常ダメージより小さくしない)。
  * critical は段数(数)か、前の形の true/false(true は 1 段)。総倍率とダメージは安全上限で止める。
  */
 export function hitDamage(stats, critical, limits = null) {

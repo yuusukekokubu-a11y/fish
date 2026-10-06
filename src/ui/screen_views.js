@@ -3,9 +3,10 @@
 // 行は { label, value, detail }。detail は押すと出る詳細の [見出し, 中身] の一覧(null なら押せない)。
 
 import { DEFAULT_CONFIG } from "../core/config.js";
-import { normalizeCombat } from "../core/combat.js";
+import { lureZoneWidth, normalizeCombat } from "../core/combat.js";
 import { DEFAULT_CONTENT, FISH_KINDS, scaleName } from "../core/fish.js";
 import { rodName, scaleCount, stageRodNames } from "../core/rod.js";
+import { formatSkillEffect, SKILL_ROWS } from "../core/skills.js";
 import { formatCount } from "./format.js";
 
 const KIND_NAMES = Object.freeze({
@@ -77,8 +78,14 @@ const ITEM = Object.freeze({
   damage: { label: "通常ダメージ", value: (c) => c.damage, format: String },
   critChance: { label: "クリティカルの確率", value: (c) => c.critChance, format: percent, extra: (c) => [["段の内わけ", critStageText(c.critChance)]] },
   critMultiplier: { label: "クリティカルの倍率", value: (c) => c.critMultiplier, format: times },
-  missHeal: { label: "外したときの回復", value: (c) => c.missHeal, format: String },
-  missBonus: { label: "外したあとの次の当たり", value: (c) => c.missBonusDamage, format: (n) => `+${n}` },
+  missHeal: { label: "ミスしたときの回復", value: (c) => c.missHeal, format: String },
+  zoneWidth: {
+    label: "命中範囲の広さ(ルアー)",
+    value: (c) => c.zoneWidthBonus ?? 0,
+    format: (n) => `+${n}%`,
+    // いまの段階の強い魚とヌシの、命中範囲の幅の変化(例:「マグロ 11% → 17%」:D-191)。
+    extra: (c, game) => zoneWidthRows(c, game),
+  },
   timeBonus: { label: "制限時間の増減", value: (c) => c.timeLimitBonusMs, format: signedSeconds },
   justMultiplier: { label: "ジャストの倍率", value: (c) => c.hook.justMultiplier, format: times },
   success: { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
@@ -90,13 +97,45 @@ const ITEM = Object.freeze({
 });
 
 export const STATUS_SECTIONS = Object.freeze([
-  { title: "戦闘", items: [ITEM.damage, ITEM.critChance, ITEM.critMultiplier, ITEM.missHeal, ITEM.missBonus] },
+  { title: "戦闘", items: [ITEM.damage, ITEM.critChance, ITEM.critMultiplier, ITEM.missHeal, ITEM.zoneWidth] },
   { title: "時間", items: [ITEM.timeBonus] },
   { title: "合わせ", items: [ITEM.success, ITEM.just, ITEM.justMultiplier] },
   { title: "報酬と待ち時間", items: [ITEM.coins, ITEM.scales, ITEM.wait] },
 ]);
 
 const BASE_RATES = Object.freeze({ coins: 1, scales: 1, wait: 1 });
+
+/** 幅(0〜1)を「22%」の形に。 */
+const widthText = (x) => `${Math.round(x * 1000) / 10}%`;
+
+/** いまの段階の、ミニゲームのある魚(強い魚とヌシ)の命中範囲の幅の変化。 */
+function zoneWidthRows(c, game) {
+  const content = game.content ?? DEFAULT_CONTENT;
+  const config = game.config ?? DEFAULT_CONFIG;
+  const limits = { minZoneWidth: config.minigame.minZoneWidth, maxZoneWidth: config.combatLimits.maxZoneWidth };
+  return content.fish
+    .filter((f) => f.stage === game.progress.rodStage && f.minigame)
+    .map((f) => {
+      const w = f.minigame.zoneWidth;
+      return [`命中範囲(${f.name})`, `${widthText(w)} → ${widthText(lureZoneWidth(w, c, limits))}`];
+    });
+}
+
+/**
+ * 条件つきの効果(条件発動型:D-184・D-191)。「今の値」には含めず、別の節に出す。レベル 0 のものは出さない。
+ */
+function conditionalRows(game) {
+  const skills = game.content?.skills ?? SKILL_ROWS;
+  const config = (game.config ?? DEFAULT_CONFIG).skills;
+  const rows = skills
+    .filter((s) => s.target.kind === "trigger" && (game.skills?.[s.id]?.level ?? 0) > 0)
+    .map((s) => {
+      const level = game.skills[s.id].level;
+      const text = formatSkillEffect(s, level, config);
+      return { label: s.name, value: `Lv${level}`, detail: [["条件つき", text]] };
+    });
+  return rows.length > 0 ? rows : [{ label: "なし", value: "", detail: null }];
+}
 
 /** 全部の項目(節の順)。 */
 export const STATUS_ITEMS = Object.freeze(STATUS_SECTIONS.flatMap((s) => s.items));
@@ -125,9 +164,9 @@ export function statusView({ game }) {
         detail: [
           ["今の値(装備・スキル込み)", item.format(item.value(game.combat, rates))],
           ["基本の値", item.format(item.value(base, BASE_RATES))],
-          ...(item.extra ? item.extra(game.combat) : []),
+          ...(item.extra ? item.extra(game.combat, game) : []),
         ],
       })),
-    })),
+    })).concat([{ title: "条件つき", rows: conditionalRows(game) }]),
   };
 }

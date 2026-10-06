@@ -1,6 +1,6 @@
 // 保存の形式(D-065・D-104・D-117・D-143)。ブラウザに保存するのは UI の役目で、ここは形の変換と点検だけを行う。
-// 版 5 の形:
-//   { version: 5, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...],
+// 版 6 の形(版 5 と同じ形。ルアーの値の意味だけがちがう:D-188):
+//   { version: 6, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...],
 //     gear: { items: [[…]], equipped: [[…]], draws, seed, nextId } } }
 //   装備は表の番号の短い配列で書く(D-171・D-178。形は gear_save.js)。
 // 装備とガチャのまとまり(gear)の点検は gear_save.js にある。
@@ -12,10 +12,10 @@
 import { DEFAULT_CONFIG } from "./config.js";
 import { DEFAULT_CONTENT, FISH_ID_PATTERN as ID_PATTERN } from "./fish.js";
 import { emptyGear } from "./gear.js";
-import { migratedGear, packGear, readGear, readGearV4 } from "./gear_save.js";
+import { legacyKinds, migratedGear, packGear, readGear, readGearV4, remapLures } from "./gear_save.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 export const SAVE_KEY = "fish:save";
 
 // 鱗の表の大きさの上限(壊れたデータで大きくなりすぎないように)。
@@ -26,7 +26,7 @@ export function initialProgress() {
   return { coins: 0, scales: {}, rodStage: 1, rodStep: ROD_STEPS.NONE, seen: [], gear: emptyGear() };
 }
 
-/** 進み具合を、保存する形(版 5)にする。装備の番号は content の表の並び。 */
+/** 進み具合を、保存する形(版 6)にする。装備の番号は content の表の並び。 */
 export function toSaveData(progress, content = DEFAULT_CONTENT) {
   return {
     version: SAVE_VERSION,
@@ -83,11 +83,25 @@ export const MIGRATIONS = Object.freeze({
   // 版 4 の形の点検もここで行う(おかしければ null)。
   4: (data, content, config) => {
     if (!isPlainObject(data.progress)) return null;
-    const gear = readGearV4(data.progress.gear, gearRules(content, config));
+    const gear = readGearV4(data.progress.gear, legacyRules(content, config));
     if (!gear) return null;
     return { version: 5, progress: { ...data.progress, gear: packGear(gear, content) } };
   },
+  // 版 5 → 版 6:ルアーの値の意味が変わる(外したあとの次の当たり → 命中範囲 +n%:D-181)。
+  // 前の範囲で点検してから、同じレア度・グレードの範囲の中での位置を保って読み替える(D-188)。
+  5: (data, content, config) => {
+    if (!isPlainObject(data.progress)) return null;
+    const gear = readGear(data.progress.gear, legacyRules(content, config));
+    if (!gear) return null;
+    const remapped = remapLures(gear, content.equipKinds, config.gacha.gradeGrowth);
+    return { version: 6, progress: { ...data.progress, gear: packGear(remapped, content) } };
+  },
 });
+
+/** 版 5 までのデータの点検に使う表と数値(ルアーの値の範囲だけ前のもの)。 */
+function legacyRules(content, config) {
+  return { ...gearRules(content, config), equipKinds: legacyKinds(content.equipKinds) };
+}
 
 /** 装備の点検に使う表と数値。 */
 function gearRules(content, config) {
