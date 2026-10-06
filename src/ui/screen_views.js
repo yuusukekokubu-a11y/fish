@@ -77,8 +77,8 @@ const ITEM = Object.freeze({
   damage: { label: "通常ダメージ", value: (c) => c.damage, format: String },
   critChance: { label: "クリティカルの確率", value: (c) => c.critChance, format: percent, extra: (c) => [["段の内わけ", critStageText(c.critChance)]] },
   critMultiplier: { label: "クリティカルの倍率", value: (c) => c.critMultiplier, format: times },
-  missHeal: { label: "外したときの回復", value: (c) => c.missHeal, format: String },
-  missBonus: { label: "外したあとの次の当たり", value: (c) => c.missBonusDamage, format: (n) => `+${n}` },
+  missHeal: { label: "ミスしたときの回復", value: (c) => c.missHeal, format: String },
+  zoneWidth: { label: "命中範囲の広さ(ルアー)", value: (c) => c.zoneWidthBonus ?? 0, format: (n) => `+${n}%` },
   timeBonus: { label: "制限時間の増減", value: (c) => c.timeLimitBonusMs, format: signedSeconds },
   justMultiplier: { label: "ジャストの倍率", value: (c) => c.hook.justMultiplier, format: times },
   success: { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
@@ -90,7 +90,7 @@ const ITEM = Object.freeze({
 });
 
 export const STATUS_SECTIONS = Object.freeze([
-  { title: "戦闘", items: [ITEM.damage, ITEM.critChance, ITEM.critMultiplier, ITEM.missHeal, ITEM.missBonus] },
+  { title: "戦闘", items: [ITEM.damage, ITEM.critChance, ITEM.critMultiplier, ITEM.missHeal, ITEM.zoneWidth] },
   { title: "時間", items: [ITEM.timeBonus] },
   { title: "合わせ", items: [ITEM.success, ITEM.just, ITEM.justMultiplier] },
   { title: "報酬と待ち時間", items: [ITEM.coins, ITEM.scales, ITEM.wait] },

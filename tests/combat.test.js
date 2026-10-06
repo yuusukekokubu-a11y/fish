@@ -25,7 +25,7 @@ test("基本の表:ダメージ 10・確率 10%・倍率 2・回復 10・時間�
     critMultiplier: 2,
     missHeal: 10,
     timeLimitBonusMs: 0,
-    missBonusDamage: 0,
+    zoneWidthBonus: 0,
   });
   assert.deepEqual(norm(undefined), norm(BASE), "表がなければ基本の表");
 });
@@ -38,7 +38,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     critMultiplier: 50,
     missHeal: 0,
     timeLimitBonusMs: 0,
-    missBonusDamage: 0,
+    zoneWidthBonus: 0,
   });
   assert.deepEqual(norm({ damage: 0, critChance: -0.2, critMultiplier: 0.5, missHeal: 0, timeLimitBonusMs: 0 }), {
     damage: 1,
@@ -46,7 +46,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     critMultiplier: 1,
     missHeal: 0,
     timeLimitBonusMs: 0,
-    missBonusDamage: 0,
+    zoneWidthBonus: 0,
   });
   // 境目ちょうどはそのまま。
   assert.deepEqual(norm({ damage: 1, critChance: 1, critMultiplier: 10, missHeal: 0, timeLimitBonusMs: 0 }).critChance, 1);
@@ -62,13 +62,13 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
 });
 
 test("安全上限:とても大きな値は、計算が壊れない範囲で止める(ゲームデザイン上の上限は置かない:D-145)", () => {
-  const big = norm({ ...BASE, damage: 1e12, missHeal: 1e12, timeLimitBonusMs: 1e12, missBonusDamage: 1e12 });
+  const big = norm({ ...BASE, damage: 1e12, missHeal: 1e12, timeLimitBonusMs: 1e12, zoneWidthBonus: 1e12 });
   assert.deepEqual(
-    [big.damage, big.missHeal, big.timeLimitBonusMs, big.missBonusDamage],
-    [LIMITS.maxDamage, LIMITS.maxMissHeal, LIMITS.maxTimeLimitBonusMs, LIMITS.maxMissBonusDamage],
+    [big.damage, big.missHeal, big.timeLimitBonusMs, big.zoneWidthBonus],
+    [LIMITS.maxDamage, LIMITS.maxMissHeal, LIMITS.maxTimeLimitBonusMs, LIMITS.maxZoneWidthBonus],
   );
-  assert.equal(norm({ ...BASE, missBonusDamage: -3 }).missBonusDamage, 0);
-  assert.equal(norm({ ...BASE, missBonusDamage: 4.6 }).missBonusDamage, 5);
+  assert.equal(norm({ ...BASE, zoneWidthBonus: -3 }).zoneWidthBonus, 0);
+  assert.equal(norm({ ...BASE, zoneWidthBonus: 4.6 }).zoneWidthBonus, 4.6);
   // 装備でふつうに届く大きさ(ダメージ 500 など)は、そのまま使う。
   assert.equal(norm({ ...BASE, damage: 500 }).damage, 500);
 });
@@ -161,7 +161,7 @@ test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より�
     critMultiplier: 1,
     missHeal: LIMITS.maxMissHeal,
     timeLimitBonusMs: -LIMITS.maxTimeLimitBonusMs,
-    missBonusDamage: 0,
+    zoneWidthBonus: 0,
   });
   assert.equal(game.fight.timeLimitMs, LIMITS.minTimeLimitMs);
   const rng = createRng(3);

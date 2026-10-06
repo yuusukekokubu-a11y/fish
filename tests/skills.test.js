@@ -45,7 +45,7 @@ function gearWith(skillPoints, extra = {}) {
 /** レベル L になるポイント。 */
 const pts = (level) => level * SK.pointsPerLevel;
 
-test("スキルは 10 個:成長型 6 個と頭打ち型 4 個", () => {
+test("スキルは 17 個:数値型(成長型 6 個と頭打ち型 4 個)と、条件発動型 7 個(全て成長型。表の末尾)", () => {
   assert.deepEqual(
     SKILL_ROWS.map((s) => [s.name, s.type]),
     [
@@ -59,9 +59,17 @@ test("スキルは 10 個:成長型 6 個と頭打ち型 4 個", () => {
       ["見極め", "capped"],
       ["名人技", "capped"],
       ["回復の軽減", "capped"],
+      ["連撃・攻", "growth"],
+      ["連撃・心", "growth"],
+      ["先手", "growth"],
+      ["ジャスト・ブースト", "growth"],
+      ["とどめ", "growth"],
+      ["勢い", "growth"],
+      ["先制", "growth"],
     ],
   );
-  assert.equal(new Set(SKILL_ROWS.map((s) => s.id)).size, 10);
+  assert.equal(new Set(SKILL_ROWS.map((s) => s.id)).size, 17);
+  assert.ok(SKILL_ROWS.slice(10).every((s) => s.target.kind === "trigger"));
 });
 
 test("レベル:ポイント ÷ 4(しきい値の境界)、最大で止まり、余りは影響しない", () => {
@@ -101,7 +109,7 @@ function withLevel(id, level, rodStage = 6) {
   return game;
 }
 
-test("効果の反映:10 個のスキルの、レベル 0〜最大", () => {
+test("効果の反映:17 個のスキルの、レベル 0〜最大(条件発動型は戦闘の数値の表を変えず、条件ごとの量だけ)", () => {
   const base = createGame(1, { progress: progressAt(6, ROD_STEPS.NONE, { gear: gearWith({}, { equipped: { reel: 1 } }) }) });
   for (const skill of SKILL_ROWS) {
     const max = maxLevel(skill, 6, SK);
@@ -143,8 +151,14 @@ test("効果の反映:10 個のスキルの、レベル 0〜最大", () => {
         case "recovery":
           assert.equal(c.missHeal, [10, 7, 3, 0][level], "Lv3 で回復 0");
           break;
-        default:
-          assert.fail(skill.id);
+        default: {
+          // 条件発動型:表は変えず、条件ごとの効果の量に入る。
+          const t = /** @type {any} */ (skill.target);
+          assert.equal(t.kind, "trigger", skill.id);
+          assert.deepEqual(c, b, skill.id);
+          const amount = g.triggers[t.when]?.[t.effect] ?? 0;
+          assert.ok(Math.abs(amount - skill.perLevel * level) < 1e-9, skill.id);
+        }
       }
       // ほかの項目は変わらない(基本の表の項目の数で確かめる)。
       if (level === 0) assert.deepEqual(c, b);

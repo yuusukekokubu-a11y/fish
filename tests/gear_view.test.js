@@ -36,7 +36,7 @@ test("クレートの画面:解放済みだけを段階の新しい順に。価�
   assert.deepEqual(cards[0].blockers, { one: "coins", ten: "coins" });
   assert.deepEqual(cards[2].blockers, { one: null, ten: "coins" });
   assert.deepEqual(cards[0].rates.map((r) => r.rate), ["70%", "22%", "6.5%", "1.5%"]);
-  assert.deepEqual(cards[2].kinds.map((k) => k.range), ["制限時間 +0.5〜+3.2 秒", "ダメージ +1〜+6", "外したあとの次の当たり +2〜+13"]);
+  assert.deepEqual(cards[2].kinds.map((k) => k.range), ["制限時間 +0.5〜+3.2 秒", "ダメージ +1〜+6", "命中範囲 +5〜+24%"]);
   assert.equal(formatRate(15), "1.5%");
 });
 

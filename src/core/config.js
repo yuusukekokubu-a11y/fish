@@ -24,9 +24,9 @@ export const DEFAULT_CONFIG = Object.freeze({
     damage: 10, // 通常ダメージ
     critChance: 0.1, // クリティカルの確率
     critMultiplier: 2, // クリティカルの倍率
-    missHeal: 10, // 外したときの回復
+    missHeal: 10, // ミスしたときの回復
     timeLimitBonusMs: 0, // 魚ごとの制限時間に足す時間
-    missBonusDamage: 0, // 外したあと、次の当たり 1 回に足すダメージ(ルアー:D-127・D-145)
+    zoneWidthBonus: 0, // 命中範囲の幅を広げる割合(%。ルアー:D-181)
     // 合わせの縮む輪(D-084・D-087)。「!」と同時に縮み始め、ringMs で通り過ぎる。
     // 成功帯は通り過ぎる直前の successMs、ジャスト帯は成功帯の真ん中の justMs。
     hook: Object.freeze({
@@ -47,10 +47,12 @@ export const DEFAULT_CONFIG = Object.freeze({
     maxCritMultiplier: 100,
     minMissHeal: 0,
     minTimeLimitMs: 1000,
-    // 計算が壊れないための安全上限だけ(ゲームデザイン上の上限ではない:D-145)。
+    // 計算が壊れないための安全上限だけ(ゲームデザイン上の上限ではない:D-181)。
     maxDamage: 1000000,
     maxMissHeal: 1000000,
-    maxMissBonusDamage: 1000000,
+    maxZoneWidthBonus: 1000000,
+    // ルアーで広げた命中範囲の幅の上限(ゲージの 70%:D-181)。下限は minigame.minZoneWidth(10%)。
+    maxZoneWidth: 0.7,
     maxTimeLimitBonusMs: 3600000,
     // 合わせの輪の下限(スマホで反応できる範囲と、連打を通用させないための早すぎの区間)。
     minHookRingMs: 1000,
@@ -69,6 +71,8 @@ export const DEFAULT_CONFIG = Object.freeze({
     pointsGradeGrowth: 0.35, // グレードが 1 上がるごとに増える割合(基本効果と同じ)
     pointsRarityMultiplier: Object.freeze({ normal: 1, rare: 1, epic: 1.25, legend: 1.5 }),
     minWaitMs: 1000, // 俊敏で短くしても、待ち時間は 1 秒より短くしない
+    comboMax: 10, // 連撃の最大段数(D-185)
+    lowHpRatio: 0.25, // 「とどめ」は魚の体力が最大の 25% 以下で効く(D-184)
   }),
   // クレートガチャ(D-140・D-146・D-147・D-149)。
   gacha: Object.freeze({

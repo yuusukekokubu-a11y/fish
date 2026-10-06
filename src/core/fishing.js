@@ -6,6 +6,7 @@
 
 import {
   boostedDamage,
+  boostSum,
   consumeBoosts,
   critSeed,
   critStages,
@@ -15,11 +16,13 @@ import {
   HOOK_GRADES,
   hookTiming,
   judgeHook,
+  lureZoneWidth,
   normalizeCombat,
+  widenZone,
 } from "./combat.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { applyGear, copyGear, emptyGear } from "./gear.js";
-import { applySkillsToCombat, scaledReward, scaledWait, skillRates, skillStates } from "./skills.js";
+import { applySkillsToCombat, scaledReward, scaledWait, skillRates, skillStates, triggerAmounts } from "./skills.js";
 import { availableFish, DEFAULT_CONTENT, effectiveMinigame, FISH_KINDS, FISH_LIST, pickWeighted } from "./fish.js";
 import { drawZone, isHit, markerPosition, zoneAt } from "./minigame.js";
 import { createRng, normalizeSeed } from "./rng.js";
@@ -110,13 +113,15 @@ function ownProgress(progress) {
   };
 }
 
-/** 装備を反映した戦闘の数値の表を作り直す(装着・外す・分解のあとに呼ぶ:D-145)。 */
+/** 装備を反映した戦闘の数値の表を作り直す(装着・外す・分解のあとに呼ぶ:D-181)。 */
 export function refreshCombat(game) {
   const { config, content } = game;
   // スキルのレベル(竿の段階で最大が伸びる)と、報酬・待ち時間の倍率(D-174)。
   game.skills = skillStates(game.progress.gear, game.progress.rodStage, config.skills, content.skills);
   game.rates = skillRates(game.skills, content.skills);
-  // 基本の表 → 装備の基本効果(足し算)→ スキル(足し算 → 掛け算)→ 点検と丸め(D-145・D-174)。
+  // 条件発動型の効果の量(条件ごと)。戦闘の命中のたびに、条件を満たしたものだけを使う(D-184)。
+  game.triggers = triggerAmounts(game.skills, content.skills);
+  // 基本の表 → 装備の基本効果(足し算)→ スキル(足し算 → 掛け算)→ 点検と丸め(D-174・D-181)。
   const geared = applyGear(game.baseCombat, game.progress.gear, content.equipKinds);
   game.combat = normalizeCombat(applySkillsToCombat(geared, game.skills, content.skills), config.combat, config.combatLimits);
   return game.combat;
@@ -126,7 +131,7 @@ export function refreshCombat(game) {
  * 新しいゲームの状態を作る。
  * - progress:保存から読んだ進み具合(なければ初めから)。複製して使う(呼んだ側のものは変えない)。
  * - combat:装備なしの戦闘の数値の表(なければ config.combat の基本の表)。progress.gear の装着中の装備を足し算し、
- *   点検して丸めてから game.combat に置く(D-080・D-145)。装着が変わったら refreshCombat を呼ぶ。
+ *   点検して丸めてから game.combat に置く(D-080・D-181)。装着が変わったら refreshCombat を呼ぶ。
  * - critRules:クリティカルの判定の規則の一覧(なければ確率だけ)。
  * - content:魚と段階の設定表(なければ基本の表)。段階や魚を足すときは、ここに別の表を渡せる(D-093)。
  * - strongChance:強い魚の出現率(なければ config の値)。将来のスキル(大物狙い)で上げられる(D-096)。
@@ -154,6 +159,7 @@ export function createGame(
     combat: null,
     skills: null,
     rates: null,
+    triggers: {},
     // 豊漁・目利きの端数の持ち越し(D-175)。保存はしない。
     rewardCarry: { coins: 0, scales: {} },
     critRules,
@@ -327,21 +333,45 @@ function resumeAfterBoss(game) {
   enter(game, PHASES.CASTING);
 }
 
+/** 命中範囲の幅(ルアーで広げる:D-181)。 */
+function fightZoneWidth(game) {
+  const { config, combat } = game;
+  return lureZoneWidth(game.cast.minigame.zoneWidth, combat, {
+    minZoneWidth: config.minigame.minZoneWidth,
+    maxZoneWidth: config.combatLimits.maxZoneWidth,
+  });
+}
+
+/**
+ * 戦闘を始める。grade は合わせの結果(ヌシ戦は null。合わせの成功とみなす:D-187)。
+ * 条件発動型の「最初の命中」の効果は、戦闘中の一時的な上乗せ(fight.boosts)に積む(D-186)。
+ */
 function startFight(game, grade) {
   const { minigame, zone, minigameSeed } = game.cast;
+  const t = game.triggers ?? {};
+  /** @type {object[]} */
+  const boosts = [];
+  // ジャストなら、最初の命中のダメージを上げる(D-089)。ジャスト・ブーストは、その倍率に足す(D-184)。
+  if (grade === HOOK_GRADES.JUST) {
+    boosts.push({ id: "just", damageMultiplier: game.combat.hook.justMultiplier + (t.just?.justMultiplier ?? 0), uses: 1 });
+  }
+  // 先手:合わせの成功(ジャストを含む)とヌシ戦の始まりのあと、最初の命中のダメージを足す。
+  if (t.firstHit?.damage) boosts.push({ id: "first-hit", damageAdd: t.firstHit.damage, uses: 1 });
+  const zoneWidth = fightZoneWidth(game);
   game.fight = {
-    // 戦闘中の一時的な上乗せ(D-089)。ジャストなら、最初の当たりのダメージを上げる。
-    boosts:
-      grade === HOOK_GRADES.JUST
-        ? [{ id: "just", damageMultiplier: game.combat.hook.justMultiplier, uses: 1 }]
-        : [],
+    // 戦闘中の一時的な上乗せ(D-089・D-186)。戦闘が終わると消え、保存しない。
+    boosts,
+    // 連撃の段数(続けて命中した回数)。ミスで 0 に戻る(D-185)。
+    combo: 0,
     hp: minigame.hp,
     maxHp: minigame.hp,
     timeLimitMs: fightTimeLimit(minigame.timeLimitMs, game.combat, game.config.combatLimits),
-    zone,
+    // ルアーの命中範囲。広げても真ん中の位置は変えない(乱数の引き方は同じ:D-181)。
+    zoneWidth,
+    zone: widenZone(zone, zoneWidth, game.config.minigame.zoneMargin),
     // 「ミニゲームの系統」の乱数。魚の系統とは別なので、ここで何回引いても魚の並びは変わらない(D-064)。
     rng: createRng(minigameSeed),
-    // クリティカル専用の小さな系統。当たりのたびに必ず 1 回引く(D-079)。
+    // クリティカル専用の小さな系統。命中のたびに必ず 1 回引く(D-079)。
     critRng: createRng(critSeed(minigameSeed)),
     hits: 0,
     misses: 0,
@@ -350,53 +380,109 @@ function startFight(game, grade) {
   enter(game, PHASES.MINIGAME);
 }
 
+/**
+ * 命中 1 回の、条件発動型を含めた数値(D-184・D-190)。順は
+ * 基本のダメージ(表 + 連撃・攻 × 段数 + 先手)→ とどめを掛けて四捨五入 → (クリティカルの段数を掛ける → ジャスト倍率を掛ける)。
+ * 会心率は 表 + 連撃・心 × 段数 + 勢い + 先制。条件発動型がなければ、表のままの値(前と同じ結果)。
+ * 返り値の active は、この命中で効いた条件の名前(画面の小さな表示に使う)。
+ */
+export function triggeredStats(game) {
+  const { fight, combat, config } = game;
+  const t = game.triggers ?? {};
+  const limits = config.combatLimits;
+  const stages = Math.min(fight.combo, config.skills.comboMax);
+  /** @type {string[]} */
+  const active = [];
+  let damageAdd = 0;
+  let critAdd = 0;
+  let pct = 0;
+  if (stages > 0 && t.combo) {
+    damageAdd += (t.combo.damage ?? 0) * stages;
+    critAdd += (t.combo.critChance ?? 0) * stages;
+    active.push("combo");
+  }
+  const firstHit = boostSum(fight.boosts, "damageAdd");
+  if (firstHit > 0) {
+    damageAdd += firstHit;
+    active.push("firstHit");
+  }
+  const momentum = boostSum(fight.boosts, "critChanceAdd");
+  if (momentum > 0) {
+    critAdd += momentum;
+    active.push("afterCrit");
+  }
+  if (fight.hp >= fight.maxHp && t.fullHp?.critChance) {
+    critAdd += t.fullHp.critChance;
+    active.push("fullHp");
+  }
+  if (fight.hp <= fight.maxHp * config.skills.lowHpRatio && t.lowHp?.damagePct) {
+    pct += t.lowHp.damagePct;
+    active.push("lowHp");
+  }
+  if (damageAdd === 0 && critAdd === 0 && pct === 0) return { stats: combat, active };
+  const damage = Math.min(limits.maxDamage, Math.max(limits.minDamage, Math.round((combat.damage + damageAdd) * (1 + pct))));
+  const critChance = Math.min(limits.maxCritChance, Math.max(0, combat.critChance + critAdd));
+  return { stats: { ...combat, damage, critChance }, active };
+}
+
 function fightTap(game) {
   const { fight, config, combat } = game;
   const position = currentMarker(game);
   if (isHit(position, fight.zone)) {
-    // クリティカルの乱数は、当たりのたびに 1 回だけ引く。会心率 100% 超は追加の段(D-169)。
+    const { stats, active } = triggeredStats(game);
+    // クリティカルの乱数は、命中のたびに 1 回だけ引く。会心率 100% 超は追加の段(D-169)。
     const roll = fight.critRng();
     const limits = config.combatLimits;
-    const stages = critStages({ roll, stats: combat, position, zone: fight.zone }, game.critRules, limits.maxCritStages);
+    const stages = critStages({ roll, stats, position, zone: fight.zone }, game.critRules, limits.maxCritStages);
     const critical = stages > 0;
-    const boosted = fight.boosts.length > 0;
-    const damage = boostedDamage(hitDamage(combat, stages, limits), fight.boosts);
+    const boosted = fight.boosts.some((b) => b.damageMultiplier);
+    const damage = Math.min(limits.maxHitDamage, boostedDamage(hitDamage(stats, stages, limits), fight.boosts));
     fight.boosts = consumeBoosts(fight.boosts);
+    // 勢い:クリティカルのあと、次の命中の会心率を上げる(次の 1 回だけ)。
+    const momentum = game.triggers?.afterCrit?.critChance ?? 0;
+    if (critical && momentum > 0) fight.boosts.push({ id: "momentum", critChanceAdd: momentum, uses: 1 });
     // 残りの体力より大きいダメージは、超過を切り捨てる(体力は 0 より下にしない)。
     fight.hp = Math.max(0, fight.hp - damage);
     fight.hits += 1;
+    fight.combo += 1;
     if (critical) fight.crits += 1;
-    const base = { action: "hit", damage, critical, critStages: stages, boosted, hp: fight.hp, maxHp: fight.maxHp, position };
+    const base = {
+      action: "hit",
+      damage,
+      critical,
+      critStages: stages,
+      boosted,
+      triggers: active,
+      combo: fight.combo,
+      hp: fight.hp,
+      maxHp: fight.maxHp,
+      position,
+    };
     if (fight.hp === 0) {
       finish(game, OUTCOMES.CAUGHT, REASONS.HP_ZERO);
       return { ...base, caught: true };
     }
-    // 当たったら、当たり範囲の位置が変わる。
-    fight.zone = drawZone(fight.rng, {
+    // 命中したら、命中範囲の位置が変わる。幅は、引いたあとに真ん中を保って広げる(D-181)。
+    const drawn = drawZone(fight.rng, {
       zoneWidth: game.cast.minigame.zoneWidth,
       zoneMargin: config.minigame.zoneMargin,
     });
+    fight.zone = widenZone(drawn, fight.zoneWidth, config.minigame.zoneMargin);
     return { ...base, caught: false };
   }
-  // 外したら回復する。最大の体力はこえない。
+  // ミスしたら回復する。最大の体力はこえない。連撃は途切れる(D-185)。ミスのボーナスはない(D-181)。
   const before = fight.hp;
   fight.hp = Math.min(fight.maxHp, fight.hp + combat.missHeal);
   fight.misses += 1;
-  const heal = fight.hp - before;
-  // ルアー:外したあと、次の当たり 1 回のダメージを足す。外し続けても積み上げない(D-145)。
-  // 足す量は、その外しで魚が回復した量まで(D-176)。わざと外しても、差し引きで得にならない。
-  const bonus = Math.min(combat.missBonusDamage, heal);
-  if (bonus > 0 && !fight.boosts.some((b) => b.id === "lure")) {
-    fight.boosts.push({ id: "lure", damageBonus: bonus, uses: 1 });
-  }
-  return { action: "miss", heal, hp: fight.hp, maxHp: fight.maxHp, position };
+  fight.combo = 0;
+  return { action: "miss", heal: fight.hp - before, hp: fight.hp, maxHp: fight.maxHp, position };
 }
 
 /**
  * タップしたときの処理。場面ごとに意味がちがう。
  * - 掛かった:合わせ。輪が成功帯より前なら早すぎで逃げる。成功帯なら、弱い魚は巻き上げへ、
  *   強い魚は体力制のミニゲームへ(ジャストなら最初の一撃が上がる)。
- * - ミニゲーム:印が当たり範囲の中なら体力が減り、外なら回復する。
+ * - ミニゲーム:印が命中範囲の中なら命中(体力が減る)、外ならミス(回復する)。
  * - 休み:再開して、次の魚を投げる。
  * それ以外の場面では何もせず null を返す。
  */

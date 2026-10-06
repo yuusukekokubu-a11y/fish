@@ -72,8 +72,8 @@ test("ステータスの画面:竿の名前と段階、戦闘の数値の表か�
           ["通常ダメージ", "10"],
           ["クリティカルの確率", "10%"],
           ["クリティカルの倍率", "2 倍"],
-          ["外したときの回復", "10"],
-          ["外したあとの次の当たり", "+0"],
+          ["ミスしたときの回復", "10"],
+          ["命中範囲の広さ(ルアー)", "+0%"],
         ],
       ],
       ["時間", [["制限時間の増減", "+0 秒"]]],
@@ -111,7 +111,7 @@ test("ステータスの画面:戦闘の数値の表を書き換えると、表�
   };
   const game = createGame(1, { combat });
   const rows = rowsOf(statusView({ game }));
-  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.5 倍", "4", "+0", "+1.5 秒", "0.5 秒", "0.2 秒", "2 倍", "+0%", "+0%", "+0%"]);
+  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.5 倍", "4", "+0%", "+1.5 秒", "0.5 秒", "0.2 秒", "2 倍", "+0%", "+0%", "+0%"]);
   // マイナスの増減。
   const minus = createGame(1, { combat: { ...DEFAULT_CONFIG.combat, timeLimitBonusMs: -2000 } });
   assert.equal(rowsOf(statusView({ game: minus }))[5].value, "−2 秒");
@@ -123,7 +123,7 @@ test("ステータスの画面:装備を反映した今の値と、装備なし�
     items: [
       { id: 1, kind: "reel", rarity: "legend", grade: 5, value: 15, skills: [] },
       { id: 2, kind: "line", rarity: "normal", grade: 1, value: 700, skills: [] },
-      { id: 3, kind: "lure", rarity: "rare", grade: 1, value: 4, skills: [] },
+      { id: 3, kind: "lure", rarity: "rare", grade: 1, value: 8, skills: [] },
     ],
     equipped: { reel: 1, line: 2, lure: 3 },
     nextId: 4,
@@ -137,7 +137,7 @@ test("ステータスの画面:装備を反映した今の値と、装備なし�
     ["基本の値", "10"],
   ]);
   assert.equal(byLabel["制限時間の増減"].value, "+0.7 秒");
-  assert.equal(byLabel["外したあとの次の当たり"].value, "+4");
+  assert.equal(byLabel["命中範囲の広さ(ルアー)"].value, "+8%");
   assert.equal(byLabel["クリティカルの確率"].value, "10%", "装備のない項目はそのまま");
 });
 

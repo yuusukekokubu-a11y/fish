@@ -1,5 +1,5 @@
 // @ts-check
-// 装備・クレート・ガチャ(D-120〜D-123・D-137〜D-143・D-145〜D-149)。
+// 装備・クレート・ガチャ(D-120〜D-123・D-137〜D-143・D-146〜D-149・D-181)。
 // - 装備の種類とレア度は、下の表(データ)で決まる。種類は「戦闘の数値の表」の項目 1 つに足し算する。
 //   既にある項目を使う種類なら、表に 1 行足すだけで抽選に加わり、戦闘に効く。
 // - クレートは、魚と段階の表から自動で作る(段階ごとに 1 種類)。価格は段階の稼ぎの数式で決める。
@@ -122,10 +122,11 @@ export const EQUIP_KIND_ROWS = Object.freeze([
   {
     id: "lure",
     name: "ルアー",
-    stat: "missBonusDamage",
-    base: { min: 2, max: 4 },
+    // 命中範囲の幅を広げる割合(%)。幅 ×(1 + n / 100)。強い魚とヌシの戦いに効く(D-181)。
+    stat: "zoneWidthBonus",
+    base: { min: 5, max: 7.5 },
     step: 1,
-    display: { label: "外したあとの次の当たり", scale: 1, unit: "" },
+    display: { label: "命中範囲", scale: 1, unit: "%" },
   },
 ]);
 
@@ -399,7 +400,7 @@ export function dismantleRarity(progress, rarityId, crates, coinMax) {
 }
 
 /**
- * 装備を反映した戦闘の数値の表(D-145)。基本の表 → 足し算(装着中の装備の基本効果)。
+ * 装備を反映した戦闘の数値の表(D-181)。基本の表 → 足し算(装着中の装備の基本効果)。
  * 掛け算の効果は ②-4b 以降で、足し算のあとに掛ける。丸めと安全上限は、呼ぶ側の normalizeCombat が行う。
  * @template {Record<string, any>} T
  * @param {T} base @param {Gear} gear @param {readonly EquipKind[]} kinds

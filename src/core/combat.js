@@ -1,13 +1,13 @@
 // 戦闘の数値の表と、クリティカルの判定(D-068〜D-071・D-078〜D-080)。
-// 表の形:{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs, missBonusDamage, hook }
-// - damage:当たり 1 回で減る体力(通常ダメージ)
+// 表の形:{ damage, critChance, critMultiplier, missHeal, timeLimitBonusMs, zoneWidthBonus, hook }
+// - damage:命中 1 回で減る体力(通常ダメージ)
 // - critChance:クリティカルの確率(0〜1)
 // - critMultiplier:クリティカルのときの倍率
-// - missHeal:外したときに回復する体力
+// - missHeal:ミスしたときに回復する体力
 // - timeLimitBonusMs:魚ごとの制限時間に足す時間(装備の糸などで増える)
-// - missBonusDamage:外したあと、次の当たり 1 回に足すダメージ(装備のルアー。積み上げない:D-145)
+// - zoneWidthBonus:命中範囲の幅を広げる割合(%。装備のルアー:D-181)。幅 ×(1 + n / 100)
 // - hook:合わせの縮む輪 { normal: { ringMs, successMs, justMs }, strong: {...}, justMultiplier }(D-084・D-087)
-// 装備は、基本の表に足し算した表を作り、ここで点検してから使う(gear.js の applyGear:D-145)。
+// 装備は、基本の表に足し算した表を作り、ここで点検してから使う(gear.js の applyGear:D-181)。
 
 function finiteOr(value, fallback) {
   return Number.isFinite(value) ? value : fallback;
@@ -37,7 +37,7 @@ export function normalizeCombat(stats, base, limits) {
       -limits.maxTimeLimitBonusMs,
       limits.maxTimeLimitBonusMs,
     ),
-    missBonusDamage: clamp(Math.round(finiteOr(s.missBonusDamage, base.missBonusDamage ?? 0)), 0, limits.maxMissBonusDamage),
+    zoneWidthBonus: clamp(finiteOr(s.zoneWidthBonus, base.zoneWidthBonus ?? 0), 0, limits.maxZoneWidthBonus),
     hook: normalizeHook(s.hook, base.hook, limits),
   };
 }
@@ -86,16 +86,42 @@ export function judgeHook(timing, t) {
 }
 
 /**
- * 戦闘中の一時的な上乗せ(D-089・D-145)。{ id, damageMultiplier, damageBonus, uses } の一覧。
- * 当たりのダメージに、残っている上乗せの倍率を全部かけて四捨五入し、そのあと足し算の分(ルアー)を足す。
+ * 戦闘中の一時的な上乗せ(D-089・D-186)。{ id, damageMultiplier?, damageAdd?, critChanceAdd?, uses } の一覧。
+ * - damageMultiplier:命中のダメージに掛ける倍率(ジャスト)。クリティカルのあとに掛けて四捨五入する。
+ * - damageAdd:基本のダメージに足す量(先手)。critChanceAdd:会心率に足す量(勢い)。どちらも fishing.js が使う。
  */
 export function boostedDamage(damage, boosts) {
   const multiplier = boosts.reduce((m, b) => m * (b.damageMultiplier ?? 1), 1);
-  const bonus = boosts.reduce((sum, b) => sum + (b.damageBonus ?? 0), 0);
-  return Math.max(damage, Math.round(damage * multiplier)) + bonus;
+  return Math.max(damage, Math.round(damage * multiplier));
 }
 
-/** 当たったあと、上乗せの残り回数を 1 減らし、0 になったものを消す。 */
+/** 上乗せの、ある項目の合計。 @param {{ [k: string]: any }[]} boosts @param {string} key */
+export function boostSum(boosts, key) {
+  return boosts.reduce((sum, b) => sum + (b[key] ?? 0), 0);
+}
+
+/**
+ * ルアーで広げた命中範囲の幅(D-181)。幅 ×(1 + n / 100)を、上限(ゲージの 70%)と下限(10%)の中にする。
+ * 広げないとき(n が 0)は、元の幅をそのまま返す(前と同じ結果)。
+ */
+export function lureZoneWidth(width, stats, limits) {
+  const bonus = stats.zoneWidthBonus ?? 0;
+  if (!(bonus > 0)) return width;
+  return clamp(width * (1 + bonus / 100), limits.minZoneWidth, Math.max(width, limits.maxZoneWidth));
+}
+
+/**
+ * 命中範囲を、真ん中を保ったまま幅 width に広げる(D-181)。ゲージの端から margin 以上はなす。
+ * 幅が同じなら、元の範囲をそのまま返す(乱数の引き方も、結果も変わらない)。
+ */
+export function widenZone(zone, width, margin) {
+  if (width === zone.end - zone.start) return zone;
+  const center = (zone.start + zone.end) / 2;
+  const start = clamp(center - width / 2, margin, Math.max(margin, 1 - margin - width));
+  return { start, end: start + width };
+}
+
+/** 命中したあと、上乗せの残り回数を 1 減らし、0 になったものを消す。 */
 export function consumeBoosts(boosts) {
   return boosts.map((b) => ({ ...b, uses: b.uses - 1 })).filter((b) => b.uses > 0);
 }

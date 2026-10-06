@@ -13,10 +13,21 @@
  * - hook:合わせの輪の帯(successMs か justMs)を、弱い魚と強い魚の両方で広げる。
  * - reward:報酬(coins か scales)を、1 + レベル × perLevel 倍にする。
  * - wait:待ち時間を、1 − レベル × perLevel 倍にする(下限あり)。
+ * - trigger:条件発動型(D-184〜D-187)。戦闘の流れの条件(when)を満たした命中にだけ、効果(effect)を足す。
+ *   when:"combo"(連撃の段数 1 段ごと)・"firstHit"(合わせ成功のあとの最初の命中)・"just"(ジャストのあとの最初の命中)・
+ *   "lowHp"(体力が最大の一定割合以下)・"afterCrit"(クリティカルの次の命中)・"fullHp"(体力が満タン)。
+ *   effect:"damage"(ダメージを足す)・"critChance"(会心率を足す)・"damagePct"(ダメージを 1 + n 倍)・
+ *   "justMultiplier"(ジャスト倍率を足す)。
  * @typedef {{ kind: "combat", stat: string, op: "add" | "scale" } | { kind: "hook", band: "successMs" | "justMs" }
- *   | { kind: "reward", what: "coins" | "scales" } | { kind: "wait" }} SkillTarget
+ *   | { kind: "reward", what: "coins" | "scales" } | { kind: "wait" }
+ *   | { kind: "trigger", when: TriggerWhen, effect: TriggerEffect }} SkillTarget
  */
 
+/**
+ * スキルの表の 1 行。
+ * @typedef {"combo" | "firstHit" | "just" | "lowHp" | "afterCrit" | "fullHp"} TriggerWhen
+ * @typedef {"damage" | "critChance" | "damagePct" | "justMultiplier"} TriggerEffect
+ */
 /**
  * スキルの表の 1 行。
  * @typedef {object} SkillRow
@@ -25,7 +36,8 @@
  * @property {"growth" | "capped"} type 成長型(最大は竿の段階で伸びる)か、頭打ち型(最大 Lv3)
  * @property {SkillTarget} target
  * @property {number} perLevel 1 レベルあたりの効果(target の単位)
- * @property {{ label: string, scale: number, unit: string, sign: "+" | "−" }} display 効果の見せ方
+ * @property {{ label: string, scale: number, unit: string, sign: "+" | "−", when?: string }} display 効果の見せ方
+ *   (when は条件発動型の条件の短い言い方。例:「連続命中 1 段ごとに」)
  * @property {string} description 一言の説明(一文)
  */
 
@@ -121,6 +133,70 @@ export const SKILL_ROWS = Object.freeze([
     display: { label: "外したときの回復", scale: 0.01, unit: "%", sign: "−" },
     description: "外したときの魚の回復が減る。Lv3 で回復しない。",
   },
+  // ここから条件発動型(D-184)。番号はセーブコードに使うので、表の末尾に足す(D-188)。
+  {
+    id: "combo-power",
+    name: "連撃・攻",
+    type: "growth",
+    target: { kind: "trigger", when: "combo", effect: "damage" },
+    perLevel: 1,
+    display: { label: "ダメージ", scale: 1, unit: "", sign: "+", when: "連続命中 1 段ごとに" },
+    description: "続けて命中するほど、ダメージが増える。ミスで途切れる。",
+  },
+  {
+    id: "combo-crit",
+    name: "連撃・心",
+    type: "growth",
+    target: { kind: "trigger", when: "combo", effect: "critChance" },
+    perLevel: 0.03,
+    display: { label: "会心率", scale: 0.01, unit: "%", sign: "+", when: "連続命中 1 段ごとに" },
+    description: "続けて命中するほど、クリティカルが出やすくなる。ミスで途切れる。",
+  },
+  {
+    id: "first-hit",
+    name: "先手",
+    type: "growth",
+    target: { kind: "trigger", when: "firstHit", effect: "damage" },
+    perLevel: 4,
+    display: { label: "ダメージ", scale: 1, unit: "", sign: "+", when: "合わせ成功のあとの最初の命中で" },
+    description: "合わせが成功したあとの最初の命中が強くなる。ヌシ戦は始まりで効く。",
+  },
+  {
+    id: "just-boost",
+    name: "ジャスト・ブースト",
+    type: "growth",
+    target: { kind: "trigger", when: "just", effect: "justMultiplier" },
+    perLevel: 0.15,
+    display: { label: "ジャスト倍率", scale: 1, unit: "", sign: "+", when: "ジャストのあとの最初の命中で" },
+    description: "合わせがジャストのとき、最初の命中の倍率が上がる。",
+  },
+  {
+    id: "finisher",
+    name: "とどめ",
+    type: "growth",
+    target: { kind: "trigger", when: "lowHp", effect: "damagePct" },
+    perLevel: 0.15,
+    display: { label: "ダメージ", scale: 0.01, unit: "%", sign: "+", when: "魚の体力 25% 以下で" },
+    description: "魚の体力が残り少ないとき、ダメージが増える。",
+  },
+  {
+    id: "momentum",
+    name: "勢い",
+    type: "growth",
+    target: { kind: "trigger", when: "afterCrit", effect: "critChance" },
+    perLevel: 0.1,
+    display: { label: "会心率", scale: 0.01, unit: "%", sign: "+", when: "クリティカルの次の命中で" },
+    description: "クリティカルが出たら、次の命中もクリティカルが出やすい。",
+  },
+  {
+    id: "first-strike",
+    name: "先制",
+    type: "growth",
+    target: { kind: "trigger", when: "fullHp", effect: "critChance" },
+    perLevel: 0.1,
+    display: { label: "会心率", scale: 0.01, unit: "%", sign: "+", when: "魚の体力が満タンのとき" },
+    description: "魚の体力が満タンの間、クリティカルが出やすい。",
+  },
 ]);
 
 /**
@@ -134,6 +210,8 @@ export const SKILL_ROWS = Object.freeze([
  * @property {number} pointsGradeGrowth グレードが 1 上がるごとに、ポイントの範囲が増える割合
  * @property {Record<string, number>} pointsRarityMultiplier レア度ごとのポイントの倍率
  * @property {number} minWaitMs 俊敏で短くしても、待ち時間はこれより短くしない
+ * @property {number} comboMax 連撃の最大段数(D-185)
+ * @property {number} lowHpRatio 「とどめ」が効く、魚の体力の割合(この割合以下で効く)
  */
 
 /** @param {string} id @param {readonly SkillRow[]} [skills] */
@@ -295,10 +373,39 @@ export function scaledReward(base, rate, carry) {
 }
 
 /**
- * スキルの効果の見せ方(例:「会心率 +20%」「待ち時間 −30%」)。
- * @param {SkillRow} skill @param {number} level
+ * スキルの効果の見せ方(例:「会心率 +20%」「待ち時間 −30%」「連続命中 1 段ごとにダメージ +2(最大 10 段)」)。
+ * @param {SkillRow} skill @param {number} level @param {SkillConfig | null} [config] 連撃の最大段数を添えるとき
  */
-export function formatSkillEffect(skill, level) {
+export function formatSkillEffect(skill, level, config = null) {
   const n = Math.round((skillAmount(skill, level) / skill.display.scale) * 1000) / 1000;
-  return `${skill.display.label} ${skill.display.sign}${n}${skill.display.unit}`;
+  const text = `${skill.display.label} ${skill.display.sign}${n}${skill.display.unit}`;
+  const d = skill.display;
+  if (!d.when) return text;
+  // 条件発動型:条件の短い言い方を前に付ける。連撃は最大段数も添える(例:「連続命中 1 段ごとにダメージ +2(最大 10 段)」)。
+  const t = /** @type {{ when: string }} */ (skill.target);
+  const limit = t.when === "combo" && config ? `(最大 ${config.comboMax} 段)` : "";
+  return `${d.when}${text}${limit}`;
 }
+
+/**
+ * 条件発動型の効果の量(D-184)。レベル 0 のスキルは入れない。
+ * 返り値は、条件(when)ごとに、効果(effect)の合計。例:{ combo: { damage: 3, critChance: 0.06 }, lowHp: { damagePct: 0.3 } }。
+ * 同じ条件と効果のスキルを表に足すと、ここで合わさる(コードを変えずに計算に加わる)。
+ * @param {Record<string, SkillState>} states @param {readonly SkillRow[]} [skills]
+ * @returns {TriggerTable}
+ */
+export function triggerAmounts(states, skills = SKILL_ROWS) {
+  /** @type {TriggerTable} */
+  const table = {};
+  for (const skill of skills) {
+    const t = skill.target;
+    if (t.kind !== "trigger") continue;
+    const level = states[skill.id]?.level ?? 0;
+    if (level === 0) continue;
+    const row = (table[t.when] ??= {});
+    row[t.effect] = (row[t.effect] ?? 0) + skillAmount(skill, level);
+  }
+  return table;
+}
+
+/** @typedef {Partial<Record<TriggerWhen, Partial<Record<TriggerEffect, number>>>>} TriggerTable */
