@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { defineFish, FISH_ROWS, makeContent } from "../src/core/fish.js";
 import { emptyGear } from "../src/core/gear.js";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -73,4 +74,19 @@ export function makeAimCenter(currentMarker) {
 /** 竿の段階 rodStage・工程 rodStep の、鱗もウロコインもない進み具合(テスト用)。 */
 export function progressAt(rodStage, rodStep = "none", extra = {}) {
   return { coins: 0, scales: {}, rodStage, rodStep, seen: [], gear: emptyGear(), ...extra };
+}
+
+/**
+ * 段階 6 を足した表(足すのは魚の表の行だけ:名前・区分・段階・見た目。数値は式から:D-225)。
+ * 段階 6 の魚:カサゴ(弱い魚)・カンパチ(強い魚)・ヌシ・カンパチ。
+ */
+export const STAGE6_ROWS = Object.freeze([
+  { id: "kasago", name: "カサゴ", kind: "weak", stage: 6, color: "#fefae0", size: 26 },
+  { id: "kanpachi", name: "カンパチ", kind: "strong", stage: 6, color: "#bc6c25", size: 46 },
+  { id: "nushi-kanpachi", name: "ヌシ・カンパチ", kind: "boss", stage: 6, color: "#7f4f24", size: 62 },
+]);
+
+/** 段階 6 を足した表 1 組。equipKinds・skills を渡すと、それも差し替える。 */
+export function stage6Content(equipKinds = undefined, skills = undefined) {
+  return makeContent([...FISH_ROWS, ...STAGE6_ROWS].map((r) => defineFish(r)), undefined, equipKinds, skills);
 }

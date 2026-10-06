@@ -740,3 +740,12 @@
   font-size: 15px;
   opacity: 0.85;
 }
+/* 古い版のデータの案内(D-223)。 */
+.old-data-text {
+  margin: 4px 2px 14px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.old-data-ok {
+  width: 100%;
+}

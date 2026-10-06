@@ -1,121 +1,205 @@
-// 保存の形式のテスト(版 1〜6 → 版 7 の読み替え、壊れたデータ:②-3c の受け入れ条件 11・②-4a の受け入れ条件 11)。
+// 保存の形(版 1)とセーブコード(TSURI1)のテスト(②-4c 土台の条件 6・7・8:D-223・D-232)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { createGame } from "../src/core/fishing.js";
-import { COUNT_MAX, ROD_STEPS } from "../src/core/rod.js";
-import { initialProgress, MIGRATIONS, migrate, parseSave, readSaveData, SAVE_VERSION, toSaveData } from "../src/core/save.js";
-import { progressAt } from "./helpers.js";
+import { DEFAULT_CONFIG } from "../src/core/config.js";
+import { DEFAULT_CONTENT } from "../src/core/fish.js";
+import { effectRange, RARITY_ROWS } from "../src/core/gear.js";
+import { levelRange } from "../src/core/skills.js";
+import { syntheticContent } from "../src/core/synthetic.js";
+import { decodeSave, encodeSave, initialProgress, SAVE_VERSION, STEP_ORDER } from "../src/core/save.js";
+import { checksum, decodeSaveCode, encodeSaveCode, parseSave, SAVE_CODE_ERRORS } from "../src/core/savecode.js";
+import { readText } from "./helpers.js";
 
-const SAMPLE = progressAt(3, ROD_STEPS.CRAFTED, {
-  coins: 123,
-  scales: { kurodai: 2, buri: 1, "nushi-kurodai": 1 },
-  seen: ["aji", "saba"],
-});
-
-test("保存の形は版 7:鱗は魚の id をキーにした表、竿は段階と工程、装備とガチャのまとまり", () => {
-  assert.equal(SAVE_VERSION, 7);
-  assert.deepEqual(toSaveData(SAMPLE), {
-    version: 7,
-    progress: {
-      coins: 123,
-      scales: { kurodai: 2, buri: 1, "nushi-kurodai": 1 },
-      rod: { stage: 3, step: "crafted" },
-      seen: ["aji", "saba"],
-      gear: { items: [], equipped: [], draws: 0, seed: null, nextId: 1 },
+/** いろいろな値を持つ、正しい進み具合。 */
+function sample() {
+  return {
+    coins: 12345,
+    scales: { kurodai: 3, "nushi-kurodai": 1 },
+    rodStage: 2,
+    rodStep: "crafted",
+    seen: ["aji", "kurodai"],
+    gear: {
+      items: [
+        { id: 1, kind: "reel", rarity: "legend", grade: 1, value: 5, skills: [{ id: "power", level: 2 }, { id: "crit-rate", level: 1 }, { id: "core", level: 2 }] },
+        { id: 4, kind: "line", rarity: "rare", grade: 2, value: 1500, skills: [{ id: "edge", level: 1 }] },
+        { id: 5, kind: "lure", rarity: "normal", grade: 1, value: 5, skills: [] },
+      ],
+      equipped: { reel: 1, line: 4 },
+      draws: 5,
+      seed: 123,
+      nextId: 6,
     },
-  });
+  };
+}
+
+/** 本文から、印の合ったコードを作る。 */
+const codeOf = (body) => `TSURI${SAVE_VERSION}-${body}-${checksum(body)}`;
+/** 正しい本文の、i 番目の欄を差し替える。 */
+function withField(i, text) {
+  const parts = encodeSave(sample()).split("~");
+  parts[i] = text;
+  return codeOf(parts.join("~"));
+}
+
+test("版 1 の形:7 つの欄(ウロコイン・竿・鱗・釣れた魚・ガチャ・装着・持ち物)を 36 進数の数と記号で書く", () => {
+  assert.equal(SAVE_VERSION, 1);
+  const body = encodeSave(sample());
+  assert.equal(body, "9ix~2.1~kurodai:3,nushi-kurodai:1~aji,kurodai~5.3f.6~1.1,0.4~1.7.1.5A2B1Q2,3.1.2.15oR1,1.8.1.5");
+  assert.match(encodeSaveCode(sample()), /^TSURI1-[0-9A-Za-z.,:~-]+-[0-9a-f]{8}$/);
 });
 
-test("保存して読むと、同じ値に戻る(全部の工程)", () => {
-  assert.deepEqual(parseSave(JSON.stringify(toSaveData(SAMPLE))), SAMPLE);
-  for (const step of [ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED]) {
-    const p = progressAt(2, step);
-    assert.deepEqual(parseSave(JSON.stringify(toSaveData(p))), p);
+test("書き出して読むと、完全に元に戻る(全部の工程・初めの状態・ガチャの種がまだないとき)", () => {
+  for (const step of STEP_ORDER) {
+    const p = { ...sample(), rodStage: step === "evolved" ? DEFAULT_CONTENT.maxStage : 2, rodStep: step };
+    assert.deepEqual(decodeSaveCode(encodeSaveCode(p)), { ok: true, progress: p }, step);
   }
-  const last = progressAt(DEFAULT_CONTENT.maxStage, ROD_STEPS.EVOLVED);
-  assert.deepEqual(parseSave(JSON.stringify(toSaveData(last))), last);
+  assert.deepEqual(decodeSaveCode(encodeSaveCode(initialProgress())), { ok: true, progress: initialProgress() });
+  const noSeed = initialProgress();
+  assert.equal(noSeed.gear.seed, null);
+  assert.equal(decodeSaveCode(encodeSaveCode(noSeed)).progress.gear.seed, null);
 });
 
-test("版 2 から読むと、ウロコインと竿の段階はそのまま(段階 n の未製作)、前の素材は同じ数のウロコインに換える", () => {
-  const v2 = { version: 2, progress: { coins: 50, material: 7, rodStage: 4, seen: ["aji", "kurodai"] } };
-  assert.deepEqual(parseSave(JSON.stringify(v2)), progressAt(4, ROD_STEPS.NONE, { coins: 57, seen: ["aji", "kurodai"] }));
-  // ウロコインの上限はこえない。
-  const big = { version: 2, progress: { coins: COUNT_MAX, material: 10, rodStage: 1, seen: [] } };
-  assert.equal(parseSave(JSON.stringify(big)).coins, COUNT_MAX);
-});
-
-test("版 1 から読むと、版 2〜6 を経て版 7 になる", () => {
-  const v1 = { version: 1, coins: 50, material: 7, rodStage: 2, seen: ["aji"] };
-  assert.deepEqual(migrate(v1).version, 7);
-  assert.deepEqual(readSaveData(v1), { ok: true, progress: progressAt(2, ROD_STEPS.NONE, { coins: 57, seen: ["aji"] }) });
-  assert.deepEqual(Object.keys(MIGRATIONS), ["1", "2", "3", "4", "5", "6"], "版ごとの小さな関数");
+test("鱗は持っているもの(1 以上)だけを書く", () => {
+  const p = { ...sample(), scales: { kurodai: 0, suzuki: 2 } };
+  assert.deepEqual(decodeSaveCode(encodeSaveCode(p)).progress.scales, { suzuki: 2 });
 });
 
 test("保存したものからゲームを作ると、続きから遊べる(読んだものは書き換えない)", () => {
-  const progress = parseSave(JSON.stringify(toSaveData(SAMPLE)));
+  const code = encodeSaveCode(sample());
+  const progress = parseSave(code);
   const game = createGame(1, { progress });
-  assert.deepEqual(game.progress, SAMPLE);
-  game.progress.coins = 999;
-  game.progress.scales.kurodai = 0;
-  assert.equal(progress.coins, 123);
-  assert.equal(progress.scales.kurodai, 2);
+  assert.equal(game.progress.coins, 12345);
+  assert.equal(game.progress.gear.equipped.reel, 1);
+  game.progress.coins = 0;
+  assert.equal(progress.coins, 12345);
 });
 
-test("表にない魚の鱗や id が残っていても、エラーにならず、消さずに持ち続ける", () => {
-  const data = toSaveData(progressAt(1, ROD_STEPS.NONE, { scales: { "old-fish": 4, kurodai: 1 }, seen: ["old-fish", "aji", "aji"] }));
-  const p = parseSave(JSON.stringify(data));
-  assert.deepEqual(p.scales, { "old-fish": 4, kurodai: 1 });
-  assert.deepEqual(p.seen, ["old-fish", "aji"], "重なりは除く");
+test("前後の空白や途中の改行があっても読め、読み込みは渡したものを書き換えない", () => {
+  const code = encodeSaveCode(sample());
+  assert.equal(decodeSaveCode(`  ${code.slice(0, 30)}\n${code.slice(30)}  `).ok, true);
+  const p = sample();
+  const before = JSON.stringify(p);
+  encodeSaveCode(p);
+  assert.equal(JSON.stringify(p), before);
 });
 
-test("壊れた・形のちがう・範囲外の保存データは、エラーにせず初めの状態にする", () => {
-  const good = toSaveData(SAMPLE);
-  const v3 = (over) => JSON.stringify({ version: 7, progress: { ...good.progress, ...over } });
-  const broken = [
-    null,
-    undefined,
-    "",
-    "{",
-    "null",
-    "[]",
-    "42",
-    JSON.stringify({ version: 8, progress: good.progress }),
-    JSON.stringify({ progress: good.progress }),
-    JSON.stringify({ version: 7 }),
-    JSON.stringify({ version: 7, progress: [] }),
-    JSON.stringify({ version: 6, progress: [] }),
-    JSON.stringify({ version: 5, progress: [] }),
-    JSON.stringify({ version: 4, progress: [] }),
-    JSON.stringify({ version: 3, progress: [] }),
-    JSON.stringify({ version: 2, progress: { coins: -1, material: 0, rodStage: 1, seen: [] } }),
-    JSON.stringify({ version: 2, progress: { coins: 1, material: 0, rodStage: 9, seen: [] } }),
-    v3({ coins: -1 }),
-    v3({ coins: 1.5 }),
-    v3({ coins: COUNT_MAX + 1 }),
-    v3({ scales: [] }),
-    v3({ scales: { kurodai: -1 } }),
-    v3({ scales: { kurodai: "3" } }),
-    v3({ scales: { "Bad Id": 1 } }),
-    v3({ rod: { stage: 0, step: "none" } }),
-    v3({ rod: { stage: DEFAULT_CONTENT.maxStage + 1, step: "none" } }),
-    v3({ rod: { stage: 2, step: "unknown" } }),
-    v3({ rod: { stage: 2, step: "evolved" } }),
-    v3({ rod: { stage: 2.5, step: "none" } }),
-    v3({ rod: null }),
-    v3({ seen: "aji" }),
-    v3({ seen: [3] }),
-  ];
-  for (const text of broken) {
-    assert.deepEqual(parseSave(text), initialProgress(), String(text).slice(0, 80));
+test("古い版のコード(FISH2〜FISH7)は読まず「古い版のコードは読めません」", () => {
+  assert.equal(SAVE_CODE_ERRORS.old, "古い版のコードは読めません");
+  for (const v of [2, 3, 4, 5, 6, 7]) {
+    const r = decodeSaveCode(`FISH${v}-eyJ2ZXJzaW9uIjo3fQ-12345678`);
+    assert.deepEqual([r.ok, r.error, r.message], [false, "old", "古い版のコードは読めません"], `FISH${v}`);
   }
 });
 
-test("鱗の種類が多すぎるデータは拒否する(1000 種類まで)", () => {
-  const scales = Object.fromEntries(Array.from({ length: 1001 }, (_, i) => [`f${i}`, 1]));
-  const text = JSON.stringify({ version: 3, progress: { coins: 0, scales, rod: { stage: 1, step: "none" }, seen: [] } });
-  assert.deepEqual(parseSave(text), initialProgress());
-  assert.deepEqual(parseSave(text), initialProgress());
+test("空・切れた・1 文字ちがう・ちがう形・ちがう版のコードは拒否する", () => {
+  const code = encodeSaveCode(sample());
+  assert.equal(decodeSaveCode("").error, "empty");
+  assert.equal(decodeSaveCode(null).error, "empty");
+  assert.equal(decodeSaveCode(code.slice(0, code.length - 3)).error, "format");
+  assert.equal(decodeSaveCode(code.slice(0, 40) + "-" + code.slice(-8)).error, "checksum");
+  const i = code.indexOf("kurodai");
+  assert.equal(decodeSaveCode(code.slice(0, i) + "x" + code.slice(i + 1)).error, "checksum");
+  assert.equal(decodeSaveCode("hello").error, "format");
+  assert.equal(decodeSaveCode("TSURI1-abc").error, "format");
+  const body = encodeSave(sample());
+  assert.equal(decodeSaveCode(`TSURI2-${body}-${checksum(body)}`).error, "version");
+  assert.equal(decodeSaveCode("TSURI1-" + "a".repeat(60000) + "-00000000").error, "format");
+});
+
+test("壊れた・範囲外・存在しない魚や工程・重複・装着の番号が持ち物にない、は拒否する(content)", () => {
+  const bad = {
+    欄が足りない: codeOf("1~1.0~~~0..1~"),
+    ウロコインが大きすぎ: withField(0, "zzzzzzzzzzzz"),
+    ウロコインの先頭が0: withField(0, "01"),
+    ウロコインが記号: withField(0, "-1"),
+    段階0: withField(1, "0.0"),
+    段階が表をこえる: withField(1, "6.0"),
+    存在しない工程: withField(1, "2.4"),
+    進化済みは最後の段階だけ: withField(1, "2.3"),
+    竿の欄の形: withField(1, "2"),
+    存在しない魚の鱗: withField(2, "maguro:1"),
+    鱗が0: withField(2, "kurodai:0"),
+    鱗が重複: withField(2, "kurodai:1,kurodai:2"),
+    鱗の形: withField(2, "kurodai"),
+    存在しない魚を釣った: withField(3, "katsuo"),
+    釣れた魚が重複: withField(3, "aji,aji"),
+    ガチャの欄の形: withField(4, "5.3f"),
+    ガチャの種が大きすぎ: withField(4, `5.${(2 ** 32).toString(36)}.6`),
+    次の番号が0: withField(4, "5.3f.0"),
+    次の番号が持ち物の番号以下: withField(4, "5.3f.5"),
+    装着の番号が持ち物にない: withField(5, "1.2"),
+    装着の枠と種類がちがう: withField(5, "0.1"),
+    同じ枠に二重: withField(5, "1.1,1.1"),
+    存在しない枠: withField(5, "9.1"),
+    存在しない種類とレア度: withField(6, "1.z.1.5"),
+    グレードが0: withField(6, "1.7.0.5"),
+    グレードが表をこえる: withField(6, "1.7.6.5"),
+    値が範囲外: withField(6, "1.7.1.z"),
+    スキルがレア度の数より多い: withField(6, "1.1.1.5A1"),
+    同じスキルが2回: withField(6, "1.7.1.5A1A1"),
+    レベルが範囲外: withField(6, "1.7.1.5A9"),
+    存在しないスキル: withField(6, "1.7.1.5Z1"),
+    個体の番号が重複: withField(6, "1.7.1.5,0.7.1.5"),
+    装備の形: withField(6, "1.7.1"),
+  };
+  for (const [name, code] of Object.entries(bad)) {
+    const r = decodeSaveCode(code);
+    assert.equal(r.ok, false, name);
+    assert.equal(r.error, "content", name);
+  }
+  // 持ち物が 100 個をこえる(装着なし、次の番号は 200)。
+  const parts = encodeSave(sample()).split("~");
+  parts[4] = "5.3f.5k";
+  parts[5] = "";
+  parts[6] = Array.from({ length: 101 }, () => "1.8.1.5").join(",");
+  assert.equal(decodeSaveCode(codeOf(parts.join("~"))).error, "content");
+  parts[6] = Array.from({ length: 100 }, () => "1.8.1.5").join(",");
+  assert.equal(decodeSaveCode(codeOf(parts.join("~"))).ok, true, "100 個までは読める");
+});
+
+test("壊れた保存データは、エラーにせず初めの状態にする(いまのデータは書き換えない)", () => {
+  for (const text of [null, "", "{}", "FISH7-abc-12345678", withField(1, "9.9"), "TSURI1-x-00000000"]) {
+    assert.deepEqual(parseSave(text), initialProgress(), String(text));
+  }
+  assert.equal(decodeSave(123).ok, false);
+});
+
+test("セーブコードの長さ:持ち物 100 個(全部スキル 3 つ・最大の値)・鱗 20 種類で 3000 文字以内", () => {
+  // 鱗 20 種類を持てるよう、段階 10(魚 30 種類)の大きな表で数える。
+  const content = syntheticContent(10);
+  const kinds = ["line", "reel", "lure"];
+  const items = Array.from({ length: 100 }, (_, i) => {
+    const kind = content.equipKinds.find((k) => k.id === kinds[i % 3]);
+    const range = effectRange(kind, RARITY_ROWS[3], 10, DEFAULT_CONFIG.gacha.gradeGrowth);
+    const lv = levelRange("legend", 10, DEFAULT_CONFIG.skills).max;
+    return { id: i * 3 + 1, kind: kind.id, rarity: "legend", grade: 10, value: range.max, skills: [{ id: "power", level: lv }, { id: "crit-rate", level: lv }, { id: "edge", level: lv }] };
+  });
+  const scaleFish = content.fish.filter((f) => f.reward.scales > 0).slice(0, 20);
+  assert.equal(scaleFish.length, 20);
+  const scales = Object.fromEntries(scaleFish.map((f, i) => [f.id, 999999 + i]));
+  const p = {
+    coins: Number.MAX_SAFE_INTEGER,
+    scales,
+    rodStage: 10,
+    rodStep: "defeated",
+    seen: content.fish.slice(0, 20).map((f) => f.id),
+    gear: { items, equipped: { line: 1, reel: 4, lure: 7 }, draws: 999999, seed: 4294967295, nextId: 400 },
+  };
+  const code = encodeSaveCode(p, content);
+  assert.ok(code.length <= 3000, `長さ ${code.length}`);
+  assert.deepEqual(decodeSaveCode(code, content).progress, p);
+});
+
+test("互換の正解データ(compat_v1.json):いつまでも読めて、同じ結果になる(消さない:DESIGN の決まり)", () => {
+  const fixture = JSON.parse(readText("tests/fixtures/compat_v1.json"));
+  assert.equal(fixture.version, 1);
+  for (const c of fixture.cases) {
+    const r = decodeSaveCode(c.code);
+    assert.deepEqual(r, { ok: true, progress: c.progress }, c.name);
+    assert.equal(encodeSaveCode(c.progress), c.code, `${c.name}:書き出しも同じ`);
+  }
+  for (const c of fixture.rejected) assert.equal(decodeSaveCode(c.code).error, c.error, c.name);
 });

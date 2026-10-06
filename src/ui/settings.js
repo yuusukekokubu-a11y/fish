@@ -5,6 +5,9 @@
 
 import { decodeSaveCode, encodeSaveCode } from "../core/savecode.js";
 
+/** 書き出しと読み込み(ctx.saveCode がなければ、港の表と本番の点検)。 */
+const DEFAULT_SAVE_CODE = { encode: (progress) => encodeSaveCode(progress), decode: (text) => decodeSaveCode(text) };
+
 // 「データを消す」を 2 回目に押せる時間。
 export const RESET_CONFIRM_MS = 3000;
 
@@ -17,10 +20,11 @@ function el(tag, attrs = {}, text = "") {
 
 /**
  * 設定の画面の中身を container に作る。
- * ctx:{ game, storage: { save(progress) → 保存できたら true, clear() }, reload() }。
+ * ctx:{ game, storage: { save(progress) → 保存できたら true, clear() }, reload(), saveCode?: { encode, decode } }。
  */
 export function mountSettings(container, ctx) {
   const { game, storage, reload } = ctx;
+  const saveCode = ctx.saveCode ?? DEFAULT_SAVE_CODE;
 
   const code = el("section", { class: "screen-section" });
   code.append(el("h2", { class: "section-title" }, "セーブコード"));
@@ -45,11 +49,11 @@ export function mountSettings(container, ctx) {
   };
 
   exportButton.addEventListener("click", () => {
-    text.value = encodeSaveCode(game.progress);
+    text.value = saveCode.encode(game.progress);
     show("書き出しました");
   });
   copy.addEventListener("click", async () => {
-    if (text.value === "") text.value = encodeSaveCode(game.progress);
+    if (text.value === "") text.value = saveCode.encode(game.progress);
     try {
       await navigator.clipboard.writeText(text.value);
       show("コピーしました");
@@ -61,7 +65,7 @@ export function mountSettings(container, ctx) {
     }
   });
   importButton.addEventListener("click", () => {
-    const result = decodeSaveCode(text.value);
+    const result = saveCode.decode(text.value);
     if (!result.ok) {
       show(result.message, true);
       return;

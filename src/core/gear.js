@@ -6,6 +6,7 @@
 // - ガチャの乱数は、魚とミニゲームの乱数とは別の系統。種と「何回目に引いたか」から作る(D-141)。
 // このファイルは JSDoc(コメントで型を書く方法)で型を書き、`npm run typecheck` で確かめる(D-144)。
 
+import { gradeFactor } from "./formula.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { createRng } from "./rng.js";
 import { levelRange, SKILL_ROWS } from "./skills.js";
@@ -216,7 +217,7 @@ export function makeCrates(content, config, rarities = RARITY_ROWS) {
  * @returns {{ min: number, max: number }}
  */
 export function effectRange(kind, rarity, grade, gradeGrowth) {
-  const factor = (1 + gradeGrowth * (grade - 1)) * rarity.multiplier;
+  const factor = gradeFactor(grade, gradeGrowth) * rarity.multiplier;
   /** @param {number} v */
   const quantize = (v) => Math.max(kind.step, Math.round(v / kind.step) * kind.step);
   const min = quantize(kind.base.min * factor);

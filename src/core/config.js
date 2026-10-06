@@ -77,6 +77,37 @@ export const DEFAULT_CONFIG = Object.freeze({
     comboMax: 10, // 連撃の最大段数(D-185)
     lowHpRatio: 0.25, // 「とどめ」は魚の体力が最大の 25% 以下で効く(D-184)
   }),
+  // 魚と段階の数値の式の数(D-225・D-230)。式の形は formula.js。g は通し番号(段階 1, 2, 3…)。
+  formula: Object.freeze({
+    // ウロコイン:弱い魚 1 → 3 → 8 → 20 → 48 …(1 段ごとの伸びがだんだん下がる)。強い魚は 5 倍、ヌシは強い魚の 10 倍。
+    weakCoins: 1,
+    coinGrowth: 1.1,
+    coinGrowthDecay: 10,
+    strongCoinRatio: 5,
+    bossCoinRatio: 10,
+    scalesPerCatch: 1, // 強い魚とヌシが落とす鱗の数
+    // 体力:強い魚 10 + 10g(20・30・40 …)、ヌシは 3.5 倍(D-115)。
+    hpBase: 10,
+    hpPerStage: 10,
+    bossHpRatio: 3.5,
+    // 制限時間:強い魚 8 秒 + 4 秒 × log5(g)、ヌシ 30 秒 + 20 秒 × log5(g)。
+    timeLimitMs: 8000,
+    timeLimitGrowthMs: 4000,
+    bossTimeLimitMs: 30000,
+    bossTimeLimitGrowthMs: 20000,
+    timeLimitLogBase: 5,
+    // 印の速さ 1000 − 100g ミリ秒(限界 450)、命中範囲の幅 0.25 − 0.03g(限界 0.10)。ヌシは 1 段先の値。
+    sweepMs: 1000,
+    sweepStepMs: 100,
+    zoneWidth: 0.25,
+    zoneStep: 0.03,
+    bossStageOffset: 1,
+    // 製作の鱗:3 + 7 ×(1 − e^(−(g−1)/8.7))を四捨五入(3・4・4・5・6 … 10)。進化はヌシの鱗 1。
+    craftMin: 3,
+    craftMax: 10,
+    craftDecay: 8.7,
+    evolveCount: 1,
+  }),
   // クレートガチャ(D-140・D-146・D-147・D-149)。
   gacha: Object.freeze({
     targetSeconds: 120, // クレート 1 回分が貯まる目標の時間

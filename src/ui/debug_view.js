@@ -1,22 +1,20 @@
 // @ts-check
 // デバッグ画面の中身(画面に触らない部分:D-214・D-219〜D-222)。?debug のときだけ使う。
-// - 保存場所は本番と分ける(DEBUG_SAVE_KEY)。本番の保存データは読みも書きもしない。
+// - 保存場所は本番と分ける(save_store.js の DEBUG_SAVE_KEY)。本番の保存データは読みも書きもしない。
 // - 決められる項目・プリセットは表で決める(DEBUG_FIELDS・DEBUG_PRESETS)。範囲の外は範囲の中に直す。
 // - すぐ戦う:ヌシ戦と同じく、シードと回数から作る別の乱数で魚を用意する(魚の系統は引かない:D-115・D-220)。
 // 計算本体(src/core)は変えない。JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { DEFAULT_CONTENT } from "../core/fish.js";
+import { growthMaxLevel } from "../core/formula.js";
 import { currentHookTiming, FISH_KINDS, HOOK_GRADES, makeBossCast, PHASES, refreshCombat, tap } from "../core/fishing.js";
 import { effectRange, EQUIP_KIND_ROWS, kindById, RARITY_ROWS, rarityById } from "../core/gear.js";
 import { ROD_STEPS } from "../core/rod.js";
-import { initialProgress, readSaveData } from "../core/save.js";
+import { parseSave } from "../core/savecode.js";
 import { SKILL_ROWS } from "../core/skills.js";
 
 /** @typedef {import("../core/gear.js").Item} Item */
-
-/** 本番の保存場所(SAVE_KEY)とは別の、デバッグ専用の保存場所(D-214)。 */
-export const DEBUG_SAVE_KEY = "fish:debug-save";
 
 /**
  * デバッグのデータを読むときの数値の表。装備のスキルのレベルを、そのスキルの最大まで許す(D-219)。
@@ -33,22 +31,15 @@ export const DEBUG_READ_CONFIG = Object.freeze({
 
 /** 装備 1 個に付けられるスキルのレベルの上限(デバッグ:D-219)。 @param {number} grade */
 export function debugLevelMax(grade) {
-  const s = DEFAULT_CONFIG.skills;
-  return s.growthMaxBase + s.growthMaxPerStage * grade;
+  return growthMaxLevel(grade, DEFAULT_CONFIG.skills);
 }
 
 /**
  * デバッグの保存の文字列を読む。壊れている・形がちがうときは、初めの状態。
- * @param {string | null} text @returns {any}
+ * @param {string | null} text @param {any} [content] @returns {any}
  */
-export function parseDebugSave(text) {
-  if (typeof text !== "string" || text === "") return initialProgress();
-  try {
-    const result = readSaveData(JSON.parse(text), DEFAULT_CONTENT, /** @type {any} */ (DEBUG_READ_CONFIG));
-    return result.ok ? result.progress : initialProgress();
-  } catch {
-    return initialProgress();
-  }
+export function parseDebugSave(text, content = DEFAULT_CONTENT) {
+  return parseSave(text, content, /** @type {any} */ (DEBUG_READ_CONFIG));
 }
 
 /** 整数にして、min〜max の中に直す。数でなければ null(受け付けない)。 @param {unknown} v @param {number} min @param {number} max */

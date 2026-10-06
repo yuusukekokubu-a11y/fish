@@ -1,0 +1,176 @@
+// 重いテスト:限界の確かめ(段階 100・魚 300 種類:②-4c 土台の条件 4・5、D-204・D-226・D-227・D-233)。
+// 本番の表は変えず、テストの中で大きな表(synthetic.js)を作る。結果の数字は報告に使う(console.log)。
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { DEFAULT_CONFIG } from "../../src/core/config.js";
+import { checkContent, FISH_KINDS } from "../../src/core/fish.js";
+import { createGame, update } from "../../src/core/fishing.js";
+import { craftCount, fishCoins, fishHp, fishSweepMs, fishTimeLimitMs, fishZoneWidth } from "../../src/core/formula.js";
+import { effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
+import { decodeSaveCode, encodeSaveCode, MAX_CODE_LENGTH } from "../../src/core/savecode.js";
+import { levelRange, maxLevel, SKILL_ROWS } from "../../src/core/skills.js";
+import { syntheticContent } from "../../src/core/synthetic.js";
+import { formatCount } from "../../src/ui/format.js";
+import { crateCards, inventoryRows } from "../../src/ui/gear_view.js";
+import { materialsView, statusView } from "../../src/ui/screen_views.js";
+import { skillRows } from "../../src/ui/skill_view.js";
+import { progressAt } from "../helpers.js";
+import { makePolicy } from "./policy.js";
+
+const G_MAX = 100;
+const BIG = syntheticContent(G_MAX);
+const GG = DEFAULT_CONFIG.gacha.gradeGrowth;
+const SAFE = Number.MAX_SAFE_INTEGER;
+
+test("段階 100・魚 300 種類の表:形に問題がなく、数字は安全な整数の範囲で、順序どおりに(単調に)伸びる", () => {
+  assert.equal(BIG.fish.length, 300);
+  assert.equal(BIG.maxStage, G_MAX);
+  assert.deepEqual(checkContent(BIG), []);
+  const crates = makeCrates(BIG, DEFAULT_CONFIG);
+  let prev = null;
+  for (let g = 1; g <= G_MAX; g++) {
+    const row = {
+      weak: fishCoins("weak", g),
+      strong: fishCoins("strong", g),
+      boss: fishCoins("boss", g),
+      hp: fishHp("strong", g),
+      bossHp: fishHp("boss", g),
+      time: fishTimeLimitMs("strong", g),
+      bossTime: fishTimeLimitMs("boss", g),
+      craft: craftCount(g),
+      price: crates[g - 1].price,
+    };
+    for (const [k, v] of Object.entries(row)) assert.ok(Number.isSafeInteger(v) && v > 0 && v < SAFE, `g=${g} ${k}=${v}`);
+    if (prev) for (const k of Object.keys(row)) assert.ok(row[k] >= prev[k], `g=${g} ${k} が下がった:${prev[k]} → ${row[k]}`);
+    // 限界:幅 10% 以上、印の速さ 0.45 秒以上。段が進むほど厳しく(同じか)。
+    for (const kind of ["strong", "boss"]) {
+      assert.ok(fishZoneWidth(kind, g) >= 0.1 && fishSweepMs(kind, g) >= 450, `g=${g} ${kind}`);
+      if (g > 1) assert.ok(fishZoneWidth(kind, g) <= fishZoneWidth(kind, g - 1) && fishSweepMs(kind, g) <= fishSweepMs(kind, g - 1));
+    }
+    // 装備の基本効果とスキルのレベル(グレード g のレジェンドの最大)。
+    for (const kind of BIG.equipKinds) {
+      const r = effectRange(kind, RARITY_ROWS[3], g, GG);
+      assert.ok(Number.isSafeInteger(r.max) && r.max < SAFE, `g=${g} ${kind.id} ${r.max}`);
+    }
+    assert.ok(levelRange("legend", g, DEFAULT_CONFIG.skills).max <= maxLevel(SKILL_ROWS[0], g, DEFAULT_CONFIG.skills));
+    // 表示が崩れない(8 文字以内)。
+    for (const v of Object.values(row)) assert.ok(formatCount(v).length <= 8, `${v} → ${formatCount(v)}`);
+    prev = row;
+  }
+  const last = (g) => `ヌシ ${formatCount(fishCoins("boss", g))}・価格 ${formatCount(crates[g - 1].price)}・体力 ${fishHp("strong", g)}/${fishHp("boss", g)}`;
+  console.log([1, 5, 10, 25, 50, 100].map((g) => `g=${g}:${last(g)}・製作 ${craftCount(g)}`).join("\n"));
+  const top = fishCoins("boss", G_MAX);
+  console.log(`安全な整数までの余裕:ヌシ(g=100)のウロコイン ${top} は上限の ${(top / SAFE).toExponential(1)} 倍`);
+});
+
+/** 段階 g の平均的な装備(レア・グレード g・値は真ん中・スキルなし)を糸・リール・ルアーに付けた進み具合。 */
+function geared(g) {
+  const rare = RARITY_ROWS[1];
+  const items = BIG.equipKinds.map((kind, i) => {
+    const r = effectRange(kind, rare, g, GG);
+    return { id: i + 1, kind: kind.id, rarity: rare.id, grade: g, value: Math.round((r.min + r.max) / 2 / kind.step) * kind.step, skills: [] };
+  });
+  return progressAt(g, "none", {
+    gear: { items, equipped: Object.fromEntries(items.map((it) => [it.kind, it.id])), draws: 0, seed: 1, nextId: items.length + 1 },
+  });
+}
+
+/** 段階 g で、done(game) が true になるまでの時間(秒)。 */
+function secondsUntil(g, done, rate, hookOk, seed, limitMs = 3600000) {
+  const game = createGame(seed, { content: BIG, progress: geared(g) });
+  const policy = makePolicy(rate, hookOk, seed);
+  for (let t = 16; t <= limitMs; t += 16) {
+    update(game, 16);
+    policy(game);
+    if (done(game)) return t / 1000;
+  }
+  return Infinity;
+}
+
+const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+const SEEDS = [1, 2, 3, 4, 5];
+
+test("時間:クレート 1 回分は 1〜3 分(ときどき失敗でも 4 分以内)、製作までは g=1 で約 4 分、g=100 でも 30 分以内(上手に、段階 g の平均的な装備で)", () => {
+  const crates = makeCrates(BIG, DEFAULT_CONFIG);
+  const lines = [];
+  const worst = { crate: 0, sloppy: 0, craft: 0 };
+  const shown = [1, 2, 3, 4, 5, 10, 25, 50, 100];
+  for (let g = 1; g <= G_MAX; g++) {
+    const price = crates[g - 1].price;
+    const crateSkilled = median(SEEDS.map((s) => secondsUntil(g, (game) => game.progress.coins >= price, 1, 1, s)));
+    const crateSloppy = median(SEEDS.map((s) => secondsUntil(g, (game) => game.progress.coins >= price, 0.7, 0.8, s)));
+    const strong = BIG.fish.find((f) => f.kind === FISH_KINDS.STRONG && f.stage === g);
+    const need = craftCount(g);
+    const craft = median(SEEDS.map((s) => secondsUntil(g, (game) => (game.progress.scales[strong.id] ?? 0) >= need, 1, 1, s)));
+    worst.crate = Math.max(worst.crate, crateSkilled);
+    worst.sloppy = Math.max(worst.sloppy, crateSloppy);
+    worst.craft = Math.max(worst.craft, craft);
+    if (shown.includes(g)) lines.push(`g=${g}:クレート ${price}(上手 ${(crateSkilled / 60).toFixed(1)} 分・ときどき失敗 ${(crateSloppy / 60).toFixed(1)} 分)、製作 ${need} 枚 ${(craft / 60).toFixed(1)} 分`);
+    assert.ok(crateSkilled >= 60 && crateSkilled <= 180, `g=${g} クレート 上手 ${crateSkilled} 秒`);
+    assert.ok(crateSloppy <= 240, `g=${g} クレート ときどき失敗 ${crateSloppy} 秒`);
+    assert.ok(craft <= 1800, `g=${g} 製作 ${craft} 秒`);
+    if (g === 1) assert.ok(craft >= 120 && craft <= 330, `g=1 の製作 ${craft} 秒(約 3〜5 分)`);
+  }
+  lines.push(`全ての g(1〜100)で一番長いもの:クレート 上手 ${(worst.crate / 60).toFixed(1)} 分・ときどき失敗 ${(worst.sloppy / 60).toFixed(1)} 分、製作 ${(worst.craft / 60).toFixed(1)} 分`);
+  console.log(lines.join("\n"));
+});
+
+test("保存とセーブコード:魚 300 種類の鱗を全部・全部釣った・持ち物 100 個(スキル 3 つ)で往復し、上限の長さに収まる", () => {
+  const kinds = BIG.equipKinds;
+  const lv = levelRange("legend", G_MAX, DEFAULT_CONFIG.skills).max;
+  const items = Array.from({ length: 100 }, (_, i) => {
+    const kind = kinds[i % kinds.length];
+    return {
+      id: i + 1,
+      kind: kind.id,
+      rarity: "legend",
+      grade: G_MAX,
+      value: effectRange(kind, RARITY_ROWS[3], G_MAX, GG).max,
+      skills: [SKILL_ROWS[i % 18], SKILL_ROWS[(i + 1) % 18], SKILL_ROWS[(i + 2) % 18]].map((s) => ({ id: s.id, level: lv })),
+    };
+  });
+  const p = {
+    coins: SAFE,
+    scales: Object.fromEntries(BIG.fish.map((f, i) => [f.id, SAFE - i])),
+    rodStage: G_MAX,
+    rodStep: "evolved",
+    seen: BIG.fish.map((f) => f.id),
+    gear: { items, equipped: { line: 1, reel: 2, lure: 3 }, draws: SAFE, seed: 4294967295, nextId: 101 },
+  };
+  const code = encodeSaveCode(p, BIG);
+  assert.deepEqual(decodeSaveCode(code, BIG), { ok: true, progress: p });
+  assert.ok(code.length <= MAX_CODE_LENGTH, `長さ ${code.length}`);
+  console.log(`魚 300 種類の鱗を全部(数は最大)・全部釣った・持ち物 100 個(レジェンド・グレード 100・スキル 3 つ):${code.length} 文字(上限 ${MAX_CODE_LENGTH})`);
+});
+
+test("画面の中身:素材(鱗 200 行)・クレート(100 個)・スキル・ステータス・装備を、段階 100 の表で作れる(崩れの元になる値がない)", () => {
+  const p = geared(G_MAX);
+  p.scales = Object.fromEntries(BIG.fish.filter((f) => f.reward.scales > 0).map((f) => [f.id, SAFE]));
+  p.seen = BIG.fish.map((f) => f.id);
+  p.coins = SAFE;
+  const game = createGame(1, { content: BIG, progress: p });
+  const start = performance.now();
+  const materials = materialsView({ game });
+  const rows = materials.sections.flatMap((s) => s.rows);
+  assert.equal(materials.sections.length, G_MAX);
+  assert.equal(rows.length, 200, "強い魚とヌシの鱗");
+  const crates = makeCrates(BIG, DEFAULT_CONFIG);
+  const cards = crateCards(game, crates);
+  assert.equal(cards.length, G_MAX);
+  const status = statusView({ game });
+  const skills = skillRows(game);
+  const items = inventoryRows(game, crates, "rarity");
+  const ms = performance.now() - start;
+  const texts = [
+    ...rows.flatMap((r) => [r.label, r.value]),
+    ...cards.flatMap((c) => [c.name, c.price.one, c.price.ten]),
+    ...status.sections.flatMap((s) => s.rows.flatMap((r) => [r.label, r.value])),
+    ...skills.flatMap((s) => [s.label, s.effect]),
+  ];
+  for (const t of texts) assert.ok(typeof t === "string" && !/NaN|undefined|Infinity|e\+/.test(t), `表示:${t}`);
+  assert.ok(items.length === 3);
+  assert.ok(cards.every((c) => c.price.one.length <= 8 && c.price.ten.length <= 8), "価格は短い表示");
+  console.log(`段階 100 の画面の中身(素材 ${rows.length} 行・クレート ${cards.length} 個・ステータス・スキル)を作る時間:${ms.toFixed(1)} ミリ秒`);
+});

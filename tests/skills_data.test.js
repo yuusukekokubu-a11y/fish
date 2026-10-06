@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../src/core/config.js";
-import { defineFish, defineStage, FISH_ROWS, makeContent, STAGE_ROWS } from "../src/core/fish.js";
+import { makeContent } from "../src/core/fish.js";
 import { createGame } from "../src/core/fishing.js";
 import { effectRange, emptyGear, EQUIP_KIND_ROWS, equipItem, makeCrates, pullCrate, RARITY_ROWS } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
@@ -12,26 +12,9 @@ import { decodeSaveCode, encodeSaveCode } from "../src/core/savecode.js";
 import { levelRange } from "../src/core/skills.js";
 import { slotRows } from "../src/ui/gear_view.js";
 import { skillRows } from "../src/ui/skill_view.js";
-import { progressAt } from "./helpers.js";
+import { progressAt, stage6Content } from "./helpers.js";
 
 const GACHA = DEFAULT_CONFIG.gacha;
-
-function stage6Content() {
-  const fish = [
-    ...FISH_ROWS,
-    { id: "kisu", name: "キス", kind: "weak", stage: 6, coins: 120, scales: 0, color: "#fefae0", size: 26 },
-    {
-      id: "kanpachi", name: "カンパチ", kind: "strong", stage: 6, coins: 600, scales: 1, color: "#bc6c25", size: 46,
-      minigame: { sweepMs: 480, zoneWidth: 0.1, hp: 70, timeLimitMs: 13000 },
-    },
-    {
-      id: "nushi-kanpachi", name: "ヌシ・カンパチ", kind: "boss", stage: 6, coins: 6000, scales: 1, color: "#7f4f24", size: 62,
-      minigame: { sweepMs: 460, zoneWidth: 0.1, hp: 245, timeLimitMs: 55000 },
-    },
-  ];
-  const stages = [...STAGE_ROWS, { stage: 6, craft: { scale: "kanpachi", count: 2 }, boss: "nushi-kanpachi", evolve: { count: 1 } }];
-  return makeContent(fish.map(defineFish), stages.map(defineStage));
-}
 
 test("段階 6:成長型の最大は Lv8、グレード 6 の装備のレベルは範囲の中で、保存とセーブコードで往復する", () => {
   const content = stage6Content();

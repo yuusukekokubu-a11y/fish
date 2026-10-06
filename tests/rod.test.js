@@ -25,9 +25,9 @@ test("製作に要る鱗は、その段階の強い魚の鱗(3・4・4・5・6)�
     [
       ["kurodai", 3, "nushi-kurodai", 1],
       ["suzuki", 4, "nushi-suzuki", 1],
-      ["buri", 4, "nushi-buri", 1],
-      ["katsuo", 5, "nushi-katsuo", 1],
-      ["maguro", 6, "nushi-maguro", 1],
+      ["hirame", 4, "nushi-hirame", 1],
+      ["warasa", 5, "nushi-warasa", 1],
+      ["buri", 6, "nushi-buri", 1],
     ],
   );
 });
@@ -76,7 +76,7 @@ test("進化:ヌシ撃破でヌシの鱗があれば、ヌシの鱗を使って�
 
 test("表の最後の段階を進化すると「進化済み」で止まり、エラーにならない", () => {
   const last = DEFAULT_CONTENT.maxStage;
-  const p = progressAt(last, ROD_STEPS.DEFEATED, { scales: { "nushi-maguro": 1 } });
+  const p = progressAt(last, ROD_STEPS.DEFEATED, { scales: { "nushi-buri": 1 } });
   assert.equal(evolveRod(p), true);
   assert.equal(p.rodStage, last);
   assert.equal(p.rodStep, ROD_STEPS.EVOLVED);
@@ -91,7 +91,7 @@ test("竿の名前と、次に要る鱗", () => {
   assert.equal(rodName(progressAt(1, ROD_STEPS.CRAFTED)), "クロダイの釣竿");
   assert.equal(rodName(progressAt(1, ROD_STEPS.DEFEATED)), "クロダイの釣竿");
   assert.equal(rodName(progressAt(2)), "ヌシ・クロダイの釣竿");
-  assert.equal(rodName(progressAt(5, ROD_STEPS.EVOLVED)), "ヌシ・マグロの釣竿");
+  assert.equal(rodName(progressAt(5, ROD_STEPS.EVOLVED)), "ヌシ・ブリの釣竿");
   assert.deepEqual(nextNeed(progressAt(1, ROD_STEPS.NONE, { scales: { kurodai: 2 } })), { id: "kurodai", have: 2, need: 3 });
   assert.deepEqual(nextNeed(progressAt(1, ROD_STEPS.CRAFTED)), { id: "nushi-kurodai", have: 0, need: 1 });
 });

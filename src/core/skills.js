@@ -8,6 +8,8 @@
 //   条件発動型とゲージ系(命中のたびに条件を見て足す:D-184・D-197)。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
+import { growthMaxLevel } from "./formula.js";
+
 /**
  * スキルの効果の向け先。
  * - combat:戦闘の数値の表の項目 stat に、op で効かせる("add" はレベル × perLevel を足す、"scale" は 1 − レベル × perLevel を掛ける)。
@@ -237,7 +239,7 @@ export function skillById(id, skills = SKILL_ROWS) {
  * @param {SkillRow} skill @param {number} rodStage @param {SkillConfig} config
  */
 export function maxLevel(skill, rodStage, config) {
-  return skill.type === "capped" ? config.cappedMax : config.growthMaxBase + config.growthMaxPerStage * rodStage;
+  return skill.type === "capped" ? config.cappedMax : growthMaxLevel(rodStage, config);
 }
 
 /**
@@ -248,7 +250,7 @@ export function maxLevel(skill, rodStage, config) {
  * @returns {{ min: number, max: number }}
  */
 export function levelRange(rarityId, grade, config) {
-  const stageMax = config.growthMaxBase + config.growthMaxPerStage * grade;
+  const stageMax = growthMaxLevel(grade, config);
   const max = Math.max(1, Math.round((stageMax / config.levelSlots) * (config.levelRarityMultiplier[rarityId] ?? 1)));
   const min = Math.max(1, Math.min(max, Math.round(max * config.levelMinRatio)));
   return { min, max };

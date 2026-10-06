@@ -120,7 +120,7 @@ test("確率 0% の戦闘では一度も出ず、100% では毎回出て倍率�
     [1, 2, 20],
     [1, 3, 30],
   ]) {
-    const game = untilFight("maguro", { combat: { ...BASE, critChance, critMultiplier } });
+    const game = untilFight("buri", { combat: { ...BASE, critChance, critMultiplier } });
     let hp = 60;
     while (game.phase === PHASES.MINIGAME) {
       assert.ok(waitForCenter(game));
@@ -138,13 +138,13 @@ test("確率 0% の戦闘では一度も出ず、100% では毎回出て倍率�
 
 test("表を書き換えると、回復と制限時間にも反映される", () => {
   const game = untilFight("suzuki", { combat: { ...NO_CRIT, missHeal: 4, timeLimitBonusMs: 2500 } });
-  assert.equal(game.fight.timeLimitMs, 9000 + 2500);
+  assert.equal(game.fight.timeLimitMs, 9700 + 2500);
   assert.ok(waitForCenter(game));
   tap(game);
   assert.ok(waitForOutside(game));
   const r = tap(game);
   assert.deepEqual([r.hp, r.heal], [24, 4]);
-  update(game, 11500 - game.phaseMs - 1);
+  update(game, 12200 - game.phaseMs - 1);
   assert.equal(game.phase, PHASES.MINIGAME);
   update(game, 1);
   assert.equal(game.lastResult.reason, REASONS.TIMEOUT);
@@ -152,7 +152,7 @@ test("表を書き換えると、回復と制限時間にも反映される", ()
 
 test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より短くしない)", () => {
   const weird = { damage: -100, critChance: 99, critMultiplier: -1, missHeal: 1e9, timeLimitBonusMs: -1e9 };
-  const game = untilFight("maguro", { combat: weird });
+  const game = untilFight("buri", { combat: weird });
   const { hook, ...combat } = game.combat;
   // 回復と時間の増減は、計算が壊れないための安全上限で止まる(D-181)。
   assert.deepEqual(combat, {
