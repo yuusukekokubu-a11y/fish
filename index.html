@@ -47,11 +47,27 @@
       #hud b {
         font-size: 19px;
       }
-      #rod-name {
+      /* 2 段目:いまいる釣り場の名前と、竿の名前(釣り場の中の段階つき:D-272)。 */
+      #hud-sub {
+        display: flex;
+        justify-content: center;
+        align-items: baseline;
+        gap: 8px;
         margin-top: 2px;
-        text-align: center;
-        font-size: 11px;
-        opacity: 0.75;
+        font-size: 14px;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      #area-name {
+        padding: 0 6px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 6px;
+        font-weight: bold;
+      }
+      #rod-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        opacity: 0.8;
       }
       #stage {
         position: relative;
@@ -99,33 +115,43 @@
         background: #44555f;
         color: #9fb3bf;
       }
-      /* 餌の欄(D-263・D-269):餌があるときだけ、竿のボタンの上に所持数と「餌を使う」のスイッチ(44px 以上)。 */
-      #bait-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        font-size: 14px;
-      }
-      #bait-row[hidden] {
-        display: none;
-      }
-      #bait-switch {
-        min-width: 150px;
+      /* 餌のボタン(D-271):釣りの絵の左上に重ねる(☰ と同じ高さで左右対称)。出る・消えるで、ほかの部分は動かない。
+         入っている状態は、色だけでなく、枠の実線と「✓」でも分かる(使わないときは点線)。 */
+      #bait-toggle {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        z-index: 30;
+        min-width: 88px;
         min-height: 44px;
-        padding: 0 14px;
-        border: 2px solid #9fb3bf;
-        border-radius: 22px;
+        padding: 3px 10px;
+        border: 2px dashed #9fb3bf;
+        border-radius: 10px;
         background: rgba(4, 30, 46, 0.7);
         color: #cfdde5;
         font: inherit;
         font-size: 14px;
-        font-weight: bold;
+        line-height: 1.25;
+        text-align: center;
       }
-      #bait-switch[aria-pressed="true"] {
+      #bait-toggle[hidden] {
+        display: none;
+      }
+      #bait-toggle[aria-pressed="true"] {
+        border-style: solid;
         border-color: #7bdff2;
         background: #1b6f8a;
         color: #fff;
+      }
+      #bait-toggle:disabled {
+        border-style: dotted;
+        border-color: #6b7c86;
+        background: rgba(4, 30, 46, 0.5);
+        color: #9fb3bf;
+      }
+      #bait-toggle b {
+        display: block;
+        font-size: 15px;
       }
       /* 払い戻しなどの知らせ(数秒で消える)。 */
       #notice {
@@ -138,6 +164,7 @@
         font-weight: bold;
         color: #ffd166;
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+        white-space: pre-line;
         pointer-events: none;
       }
       #sub {
@@ -218,19 +245,16 @@
           <span>ウロコイン <b id="coins">0</b></span>
           <span id="need"></span>
         </div>
-        <div id="rod-name"></div>
+        <div id="hud-sub"><span id="area-name"></span><span id="rod-name"></span></div>
       </div>
       <div id="stage">
         <canvas id="scene"></canvas>
         <div id="message"></div>
         <div id="notice" role="status"></div>
+        <button id="bait-toggle" type="button" aria-pressed="false" hidden><b id="bait-count"></b><span id="bait-state"></span></button>
         <button id="menu-toggle" type="button" aria-label="メニュー" aria-expanded="false" aria-controls="drawer">☰</button>
       </div>
       <div id="footer">
-        <div id="bait-row" hidden>
-          <span id="bait-count"></span>
-          <button id="bait-switch" type="button" aria-pressed="false"></button>
-        </div>
         <button id="upgrade" type="button"></button>
         <div id="sub">
           <span><span id="version"></span> / <span id="seed"></span></span>

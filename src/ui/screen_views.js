@@ -2,6 +2,7 @@
 // 部品は、画面に触らずに { header, sections: [{ title, rows }] } を返す(テストで確かめられる)。描き方は list_view.js。
 // 行は { label, value, detail }。detail は押すと出る詳細の [見出し, 中身] の一覧(null なら押せない)。
 
+import { groupByArea, stageLabel } from "./area_view.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { softCurve } from "../core/formula.js";
 import { lureZoneWidth, normalizeCombat } from "../core/combat.js";
@@ -35,20 +36,21 @@ function scaleUses(id, content) {
 /** 素材タブ:魚ごとの鱗(ヌシの鱗を含む)を段階の順に。未入手は「?」で、名前と詳細を隠す。 */
 export function materialsView({ game }) {
   const { progress, content = DEFAULT_CONTENT } = game;
-  const sections = content.stages.map((s) => {
-    const fish = content.fish.filter((f) => f.stage === s.stage && f.reward.scales > 0);
-    const rows = fish.map((f) => {
+  // 釣り場ごとのグループ(段階の順)。いちばん新しい釣り場だけ開き、ほかは折りたたむ(D-272)。
+  const scaleFish = [...content.fish].filter((f) => f.reward.scales > 0).sort((a, b) => a.stage - b.stage);
+  const sections = groupByArea({ progress, content }, scaleFish, (f) => f.stage).map((group) => {
+    const rows = group.items.map((f) => {
       if (!hasObtainedScale(progress, f.id)) return { label: "?", value: "", detail: null };
       return {
         label: scaleName(f.id, content),
         value: formatCount(scaleCount(progress, f.id)),
         detail: [
-          ["入手元", `${f.name}(段階 ${f.stage} の${KIND_NAMES[f.kind]})`],
+          ["入手元", `${f.name}(${stageLabel(content, f.stage)} の${KIND_NAMES[f.kind]})`],
           ...scaleUses(f.id, content).map((u) => ["使い道", u]),
         ],
       };
     });
-    return { title: `段階 ${s.stage}`, rows };
+    return { title: group.title, rows, collapsible: true, open: group.open };
   });
   return { header: null, sections };
 }
@@ -195,7 +197,7 @@ export function statusView({ game }) {
   const base = baseCombat(game);
   const rates = game.rates ?? BASE_RATES;
   return {
-    header: `${rodName(game.progress, content)}(段階 ${game.progress.rodStage})`,
+    header: `${rodName(game.progress, content)}(${stageLabel(content, game.progress.rodStage)})`,
     sections: STATUS_SECTIONS.map(({ title, items }) => ({
       title,
       rows: items.map((item) => ({

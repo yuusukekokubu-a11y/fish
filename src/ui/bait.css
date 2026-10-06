@@ -63,3 +63,61 @@
   font-size: 14px;
   opacity: 0.8;
 }
+/* 釣り場の画面と、折りたためるグループ(D-272・D-273)。 */
+.area-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+}
+.area-swatch {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+.area-swatch.locked {
+  background: repeating-linear-gradient(45deg, #2b3a44, #2b3a44 6px, #1d2930 6px, #1d2930 12px);
+}
+.area-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.area-progress,
+.area-note {
+  font-size: 14px;
+  opacity: 0.8;
+}
+.area-here {
+  flex: none;
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffd166;
+}
+.group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.group-head .section-title {
+  margin: 0;
+}
+.group-mark::after {
+  content: "▼";
+  font-size: 14px;
+}
+.group-head[aria-expanded="false"] .group-mark::after {
+  content: "▶";
+}

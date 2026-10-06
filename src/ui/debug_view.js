@@ -6,6 +6,7 @@
 // 計算本体(src/core)は変えない。JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { normalizeArea } from "../core/areas.js";
+import { stageLabel } from "./area_view.js";
 import { baitCount, refundBait, setBait } from "../core/bait.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { DEFAULT_CONTENT } from "../core/fish.js";
@@ -256,7 +257,7 @@ export function quickFightTargets(content = DEFAULT_CONTENT) {
     .filter((/** @type {{ kind: string }} */ f) => f.kind === FISH_KINDS.STRONG || f.kind === FISH_KINDS.BOSS)
     .map((/** @type {{ id: string, name: string, stage: number, kind: string }} */ f) => ({
       id: f.id,
-      label: `${f.name}(段階 ${f.stage}・${f.kind === FISH_KINDS.BOSS ? "ヌシ" : "強い魚"})`,
+      label: `${f.name}(${stageLabel(content, f.stage)}・${f.kind === FISH_KINDS.BOSS ? "ヌシ" : "強い魚"})`,
     }));
 }
 

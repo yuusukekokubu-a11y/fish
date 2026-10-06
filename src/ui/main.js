@@ -25,6 +25,8 @@ import { DEFAULT_CONFIG } from "../core/config.js";
 import { normalizeSeed } from "../core/rng.js";
 import { setUseBait } from "../core/bait.js";
 import { baitHud, refundMessage } from "./bait_view.js";
+import { COLOR_FADE_MS, mixColors, oldAreaNotes, sceneColors, stageLabel, unlockMessage } from "./area_view.js";
+import { currentArea } from "../core/areas.js";
 import { formatCount } from "./format.js";
 import { createScreenShell } from "./screen_shell.js";
 import { initialNav, isPaused, screensFor, setDrawer, showScreen } from "./screens.js";
@@ -61,8 +63,9 @@ const READ_CONFIG = URL_OPTIONS.debug ? /** @type {any} */ (DEBUG_READ_CONFIG) :
 
 // 1 回の描画で進める時間の上限。裏に回って戻ったときに、一気に何匹も進まないようにする。
 const MAX_STEP_MS = 100;
-// 知らせを出しておく時間。
+// 知らせを出しておく時間(払い戻し 4 秒、釣り場の解放 3 秒:D-263・D-273)。
 const NOTICE_MS = 4000;
+const UNLOCK_NOTICE_MS = 3000;
 
 /** シードの指定がないときに使う、毎回ちがうシード。計算本体では Math.random を使わない(D-021)。 */
 function randomSeed() {
@@ -135,8 +138,11 @@ function messageFor(game) {
 function rodButton(game) {
   const p = game.progress;
   const stage = gameStage(game);
-  // 最後の段階のヌシを倒して進化したあとは、次の釣り場はまだない(②-4d で足す:D-224)。
+  // 最後の段階のヌシを倒して進化したあとは、次の釣り場はまだない(D-277)。
   if (!stage || p.rodStep === ROD_STEPS.EVOLVED) return { label: "次の釣り場はまだない", enabled: false };
+  // 古い釣り場では、製作・ヌシ戦・進化はできない(押せない見た目と短い表示:D-274)。
+  const old = oldAreaNotes(game);
+  if (old) return { label: old.rod, enabled: false };
   const names = stageRodNames(stage, game.content);
   if (p.rodStep === ROD_STEPS.NONE) {
     const need = nextNeed(p, game.content);
@@ -149,7 +155,7 @@ function rodButton(game) {
     const boss = fishById(stage.boss, game.content);
     return { label: `${boss.name}に挑む`, enabled: canChallengeBoss(game), run: () => challengeBoss(game) && null };
   }
-  return { label: `${names.evolve}に進化`, enabled: canEvolveRod(game), run: () => evolveGameRod(game) && `${names.evolve}に進化!` };
+  return { label: `${names.evolve}に進化`, enabled: canEvolveRod(game), evolve: true, run: () => evolveGameRod(game) && `${names.evolve}に進化!` };
 }
 
 /** 上の表示:今の工程で要る鱗(「クロダイの鱗 2/3」)。要るものがなければ空。 */
@@ -171,9 +177,10 @@ function main() {
     hud: document.getElementById("hud"),
     menu: document.getElementById("menu-toggle"),
     seed: document.getElementById("seed"),
-    baitRow: document.getElementById("bait-row"),
+    areaName: document.getElementById("area-name"),
+    baitToggle: document.getElementById("bait-toggle"),
     baitCount: document.getElementById("bait-count"),
-    baitSwitch: document.getElementById("bait-switch"),
+    baitState: document.getElementById("bait-state"),
     notice: document.getElementById("notice"),
     version: document.getElementById("version"),
   };
@@ -202,6 +209,9 @@ function main() {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
   window.addEventListener("resize", resize);
+  // 絵の領域の大きさが変わったら(画面の回転のほか、上下の欄の高さが変わったときも)、絵の画素の大きさを合わせる。
+  // 合わせないと、同じ画素数の絵が引きのばされて、縦横比が崩れて見える(D-271 の原因)。
+  if (typeof ResizeObserver === "function") new ResizeObserver(() => resize()).observe(canvas);
   resize();
 
   canvas.addEventListener("pointerdown", (event) => {
@@ -215,9 +225,9 @@ function main() {
 
   // 知らせ(払い戻しなど)を数秒だけ出す。
   let noticeUntil = 0;
-  function showNotice(text) {
+  function showNotice(text, ms = NOTICE_MS) {
     el.notice.textContent = text;
-    noticeUntil = performance.now() + NOTICE_MS;
+    noticeUntil = performance.now() + ms;
   }
 
   el.upgrade.addEventListener("click", () => {
@@ -227,16 +237,22 @@ function main() {
     if (text === false) return;
     saveProgress(game.progress);
     if (text) addRodEffects(effects, text, performance.now());
-    // 進化で段階が進んだら、残りの餌の払い戻しを知らせる(D-263)。
-    const refund = refundMessage(game.baitRefund);
-    if (refund) showNotice(refund);
+    // 進化で段階が進んだら、残りの餌の払い戻しと、釣り場の解放を知らせる(D-263・D-273)。
+    const notices = button.evolve ? [unlockMessage(game.areaUnlocked), refundMessage(game.baitRefund)].filter(Boolean) : [];
+    if (notices.length > 0) showNotice(notices.join("\n"), game.areaUnlocked && !game.baitRefund ? UNLOCK_NOTICE_MS : NOTICE_MS);
   });
 
-  // 「餌を使う」のスイッチ(D-263)。次の投げから効く。
-  el.baitSwitch.addEventListener("click", () => {
+  // 餌のボタン(D-271):押すと、使う/使わないが切り替わる。次の投げから効く。古い釣り場では押せない。
+  el.baitToggle.addEventListener("click", () => {
+    if (oldAreaNotes(game)) return;
     setUseBait(game.progress, !game.progress.useBait);
     saveProgress(game.progress);
   });
+
+  // 釣り場の色(D-278):移ったら 0.5 秒で切り替える。
+  let colorFrom = sceneColors(game);
+  let colorTo = colorFrom;
+  let colorStart = 0;
 
   // 目次(ドロワー)と全画面(D-152・D-153)。どちらかが開いている間は、釣りを止める(D-134)。
   const app = document.getElementById("app");
@@ -325,8 +341,15 @@ function main() {
       saveProgress(game.progress);
     }
 
+    const target = sceneColors(game);
+    if (target.sky !== colorTo.sky) {
+      colorFrom = mixColors(colorFrom, colorTo, (now - colorStart) / COLOR_FADE_MS);
+      colorTo = target;
+      colorStart = now;
+    }
     const rect = canvas.getBoundingClientRect();
     const view = {
+      colors: mixColors(colorFrom, colorTo, (now - colorStart) / COLOR_FADE_MS),
       phase: game.phase,
       progress: game.phase === PHASES.RESTING ? 0 : Math.min(1, game.phaseMs / phaseDuration(game)),
       fish: game.phase === PHASES.RESULT ? fishById(game.lastResult.fishId, game.content) : game.cast.fish,
@@ -350,14 +373,16 @@ function main() {
     el.coins.textContent = formatCount(game.progress.coins);
     if (shell.current() !== null) shell.setCoins(`ウロコイン ${formatCount(game.progress.coins)}`);
     el.need.textContent = needLabel(game);
-    el.rodName.textContent = rodName(game.progress, game.content);
+    el.areaName.textContent = currentArea(game.progress, game.content).name;
+    el.rodName.textContent = `${rodName(game.progress, game.content)}(${stageLabel(game.content, game.progress.rodStage)})`;
     el.message.textContent = messageFor(game);
-    const bait = baitHud(game);
-    el.baitRow.hidden = bait === null;
+    const bait = baitHud(game, oldAreaNotes(game)?.name ?? null);
+    el.baitToggle.hidden = bait === null;
     if (bait) {
       el.baitCount.textContent = bait.countText;
-      el.baitSwitch.textContent = bait.switchText;
-      el.baitSwitch.setAttribute("aria-pressed", String(bait.on));
+      el.baitState.textContent = bait.stateText;
+      el.baitToggle.disabled = bait.disabled;
+      el.baitToggle.setAttribute("aria-pressed", String(bait.on && !bait.disabled));
     }
     if (noticeUntil && now > noticeUntil) {
       el.notice.textContent = "";

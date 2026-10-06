@@ -34,15 +34,18 @@ function drawFish(ctx, x, y, size, color) {
   ctx.fill();
 }
 
-function drawBackground(ctx, w, h, waterY) {
+/** 空と海。colors は釣り場の色({ sky: [上, 下], sea: [上, 下] }:D-278)。なければ港の色。 */
+function drawBackground(ctx, w, h, waterY, colors = null) {
+  const skyColors = colors?.sky ?? [COLORS.skyTop, COLORS.skyBottom];
+  const seaColors = colors?.sea ?? [COLORS.water, COLORS.waterDeep];
   const sky = ctx.createLinearGradient(0, 0, 0, waterY);
-  sky.addColorStop(0, COLORS.skyTop);
-  sky.addColorStop(1, COLORS.skyBottom);
+  sky.addColorStop(0, skyColors[0]);
+  sky.addColorStop(1, skyColors[1]);
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, waterY);
   const water = ctx.createLinearGradient(0, waterY, 0, h);
-  water.addColorStop(0, COLORS.water);
-  water.addColorStop(1, COLORS.waterDeep);
+  water.addColorStop(0, seaColors[0]);
+  water.addColorStop(1, seaColors[1]);
   ctx.fillStyle = water;
   ctx.fillRect(0, waterY, w, h - waterY);
 }
@@ -175,7 +178,7 @@ function drawHookRing(ctx, bobber, hook) {
  */
 export function drawScene(ctx, w, h, view, timeMs) {
   const waterY = h * 0.42;
-  drawBackground(ctx, w, h, waterY);
+  drawBackground(ctx, w, h, waterY, view.colors ?? null);
 
   // 竿と糸。竿先は画面の下の真ん中から右上へ。
   const rodBase = { x: w * 0.82, y: h * 0.98 };
