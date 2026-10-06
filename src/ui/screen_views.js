@@ -121,6 +121,25 @@ function zoneWidthRows(c, game) {
 }
 
 /**
+ * 芯・縁の帯の幅(命中範囲に対する割合と、いまの段階の強い魚の命中範囲での幅:D-209)。
+ */
+function bandRows(when, config, game) {
+  if (when !== "core" && when !== "edge") return [];
+  const ratio = when === "core" ? config.coreRatio : 1 - config.edgeRatio;
+  const name = when === "core" ? "芯の帯" : "縁の帯";
+  const where = when === "core" ? "真ん中" : "両端";
+  const rows = [[name, `命中範囲の${where} ${widthText(ratio)}`]];
+  const content = game.content ?? DEFAULT_CONTENT;
+  const fish = content.fish.find((f) => f.stage === game.progress.rodStage && f.kind === FISH_KINDS.STRONG && f.minigame);
+  if (fish) {
+    const all = (game.config ?? DEFAULT_CONFIG);
+    const w = lureZoneWidth(fish.minigame.zoneWidth, game.combat, { minZoneWidth: all.minigame.minZoneWidth, maxZoneWidth: all.combatLimits.maxZoneWidth });
+    rows.push([`${name}(${fish.name})`, `ゲージの ${widthText(w * ratio)}`]);
+  }
+  return rows;
+}
+
+/**
  * 条件つきの効果(条件発動型:D-184・D-191)。「今の値」には含めず、別の節に出す。レベル 0 のものは出さない。
  */
 function conditionalRows(game) {
@@ -131,7 +150,7 @@ function conditionalRows(game) {
     .map((s) => {
       const level = game.skills[s.id].level;
       const text = formatSkillEffect(s, level, config);
-      return { label: s.name, value: `Lv${level}`, detail: [["条件つき", text]] };
+      return { label: s.name, value: `Lv${level}`, detail: [["条件つき", text], ...bandRows(s.target.when, config, game)] };
     });
   return rows.length > 0 ? rows : [{ label: "なし", value: "", detail: null }];
 }

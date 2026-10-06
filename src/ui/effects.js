@@ -59,7 +59,16 @@ export function critLabel(stages) {
   return stages >= 2 ? `CRITICAL ×${stages}!` : "CRITICAL!";
 }
 
+/** 命中した帯の短い名前と色(芯・縁のスキルが効いたときだけ:D-209)。 */
+export function bandLabel(hit) {
+  if (hit.band === "core" && (hit.triggers ?? []).includes("core")) return { text: "芯", color: "#52d68a" };
+  if (hit.band === "edge" && (hit.triggers ?? []).includes("edge")) return { text: "縁", color: "#e9c46a" };
+  return null;
+}
+
 export function addHitEffects(effects, hit, now) {
+  const band = bandLabel(hit);
+  if (band) effects.floats.push({ text: band.text, start: now, ms: 700, y: 0.44, size: 24, color: band.color });
   // 条件発動型が効いた命中は、数字の色を変える(ふつうは水色で少し大きく、クリティカルは少し明るいオレンジ:D-191)。
   const triggered = (hit.triggers ?? []).length > 0;
   if (hit.critical) {
@@ -68,11 +77,11 @@ export function addHitEffects(effects, hit, now) {
     effects.shake = { start: now, ms: 260 + 60 * extra, amplitude: 9 + 2 * extra };
     effects.flash = { color: "255,140,0", start: now, ms: 220, strength: 0.25 + 0.05 * extra };
     effects.floats.push({ text: critLabel(stages), start: now, ms: 800, y: 0.5, size: 22 + 2 * extra, color: "#ffd166" });
-    effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 800, y: 0.58, size: 34, color: triggered ? "#ffb347" : "#ff8c00" });
+    effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 800, y: 0.58, size: 34, color: band ? band.color : triggered ? "#ffb347" : "#ff8c00" });
     return;
   }
   effects.shake = { start: now, ms: 150, amplitude: 4 };
-  effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 650, y: 0.58, size: triggered ? 28 : 24, color: triggered ? "#8be9fd" : "#ffd166" });
+  effects.floats.push({ text: `-${hit.damage}`, start: now, ms: 650, y: 0.58, size: triggered ? 28 : 24, color: band ? band.color : triggered ? "#8be9fd" : "#ffd166" });
 }
 
 /** ミニゲームでミスしたときの演出。回復した数を別の色で出す。 */
