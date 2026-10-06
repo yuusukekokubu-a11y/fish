@@ -98,3 +98,11 @@ export function stage6Content(equipKinds = undefined, skills = undefined) {
 export const NO_DEFENSE_CONTENT = makeContent(
   FISH_ROWS.map((r) => defineFish(r, { ...DEFAULT_CONFIG_FOR_TESTS.formula, defenseStartStage: Number.MAX_SAFE_INTEGER })),
 );
+
+/**
+ * 同じ魚(体力・制限時間などはそのまま)で、防御だけ 0 にした表。防御と関係のない決まり(芯・縁の損得、外し得など)を、
+ * 防御 100% 以上のヌシ(貫通が要る)でも確かめるときに使う。
+ */
+export function withoutDefense(content) {
+  return makeContent(content.fish.map((f) => (f.minigame ? { ...f, minigame: { ...f.minigame, defense: 0 } } : f)));
+}

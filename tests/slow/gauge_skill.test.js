@@ -11,7 +11,11 @@ import { test } from "node:test";
 import { challengeBoss, createGame, currentMarker, PHASES, tap, update } from "../../src/core/fishing.js";
 import { emptyGear } from "../../src/core/gear.js";
 import { createRng } from "../../src/core/rng.js";
-import { progressAt } from "../helpers.js";
+import { progressAt, withoutDefense } from "../helpers.js";
+import { DEFAULT_CONTENT } from "../../src/core/fish.js";
+
+// 防御と関係のない決まりを確かめるので、同じ魚の防御だけ 0 にした表で遊ぶ(5 体目のヌシは貫通が要るため:D-235)。
+const CONTENT = withoutDefense(DEFAULT_CONTENT);
 
 const NOISE = [
   ["小", 0.004],
@@ -33,7 +37,7 @@ function gauss(r) {
 function bossGame(levels, seed) {
   const skills = Object.entries(levels).map(([id, level]) => ({ id, level }));
   const items = [{ id: 1, kind: "reel", rarity: "legend", grade: 5, value: 8, skills }];
-  const g = createGame(seed, { progress: progressAt(5, "crafted", { gear: { ...emptyGear(), seed: 1, items, equipped: { reel: 1 }, nextId: 2 } }) });
+  const g = createGame(seed, { content: CONTENT, progress: progressAt(5, "crafted", { gear: { ...emptyGear(), seed: 1, items, equipped: { reel: 1 }, nextId: 2 } }) });
   g.bossAttempts = seed;
   challengeBoss(g);
   return g;

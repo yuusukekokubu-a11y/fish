@@ -125,7 +125,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     // ヌシの命中回数の目標(D-238)と、体力の基準の装備(育てた装備の目安。シミュレーションで合わせた)。
     bossHitsFirst: 5,
     bossHitsLast: 12,
-    bossReference: Object.freeze({ levelRatio: 0.25, penGap: 0.33, reelRatio: 0.4, scale: 1, growth: 0.05, positionScale: Object.freeze([1.25, 1.2, 1.2, 1.45, 1.55]) }),
+    bossReference: Object.freeze({ levelRatio: 0.25, penGap: 0.33, reelRatio: 0.4, scale: 1, growth: 0.08, positionScale: Object.freeze([1.2, 1.15, 1.15, 1.4, 1.45]) }),
     stagesPerGround: 5,
     noPenTapsFactor: 1.6,
   }),
