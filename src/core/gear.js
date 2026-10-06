@@ -43,6 +43,7 @@ import { levelRange, SKILL_ROWS } from "./skills.js";
  * @property {number} grade グレード(引いたクレートの段階)
  * @property {number} value 基本効果の値(stat の単位の整数)
  * @property {import("./skills.js").ItemSkill[]} skills スキル(スキルの id とレベル。レア度で 0〜3 種類、重複なし:D-195)
+ * @property {boolean} [locked] ロック中なら true(分解できない。ロックなしは欄を持たない:D-246・D-247)
  */
 
 /**
@@ -372,7 +373,23 @@ export function refundFor(item, crates, rarities = RARITY_ROWS) {
 }
 
 /**
- * 1 個分解する(装着中なら外してから)。返ったウロコインの数を返す。なければ 0。
+ * ロックを付ける・外す(D-246)。ids の装備だけを変え、変わった数を返す。ロックはゲームの結果に関係しない。
+ * ロックなしは欄を持たない(保存の往復で同じ形にするため)。
+ * @param {Gear} gear @param {readonly number[]} ids @param {boolean} locked
+ */
+export function setLocked(gear, ids, locked) {
+  let changed = 0;
+  for (const it of gear.items) {
+    if (!ids.includes(it.id) || Boolean(it.locked) === locked) continue;
+    if (locked) it.locked = true;
+    else delete it.locked;
+    changed++;
+  }
+  return changed;
+}
+
+/**
+ * 1 個分解する(装着中なら外してから)。返ったウロコインの数を返す。なければ 0。ロック中なら分解しない(0:D-246)。
  * 装着中のものを分解する前の確認は、画面が出す。
  * @param {{ coins: number, gear: Gear }} progress @param {number} itemId @param {Crate[]} crates
  * @param {number} coinMax
@@ -380,7 +397,7 @@ export function refundFor(item, crates, rarities = RARITY_ROWS) {
 export function dismantleItem(progress, itemId, crates, coinMax) {
   const gear = progress.gear;
   const index = gear.items.findIndex((it) => it.id === itemId);
-  if (index < 0) return 0;
+  if (index < 0 || gear.items[index].locked) return 0;
   const [item] = gear.items.splice(index, 1);
   for (const [kind, id] of Object.entries(gear.equipped)) if (id === itemId) delete gear.equipped[kind];
   const refund = refundFor(item, crates);
@@ -389,12 +406,12 @@ export function dismantleItem(progress, itemId, crates, coinMax) {
 }
 
 /**
- * レア度を選んで、まとめて分解する。装着中のものは対象にしない。{ count, coins } を返す。
+ * レア度を選んで、まとめて分解する。装着中とロック中のものは対象にしない(D-246)。{ count, coins } を返す。
  * @param {{ coins: number, gear: Gear }} progress @param {string} rarityId @param {Crate[]} crates
  * @param {number} coinMax
  */
 export function dismantleRarity(progress, rarityId, crates, coinMax) {
-  const targets = progress.gear.items.filter((it) => it.rarity === rarityId && !isEquipped(progress.gear, it.id));
+  const targets = progress.gear.items.filter((it) => it.rarity === rarityId && !isEquipped(progress.gear, it.id) && !it.locked);
   let coins = 0;
   for (const it of targets) coins += dismantleItem(progress, it.id, crates, coinMax);
   return { count: targets.length, coins };

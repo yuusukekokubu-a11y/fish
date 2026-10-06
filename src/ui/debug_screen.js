@@ -127,6 +127,12 @@ export function mountDebug(container, ctx) {
   equip.checked = true;
   const equipLabel = el("label", "debug-check");
   equipLabel.append(equip, el("span", "", "すぐ装着する"));
+  // ロックして作る(D-246)。
+  const lock = /** @type {HTMLInputElement} */ (el("input"));
+  lock.type = "checkbox";
+  lock.dataset.field = "lock";
+  const lockLabel = el("label", "debug-check");
+  lockLabel.append(lock, el("span", "", "ロックする"));
   const create = button("作る", "primary-button debug-create");
   create.addEventListener("click", () => {
     const r = addDebugItem(game, {
@@ -136,14 +142,15 @@ export function mountDebug(container, ctx) {
       value: /** @type {"max" | "mid" | "min"} */ (value.value),
       skills: skillInputs.filter((x) => x.s.value !== "").map((x) => ({ id: x.s.value, level: Number(x.lv.value) })),
       equip: equip.checked,
+      lock: lock.checked,
     });
     if (!r.ok) return say(r.error, true);
     saved();
-    say(`装備を作りました(グレード ${r.item.grade}・値 ${r.item.value}・スキル ${r.item.skills.map((s) => `${s.id} Lv${s.level}`).join("・") || "なし"})`);
+    say(`装備を作りました(${r.item.locked ? "ロック中・" : ""}グレード ${r.item.grade}・値 ${r.item.value}・スキル ${r.item.skills.map((s) => `${s.id} Lv${s.level}`).join("・") || "なし"})`);
   });
   make.append(field("種類", kind), field("レア度", rarity), field(`グレード(1〜${game.content.maxStage})`, grade), field("値", value));
   for (const x of skillInputs) make.append(x.row);
-  make.append(el("p", "debug-note", `レベルはグレードごとに 1〜(2 + グレード)。範囲の外は範囲の中に直します。`), equipLabel, create);
+  make.append(el("p", "debug-note", `レベルはグレードごとに 1〜(2 + グレード)。範囲の外は範囲の中に直します。`), equipLabel, lockLabel, create);
 
   // プリセット。
   const presets = section("プリセット(レジェンド・最大で作って装着)");

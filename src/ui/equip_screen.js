@@ -2,14 +2,16 @@
 // 装備の画面(全画面:D-152・D-155・D-162)。
 // - 上:装着中の枠を、小さめの 3 列のグリッドで並べ、上に固定する(持ち物だけが動く:D-179)。
 //   枠の数は装備の種類の表から(7 枠でも 3 段)。
-// - 下:持ち物のカード(スキルの行つき)。並べ替え(レア度順/新しい順)と、種類ごとの絞り込み、まとめて分解。
-// - カードか枠を押すと、下から詳細のシートが出る(いまの装備との差、スキルレベルの変化、付ける・外す・分解)。
+// - 下:持ち物のカード(スキルの行つき)。並べ替え(レア度順/新しい順)と、種類・ロックの絞り込み、まとめて分解、
+//   絞り込み中の装備のまとめてロック・解除(D-246)。
+// - カードか枠を押すと、下から詳細のシートが出る(いまの装備との差、スキルレベルの変化、付ける・外す・分解・ロック)。
+// - ロック中の装備は、カードと枠に鍵の印(🔒。色だけでなく形で分かる)。分解のボタンは押せない(D-246)。
 // 数と文字は gear_view.js が作る。操作は計算本体(gear.js)の関数を呼ぶ。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
-import { dismantleItem, dismantleRarity, equipItem, makeCrates, unequipKind } from "../core/gear.js";
+import { dismantleItem, dismantleRarity, equipItem, makeCrates, setLocked, unequipKind } from "../core/gear.js";
 import { formatCount } from "./format.js";
-import { bulkDismantleRows, inventoryLabel, inventoryRows, slotRows } from "./gear_view.js";
+import { bulkDismantleRows, bulkLockPreview, inventoryLabel, inventoryRows, slotRows } from "./gear_view.js";
 import { button, el } from "./list_view.js";
 import { confirmSheet, openSheet } from "./sheet.js";
 
@@ -32,6 +34,16 @@ import { confirmSheet, openSheet } from "./sheet.js";
 let sortOrder = "rarity";
 /** @type {string | null} */
 let kindFilter = null;
+/** @type {import("./gear_view.js").LockFilter} */
+let lockFilter = null;
+
+/** 鍵の印(ロック中の装備:D-246)。 */
+function lockMark() {
+  const mark = el("span", "item-lock", "🔒");
+  mark.setAttribute("aria-label", "ロック中");
+  mark.title = "ロック中";
+  return mark;
+}
 
 /** レア度の印(★と名前を、その色で)。 @param {{ stars: string, rarity: string, color: string }} v */
 function rarityBadge(v) {
@@ -47,6 +59,10 @@ function itemCard(v) {
   card.style.setProperty("--rarity", v.color);
   const top = el("div", "item-card-top");
   top.append(rarityBadge(v), el("span", "item-kind", v.kindName));
+  if (v.locked) {
+    card.classList.add("locked");
+    top.append(lockMark());
+  }
   if (v.equipped) top.append(el("span", "item-tag", "装着中"));
   if (v.better) top.append(el("span", "item-better", "▲"));
   card.append(top, el("div", "item-name", v.name), el("div", "item-effect", v.effect));
@@ -100,8 +116,11 @@ function openItemSheet(ctx, v, crates) {
         close();
         ctx.rerender();
       });
-      const scrap = button(`分解 +${formatCount(v.refund)}`, "secondary-button item-dismantle");
+      // ロック中は分解できない(押せない見た目と「ロック中」:D-246)。
+      const scrap = button(v.locked ? "分解(ロック中)" : `分解 +${formatCount(v.refund)}`, "secondary-button item-dismantle");
+      scrap.disabled = v.locked;
       scrap.addEventListener("click", () => {
+        if (v.locked) return;
         const run = () => {
           dismantleItem(game.progress, v.id, crates, Number.MAX_SAFE_INTEGER);
           ctx.onGearChanged();
@@ -112,10 +131,19 @@ function openItemSheet(ctx, v, crates) {
         if (v.equipped) confirmSheet(ctx.app, "装着中の装備を分解します", [v.name, `+${formatCount(v.refund)} ウロコイン`], "分解する", run);
         else run();
       });
+      const lock = button(v.locked ? "🔒 ロックを外す" : "🔒 ロックする", "secondary-button item-lock-toggle");
+      lock.setAttribute("aria-pressed", String(v.locked));
+      lock.addEventListener("click", () => {
+        setLocked(game.progress.gear, [v.id], !v.locked);
+        ctx.onGearChanged();
+        close();
+        ctx.rerender();
+      });
       const cancel = button("閉じる", "secondary-button sheet-close");
       cancel.addEventListener("click", close);
       row.append(scrap, toggle);
-      panel.append(row, cancel);
+      if (v.locked) panel.append(el("p", "item-locked-note", "ロック中:分解できません"));
+      panel.append(row, lock, cancel);
     },
     "item-sheet",
   );
@@ -130,7 +158,7 @@ function openBulkSheet(ctx, crates) {
   openSheet(
     ctx.app,
     (panel, close) => {
-      panel.append(el("h2", "sheet-title", "まとめて分解"), el("p", "sheet-line", "装着中のものは含めません"));
+      panel.append(el("h2", "sheet-title", "まとめて分解"), el("p", "sheet-line", "装着中とロック中のものは含めません"));
       const list = el("div", "bulk-list");
       for (const r of bulkDismantleRows(game, crates)) {
         const b = button("", "bulk-button");
@@ -138,7 +166,7 @@ function openBulkSheet(ctx, crates) {
         b.style.setProperty("--rarity", r.color);
         const name = el("span", "rarity-badge", `${r.stars} ${r.name}`);
         name.style.setProperty("color", r.color);
-        b.append(name, el("span", "bulk-count", `${r.count} 個 / +${formatCount(r.coins)}`));
+        b.append(name, el("span", "bulk-count", `${r.count} 個 / +${formatCount(r.coins)}${r.locked > 0 ? `(ロック中 ${r.locked} 個は除く)` : ""}`));
         b.disabled = r.count === 0;
         b.addEventListener("click", () => {
           close();
@@ -186,6 +214,7 @@ export function mountEquipment(container, ctx) {
       stars.style.setProperty("color", item.color);
       stars.setAttribute("aria-label", item.rarity);
       cell.append(stars, el("span", "slot-effect", item.effect));
+      if (item.locked) cell.append(lockMark());
       cell.addEventListener("click", () => openItemSheet(ctx, item, crates));
     } else {
       // 空の枠を押すと、その種類で持ち物を絞り込む。
@@ -231,10 +260,51 @@ export function mountEquipment(container, ctx) {
     });
     filters.append(b);
   }
-  bag.append(head, sorts, filters);
+  // ロックの絞り込み(D-246)。
+  const locks = el("div", "chip-row");
+  for (const [id, label] of /** @type {[import("./gear_view.js").LockFilter, string][]} */ ([
+    [null, "ロック:すべて"],
+    ["locked", "🔒 ロック中"],
+    ["unlocked", "ロックなし"],
+  ])) {
+    const b = button(label, `chip${lockFilter === id ? " active" : ""}`);
+    b.dataset.lockFilter = id ?? "all";
+    b.setAttribute("aria-pressed", String(lockFilter === id));
+    b.addEventListener("click", () => {
+      lockFilter = id;
+      ctx.rerender();
+    });
+    locks.append(b);
+  }
+  // 絞り込み中の装備を、まとめてロック・解除(確認つき。何個変わるかを出す:D-246)。
+  const lockRow = el("div", "bulk-lock-row");
+  for (const [locked, label] of /** @type {[boolean, string][]} */ ([
+    [true, "まとめてロック"],
+    [false, "まとめて解除"],
+  ])) {
+    const preview = bulkLockPreview(game, kindFilter, lockFilter, locked);
+    const b = button(`${label}(${preview.count})`, "secondary-button bulk-lock");
+    b.dataset.lock = locked ? "on" : "off";
+    b.disabled = preview.count === 0;
+    b.addEventListener("click", () =>
+      confirmSheet(
+        ctx.app,
+        locked ? "絞り込み中の装備をロックします" : "絞り込み中の装備のロックを外します",
+        [`絞り込み中 ${preview.shown} 個のうち ${preview.count} 個が変わります`, locked ? "ロック中は分解できません" : "外すと分解できるようになります"],
+        locked ? "ロックする" : "外す",
+        () => {
+          setLocked(game.progress.gear, preview.ids, locked);
+          ctx.onGearChanged();
+          ctx.rerender();
+        },
+      ),
+    );
+    lockRow.append(b);
+  }
+  bag.append(head, sorts, filters, locks, lockRow);
 
   const list = el("div", "item-list");
-  const rows = inventoryRows(game, crates, sortOrder, kindFilter);
+  const rows = inventoryRows(game, crates, sortOrder, kindFilter, lockFilter);
   if (rows.length === 0) list.append(el("p", "screen-empty", "装備がありません"));
   for (const v of rows) {
     const card = itemCard(v);

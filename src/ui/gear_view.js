@@ -119,17 +119,31 @@ export const SPACE_WARN_AT = 10;
  * 持ち物の空きの警告(D-216)。
  * - level:空き 11 以上は null、1〜10 は "warn"(黄)、0 は "full"(赤)。
  * - tenBlocked:10 連に要る空きが足りない(10 連のボタンを押せなくする)。oneBlocked:1 回も引けない。
- * @param {{ config: { gacha: { inventoryMax: number, pullMax: number } }, progress: { gear: { items: unknown[] } } }} game
+ * - locked・lockedText:ロック中の数と、「ロック中 12 個は、分解できません」(警告があり、ロック中が 1 個以上のとき:D-246)。
+ *   全部ロック中で満タンのときは、ロックを外すように案内する。
+ * @param {{ config: { gacha: { inventoryMax: number, pullMax: number } }, progress: { gear: { items: { locked?: boolean }[] } } }} game
  */
 export function inventoryWarning(game) {
   const { inventoryMax, pullMax } = game.config.gacha;
-  const left = Math.max(0, inventoryMax - game.progress.gear.items.length);
+  const items = game.progress.gear.items;
+  const left = Math.max(0, inventoryMax - items.length);
+  const locked = items.filter((it) => it.locked).length;
   /** @type {"warn" | "full" | null} */
   const level = left === 0 ? "full" : left <= SPACE_WARN_AT ? "warn" : null;
+  const allLocked = items.length > 0 && locked === items.length;
   return {
     left,
     level,
-    text: level === "full" ? "持ち物がいっぱいです。分解して空きを作ってください" : level === "warn" ? "もうすぐいっぱいです" : "",
+    text:
+      level === "full"
+        ? allLocked
+          ? "持ち物がいっぱいです。全部ロック中なので、ロックを外してから分解してください"
+          : "持ち物がいっぱいです。分解して空きを作ってください"
+        : level === "warn"
+          ? "もうすぐいっぱいです"
+          : "",
+    locked,
+    lockedText: level && locked > 0 ? `ロック中 ${locked} 個は、分解できません` : "",
     tenBlocked: left < pullMax,
     tenNote: left > 0 && left < pullMax ? `10 連には空き ${pullMax} 個が必要です` : "",
     oneBlocked: left === 0,
@@ -166,6 +180,8 @@ export function itemView(game, item, crates) {
     effect: kind ? formatEffect(kind, item.value) : String(item.value),
     grade: item.grade,
     equipped,
+    // ロック中(分解できない:D-246)。
+    locked: Boolean(item.locked),
     better: !equipped && diff > 0,
     diff: kind ? formatDiff(kind, diff) : String(diff),
     diffSign: Math.sign(diff),
@@ -181,13 +197,25 @@ function rarityOrder(id) {
   return RARITY_ROWS.findIndex((r) => r.id === id);
 }
 
+/** ロックの絞り込み(null はすべて:D-246)。 @typedef {"locked" | "unlocked" | null} LockFilter */
+
+/**
+ * 絞り込みに合う装備(種類とロック)。
+ * @param {GameLike} game @param {string | null} [kind] @param {LockFilter} [lock]
+ */
+export function filteredItems(game, kind = null, lock = null) {
+  return game.progress.gear.items.filter(
+    (it) => (kind === null || it.kind === kind) && (lock === null || (lock === "locked") === Boolean(it.locked)),
+  );
+}
+
 /**
  * 持ち物の一覧。sort は "rarity"(レア度の高い順、同じなら効果の大きい順)か "new"(新しい順)。
- * kind を渡すと、その種類だけに絞り込む(null ならすべて)。
- * @param {GameLike} game @param {Crate[]} crates @param {"rarity" | "new"} sort @param {string | null} [kind]
+ * kind を渡すと、その種類だけに絞り込む(null ならすべて)。lock で、ロック中・ロックなしに絞り込む。
+ * @param {GameLike} game @param {Crate[]} crates @param {"rarity" | "new"} sort @param {string | null} [kind] @param {LockFilter} [lock]
  */
-export function inventoryRows(game, crates, sort, kind = null) {
-  const items = game.progress.gear.items.filter((it) => kind === null || it.kind === kind);
+export function inventoryRows(game, crates, sort, kind = null, lock = null) {
+  const items = filteredItems(game, kind, lock);
   if (sort === "rarity") {
     items.sort((a, b) => rarityOrder(b.rarity) - rarityOrder(a.rarity) || b.grade - a.grade || b.value - a.value || b.id - a.id);
   } else {
@@ -205,7 +233,17 @@ export function slotRows(game, crates) {
 }
 
 /**
- * まとめて分解の一覧(レア度ごとに、何個・いくら戻るか。装着中は除く)。
+ * まとめてロック・解除の見込み(D-246)。絞り込み中の装備のうち、変わるものの数と、その id。
+ * @param {GameLike} game @param {string | null} kind @param {LockFilter} lock @param {boolean} locked 付けるなら true
+ */
+export function bulkLockPreview(game, kind, lock, locked) {
+  const shown = filteredItems(game, kind, lock);
+  const ids = shown.filter((it) => Boolean(it.locked) !== locked).map((it) => it.id);
+  return { shown: shown.length, count: ids.length, ids };
+}
+
+/**
+ * まとめて分解の一覧(レア度ごとに、何個・いくら戻るか。装着中とロック中は除く)。
  * @param {GameLike} game @param {Crate[]} crates
  */
 export function bulkDismantleRows(game, crates) {
@@ -216,12 +254,14 @@ export function bulkDismantleRows(game, crates) {
 }
 
 /**
- * まとめて分解の見込み(装着中を除く)。{ count, coins }。
+ * まとめて分解の見込み(装着中とロック中を除く:D-246)。{ count, coins, locked }。locked は、除いたロック中の数。
  * @param {GameLike} game @param {Crate[]} crates @param {string} rarityId
  */
 export function bulkDismantlePreview(game, crates, rarityId) {
-  const targets = game.progress.gear.items.filter((it) => it.rarity === rarityId && !isEquipped(game.progress.gear, it.id));
-  return { count: targets.length, coins: targets.reduce((s, it) => s + refundFor(it, crates), 0) };
+  const gear = game.progress.gear;
+  const same = gear.items.filter((it) => it.rarity === rarityId && !isEquipped(gear, it.id));
+  const targets = same.filter((it) => !it.locked);
+  return { count: targets.length, coins: targets.reduce((s, it) => s + refundFor(it, crates), 0), locked: same.length - targets.length };
 }
 
 /**

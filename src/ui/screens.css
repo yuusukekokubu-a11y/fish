@@ -754,3 +754,36 @@
 .old-data-ok {
   width: 100%;
 }
+
+/* 装備のロック(D-246):鍵の印・ロック中のカード・まとめてロックの行 */
+.item-lock {
+  font-size: 15px;
+  line-height: 1;
+}
+.item-card.locked {
+  outline: 2px solid rgba(255, 209, 102, 0.55);
+  outline-offset: -2px;
+}
+.item-locked-note,
+.space-warning-locked {
+  margin: 6px 2px;
+  font-size: 14px;
+  font-weight: bold;
+}
+.item-lock-toggle {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.bulk-lock-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.bulk-lock-row button {
+  flex: 1;
+}
+.secondary-button:disabled {
+  border-color: #44555f;
+  background: #2a3a44;
+  color: #a9bcc7;
+}

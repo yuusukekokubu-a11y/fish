@@ -1,16 +1,18 @@
 // @ts-check
-// 保存の形(版 1:D-223・D-232)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 2:D-223・D-232・D-247)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
-// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 7 つの欄に分ける:
+// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 8 つの欄に分ける:
 //   ウロコイン ~ 竿の段階.工程の番号 ~ 鱗(魚の id:数 を「,」で) ~ 釣れた魚(魚の id を「,」で)
 //   ~ 引いた回数.ガチャの種.次の個体の番号 ~ 装着(種類の番号.個体の番号 を「,」で) ~ 持ち物(装備を「,」で)
+//   ~ ロック(持ち物の順に、1 個 1 字で「1」ロック中・「0」ロックなし。版 2 で足した:D-247)
 // 装備 1 個:前の個体の番号との差.種類とレア度の番号.グレード.基本効果の値 のあとに、スキルを「英大文字 1 字(スキルの番号)+ レベル」で並べる。
 //   例:「1.b.5.2s」+「B7C7D7」。種類とレア度の番号 = 種類の番号 × レア度の数 + レア度の番号。
 // - 魚は id で書く(D-228)。鱗は持っているもの(1 以上)だけを書く。
 // - 装備の種類・レア度・スキルは表の番号で書く(表の行は並べ替えない。スキルは 26 個まで:足すときは版を上げる)。
 // - 点検:壊れた・切れた・範囲外・表にない魚の id や工程・重複・装着の番号が持ち物にない、を含むものは拒否する。
-// 版を足すときは、SAVE_VERSION を上げ、「前の版 → 新しい版」の読み替えの関数を足す。
+// 版を足すときは、SAVE_VERSION を上げ、「前の版 → 新しい版」の読み替えの関数を UPGRADES に足す(本文の文字列を 1 版だけ進める)。
+// 古い版の本文は、読み替えを順に通して今の版にしてから点検する。書くのは今の版だけ。
 // tests/fixtures/compat_v1.json(互換の正解データ)が、いつまでも読めて同じ結果になることをテストで守る(DESIGN)。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
@@ -23,7 +25,7 @@ import { levelRange } from "./skills.js";
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -31,7 +33,7 @@ export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_
 /** スキルの番号を書く文字(26 個まで)。 */
 const SKILL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SEED_MAX = 4294967295;
-const FIELDS = 7;
+const FIELDS = 8;
 
 /**
  * 進み具合。
@@ -49,6 +51,35 @@ const FIELDS = 7;
  * @typedef {{ fish: readonly { id: string }[], byId: Map<string, unknown>, maxStage: number,
  *   equipKinds: readonly import("./gear.js").EquipKind[], skills?: readonly { id: string }[] }} SaveContent
  */
+
+/** 「,」で区切った一覧(空なら空の配列)。 @param {string} text */
+const list = (text) => (text === "" ? [] : text.split(","));
+
+/**
+ * 読み替えの関数(D-247)。UPGRADES[v] は、版 v の本文を版 v + 1 の本文にする。形がちがえば null。
+ * 中身の点検は、今の版になってから decodeSave が行う。
+ * @type {Readonly<Record<number, (body: string) => string | null>>}
+ */
+export const UPGRADES = Object.freeze({
+  // 版 1 → 2:ロックの欄を足す(全てロックなし)。
+  1: (body) => {
+    const parts = body.split("~");
+    if (parts.length !== 7) return null;
+    return [...parts, "0".repeat(list(parts[6]).length)].join("~");
+  },
+});
+
+/**
+ * 版 version の本文を、今の版の本文にする。読めない版・形がちがうときは null。
+ * @param {string} body @param {number} version
+ */
+export function upgradeSave(body, version) {
+  if (!Number.isInteger(version) || version < 1 || version > SAVE_VERSION) return null;
+  /** @type {string | null} */
+  let text = body;
+  for (let v = version; v < SAVE_VERSION && text !== null; v++) text = UPGRADES[v](text);
+  return text;
+}
 
 /** 初めて遊ぶときの進み具合。 @returns {Progress} */
 export function initialProgress() {
@@ -72,7 +103,7 @@ function readNum(text) {
 const skillTable = (content) => content.skills ?? [];
 
 /**
- * 進み具合を、保存の本文(版 1)にする。
+ * 進み具合を、保存の本文(今の版)にする。
  * @param {Progress} progress @param {SaveContent} [content]
  */
 export function encodeSave(progress, content = DEFAULT_CONTENT) {
@@ -106,11 +137,9 @@ export function encodeSave(progress, content = DEFAULT_CONTENT) {
     `${num(gear.draws)}.${gear.seed === null ? "" : num(gear.seed)}.${num(gear.nextId)}`,
     equipped,
     itemText,
+    items.map((it) => (it.locked ? "1" : "0")).join(""),
   ].join("~");
 }
-
-/** 「,」で区切った一覧(空なら空の配列)。 @param {string} text */
-const list = (text) => (text === "" ? [] : text.split(","));
 
 /**
  * 装備 1 個を読む。
@@ -143,7 +172,7 @@ function readItem(text, prev, content, config) {
 }
 
 /**
- * 保存の本文(版 1)を点検して、進み具合を取り出す。成功:{ ok: true, progress }。失敗:{ ok: false }。
+ * 保存の本文(今の版。古い版は upgradeSave を通してから)を点検して、進み具合を取り出す。成功:{ ok: true, progress }。失敗:{ ok: false }。
  * @param {string} body @param {SaveContent} [content] @param {typeof DEFAULT_CONFIG} [config]
  * @returns {{ ok: true, progress: Progress } | { ok: false }}
  */
@@ -152,7 +181,7 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (typeof body !== "string") return fail;
   const parts = body.split("~");
   if (parts.length !== FIELDS) return fail;
-  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText] = parts;
+  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText] = parts;
 
   const coins = readNum(coinText);
   if (coins === null) return fail;
@@ -195,6 +224,11 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
     prev = item.id;
   }
   if (items.length > config.gacha.inventoryMax || prev >= nextId) return fail;
+  // ロック:持ち物と同じ数の「0」「1」だけ。ロック中のときだけ locked: true を持つ(D-247)。
+  if (!/^[01]*$/.test(lockText) || lockText.length !== items.length) return fail;
+  items.forEach((it, i) => {
+    if (lockText[i] === "1") it.locked = true;
+  });
 
   /** @type {Record<string, number>} */
   const equipped = {};
