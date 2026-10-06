@@ -270,7 +270,7 @@ test("スキルの画面:条件発動型も同じ一覧に、条件つきの一�
   ]);
 });
 
-test("魚の並びの独立:条件発動型のスキルとルアーを付けても、魚の乱数の並び(待ち時間・魚)は変わらない", () => {
+test("魚の並びの独立:条件発動型・芯・縁のスキルとルアーを付けても、魚の乱数の並び(待ち時間・魚)は変わらない", () => {
   const play = (progress) => {
     const game = createGame(21, { progress });
     const casts = [];
@@ -285,7 +285,7 @@ test("魚の並びの独立:条件発動型のスキルとルアーを付けて�
     return casts;
   };
   const plain = play(progressAt(5, ROD_STEPS.CRAFTED));
-  const skills = Object.fromEntries(["combo-power", "combo-crit", "first-hit", "just-boost", "finisher", "momentum", "first-strike"].map((id) => [id, 7]));
+  const skills = Object.fromEntries(["combo-power", "combo-crit", "first-hit", "just-boost", "finisher", "momentum", "first-strike", "core", "edge"].map((id) => [id, 7]));
   const p = progressWith(skills);
   p.gear.items.push({ id: 2, kind: "lure", rarity: "legend", grade: 5, value: 58, skills: [] });
   p.gear.equipped.lure = 2;
