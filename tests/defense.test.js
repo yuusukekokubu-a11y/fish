@@ -1,4 +1,4 @@
-// 防御と貫通のテスト(②-4c 防御の条件 1・7・8・11:D-235・D-236・D-239・D-245)。
+// 防御と貫通のテスト(②-4c 防御の条件 1・7・8・11:D-235・D-236・D-255・D-260)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";

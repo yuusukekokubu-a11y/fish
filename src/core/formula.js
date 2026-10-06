@@ -1,5 +1,5 @@
 // @ts-check
-// 通し番号 g(段階 1, 2, 3…)から魚と段階の数値を決める式(D-225〜D-227・D-230)。
+// 通し番号 g(段階 1, 2, 3…)から魚と段階の数値を決める式(D-225・D-226・D-230)。
 // 式の形はここ、式の数(係数)は config.js の `formula`(と、装備の `gacha.gradeGrowth`、スキルの `skills`)にある。
 // 魚の表(fish.js)は名前・区分・段階・id・見た目だけを持ち、数値はここから作る。
 // - 伸び方は緩やか:報酬は 1 段ごとの伸び率がだんだん下がる形(g=100 でも安全な整数の範囲に収まる)。
@@ -35,9 +35,9 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {number} craftMax 製作の必要数の行き着く先
  * @property {number} craftDecay 近づく速さ(段の数)
  * @property {number} evolveCount 進化に使うヌシの鱗の数
- * @property {{ knee: number, soft: number }} critChanceCurve 会心率の合計の逓減(knee までは そのまま、こえた分は log で緩やかに:D-239)
+ * @property {{ knee: number, soft: number }} critChanceCurve 会心率の合計の逓減(knee までは そのまま、こえた分は log で緩やかに:D-255)
  * @property {{ knee: number, soft: number }} critMultiplierCurve 会心の倍率の合計の逓減
- * @property {{ knee: number, soft: number }} penetrationCurve 貫通の合計の逓減(D-245)
+ * @property {{ knee: number, soft: number }} penetrationCurve 貫通の合計の逓減(D-260)
  * @property {{ knee: number, soft: number }} justMultiplierCurve ジャスト倍率の合計の逓減(D-257)
  * @property {number} referenceDrawsFirst 基準の回数 N(g) = referenceDrawsFirst × g^referenceDrawsExponent(D-254)
  * @property {number} referenceDrawsExponent
@@ -115,15 +115,15 @@ export function fishHp(kind, g, f) {
     const perHit = eff >= 1 ? 1 : bossReferenceDamage(g, c) * (1 - eff);
     const s = stagePosition(g, c);
     const hp = round2(bossHitTarget(g, c) * perHit * c.bossReference.positionScale[s - 1]);
-    // 5 体目:貫通なし(1 命中 1 ダメージ)では、制限時間の中で押せる回数より多い体力にする(D-238 の貫通必須)。
+    // 5 体目:貫通なし(1 命中 1 ダメージ)では、制限時間の中で押せる回数より多い体力にする(D-254 の貫通必須)。
     return s === c.stagesPerGround ? Math.max(hp, noPenetrationFloor(g, c)) : hp;
   }
-  // 強い魚:平均的な装備で時間の目標を保つよう、防御で減るぶん体力を下げる(防御なしなら 10 + 10g:D-238)。
+  // 強い魚:平均的な装備で時間の目標を保つよう、防御で減るぶん体力を下げる(防御なしなら 10 + 10g:D-254)。
   return Math.max(1, Math.round(base * (1 - fishDefense("strong", g, c))));
 }
 
 /**
- * 合計の逓減(D-239)。knee までは、そのまま。こえた分は knee + soft × ln(1 +(x − knee)÷ soft)。
+ * 合計の逓減(D-255)。knee までは、そのまま。こえた分は knee + soft × ln(1 +(x − knee)÷ soft)。
  * 増え方は、こえるほど小さくなるが、合計は止まらずに増え続ける(上限なし)。knee で傾きが 1 のまま、なめらかにつながる。
  * @param {number} x @param {{ knee: number, soft: number }} curve
  */
@@ -132,7 +132,7 @@ export function softCurve(x, curve) {
   return curve.knee + curve.soft * Math.log(1 + (x - curve.knee) / curve.soft);
 }
 
-/** 5 段階ごとの位置 s(1〜5。釣り場が入るまでの仮:D-238)。 @param {number} g @param {FormulaConfig} [f] */
+/** 5 段階ごとの位置 s(1〜5。釣り場が入るまでの仮:D-254)。 @param {number} g @param {FormulaConfig} [f] */
 export function stagePosition(g, f) {
   const n = conf(f).stagesPerGround;
   return ((stageNumber(g) - 1) % n) + 1;
@@ -172,7 +172,7 @@ export function bossHitTarget(g, f) {
 }
 
 /**
- * ヌシの体力の基準にする、1 命中の期待ダメージ(防御で減らす前)(D-238・D-245)。
+ * ヌシの体力の基準にする、1 命中の期待ダメージ(防御で減らす前)(D-254・D-260)。
  * 基準の装備:リールはレジェンド・グレード g の最大 × reelRatio、強打・会心率・会心威力・芯のレベルは最大 × levelRatio
  * (1 レベルの量は、強打 2・会心率 0.15・芯 0.1・会心威力 0.05:スキルの表と同じ値)。
  * 戦闘と同じ式(基本 + 強打、会心率と倍率の逓減、段数乗の期待値)で計算する。乱数は使わない。
@@ -195,7 +195,7 @@ export function bossReferenceDamage(g, f) {
 
 /**
  * 5 体目のヌシの体力の下限:制限時間(糸と粘りの最大 × min(1, N(g) ÷ noPenBonusDraws) を足したもの)の中で、印が真ん中を通る回数 × noPenTapsFactor。
- * 貫通なしでは 1 命中 1 ダメージなので、これより少ない回数では倒せない(D-238)。
+ * 貫通なしでは 1 命中 1 ダメージなので、これより少ない回数では倒せない(D-254)。
  * @param {number} g @param {FormulaConfig} [f]
  */
 export function noPenetrationFloor(g, f) {

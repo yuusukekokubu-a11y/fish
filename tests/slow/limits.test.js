@@ -43,7 +43,7 @@ test("段階 100・魚 300 種類の表:形に問題がなく、数字は安全�
     };
     for (const [k, v] of Object.entries(row)) assert.ok(Number.isSafeInteger(v) && v > 0 && v < SAFE, `g=${g} ${k}=${v}`);
     if (prev) for (const k of Object.keys(row)) assert.ok(row[k] >= prev[k], `g=${g} ${k} が下がった:${prev[k]} → ${row[k]}`);
-    // ヌシの体力は、5 段階ごとの位置 s で上下する(s=1 で短い戦いに戻る:D-238)。同じ s の中で伸びる。
+    // ヌシの体力は、5 段階ごとの位置 s で上下する(s=1 で短い戦いに戻る:D-254)。同じ s の中で伸びる。
     const bossHp = fishHp("boss", g);
     assert.ok(Number.isSafeInteger(bossHp) && bossHp > 0 && bossHp < SAFE, `g=${g} ヌシの体力 ${bossHp}`);
     if (g > 5) assert.ok(bossHp >= fishHp("boss", g - 5), `g=${g} ヌシの体力が 5 段階前より下がった`);

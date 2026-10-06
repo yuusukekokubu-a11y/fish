@@ -94,7 +94,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     hpBase: 10,
     hpPerStage: 10,
     bossHpRatio: 3.5,
-    // 制限時間:強い魚 8 秒 + 4 秒 × log5(g)、ヌシ 20 秒 + 10 秒 × log5(g)(D-245 で 30 + 20 から短くした)。
+    // 制限時間:強い魚 8 秒 + 4 秒 × log5(g)、ヌシ 20 秒 + 2 秒 × log5(g)(D-260:5 体目の貫通必須と命中回数を両立するため、伸びを 10 秒から 2 秒に)。
     timeLimitMs: 8000,
     timeLimitGrowthMs: 4000,
     bossTimeLimitMs: 20000,
@@ -111,7 +111,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     craftMax: 10,
     craftDecay: 8.7,
     evolveCount: 1,
-    // 会心率・会心の倍率・貫通・ジャスト倍率の合計の逓減(D-245・D-255・D-257)。knee までは そのまま、こえた分は soft × ln(1 + こえた分 ÷ soft)。
+    // 会心率・会心の倍率・貫通・ジャスト倍率の合計の逓減(D-255・D-257・D-260)。knee までは そのまま、こえた分は soft × ln(1 + こえた分 ÷ soft)。
     // knee は、会心率 Lv7(0.1 + 0.15 × 7)・会心威力 Lv7(1.3 + 0.05 × 7)・貫通 Lv7(0.1 × 7)・ジャスト・ブースト Lv7(3 + 0.3 × 7)の値。
     // soft は、1 レベルの増え方の約 3.3 レベル分(会心率 0.5・会心の倍率 0.25・貫通 0.25・ジャスト倍率 1)。
     critChanceCurve: Object.freeze({ knee: 1.15, soft: 0.5 }),
@@ -121,7 +121,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     referenceDrawsFirst: 10,
     referenceDrawsExponent: 0.5,
     penetrationCurve: Object.freeze({ knee: 0.7, soft: 0.25 }),
-    // 防御(D-235・D-245):通し番号 3 から。5 体目のヌシ = max(1.02, 最大レベルの貫通 + 0.35)、ほかは割合(上限 0.9)。
+    // 防御(D-235・D-260):通し番号 3 から。5 体目のヌシ = max(1.02, 最大レベルの貫通 + 0.35)、ほかは割合(上限 0.9)。
     defenseStartStage: 3,
     defensePenPerLevel: 0.1,
     defenseFloor: 1.02,
@@ -129,7 +129,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     bossDefenseShare: Object.freeze([0.15, 0.3625, 0.575, 0.7875, 1]),
     strongDefenseShare: 0.5,
     nonFinalDefenseMax: 0.9,
-    // ヌシの命中回数の目標(D-238)と、体力の基準の装備(育てた装備の目安。シミュレーションで合わせた)。
+    // ヌシの命中回数の目標(D-254)と、体力の基準の装備(育てた装備の目安。シミュレーションで合わせた)。
     bossHitsFirst: 5,
     bossHitsLast: 12,
     bossReference: Object.freeze({ levelRatio: 0.25, penGap: 0.05, penGapDraws: 17, reelRatio: 0.4, scale: 1, growth: 0.1, positionScale: Object.freeze([0.8, 0.97, 0.98, 1.1, 1.09]) }),
@@ -137,7 +137,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     noPenTapsFactor: 1,
     noPenBonusDraws: 45,
   }),
-  // クレートガチャ(D-140・D-146・D-147・D-149)。
+  // クレートガチャ(D-140・D-253・D-147・D-149)。
   gacha: Object.freeze({
     targetSeconds: 60, // クレート 1 回分が貯まる目標の時間(D-253:120 → 60)
     justRate: 0.7, // 価格の稼ぎを見積もるときの、ジャストの割合(「上手」:D-259)

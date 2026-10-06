@@ -180,7 +180,7 @@ export function hitDamage(stats, critical, limits = null) {
 }
 
 /**
- * 会心率・会心の倍率・貫通・ジャスト倍率の合計に、逓減をかけた値(D-245・D-255・D-257)。knee までは そのまま、こえた分は log で緩やか(上限なし)。
+ * 会心率・会心の倍率・貫通・ジャスト倍率の合計に、逓減をかけた値(D-255・D-257・D-260)。knee までは そのまま、こえた分は log で緩やか(上限なし)。
  * curves がなければ、そのまま(前と同じ)。
  * @template {{ critChance: number, critMultiplier: number, penetration?: number, justMultiplier?: number }} T
  * @param {T} stats

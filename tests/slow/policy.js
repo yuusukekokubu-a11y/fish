@@ -9,7 +9,7 @@
 import { currentHookTiming, currentMarker, PHASES, tap } from "../../src/core/fishing.js";
 import { createRng } from "../../src/core/rng.js";
 
-/** タップとタップの間の最小の時間(人の指の速さ:D-245)。 */
+/** タップとタップの間の最小の時間(人の指の速さ:D-260)。 */
 const MIN_TAP_GAP_MS = 250;
 
 /** 上手・ときどき失敗の数(D-259)。 */

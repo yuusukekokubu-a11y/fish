@@ -85,7 +85,7 @@ const signedSeconds = (ms) => `${ms >= 0 ? "+" : "−"}${Math.abs(ms) / 1000} �
  */
 const ITEM = Object.freeze({
   damage: { label: "通常ダメージ", value: (c) => c.damage, format: String },
-  // 会心率・倍率・貫通は、合計に逓減をかけた値(実際に効く値:D-239・D-245)。
+  // 会心率・倍率・貫通は、合計に逓減をかけた値(実際に効く値:D-255・D-260)。
   critChance: {
     label: "クリティカルの確率",
     value: (c) => softCurve(c.critChance, CURVES.critChanceCurve),

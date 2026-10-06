@@ -25,7 +25,7 @@ import { hookGood, progressAt } from "./helpers.js";
 function makeSkill(rate, seed) {
   const r = createRng(seed * 7919 + 13);
   let plan = null;
-  // 人の指の速さ:タップとタップの間は 250 ミリ秒以上あける(D-245)。
+  // 人の指の速さ:タップとタップの間は 250 ミリ秒以上あける(D-260)。
   let last = -Infinity;
   let fightRef = null;
   return (g) => {
@@ -58,7 +58,7 @@ function makeSkill(rate, seed) {
 
 /**
  * ヌシに挑める状態のゲーム。段階 1〜2 は装備なし(装備なしでも倒せる:D-237)。
- * 段階 3 からは装備前提なので、デバッグの「貫通」のプリセット(貫通・連撃・貫など)を付ける(D-238)。
+ * 段階 3 からは装備前提なので、デバッグの「貫通」のプリセット(貫通・連撃・貫など)を付ける(D-254)。
  */
 function bossGame(stage, seed = 1, step = ROD_STEPS.CRAFTED, { gear = stage >= 3 } = {}) {
   const game = createGame(seed, { progress: progressAt(stage, step, { coins: 10, scales: { kurodai: 2 }, gear: { ...emptyGear(), seed: 1 } }) });

@@ -56,7 +56,7 @@ function percent(v) {
 }
 
 /**
- * 魚の防御の表示(D-235・D-245)。防御のない魚は null。貫通があれば「防御 80% → 30%」(実効防御)。
+ * 魚の防御の表示(D-235・D-260)。防御のない魚は null。貫通があれば「防御 80% → 30%」(実効防御)。
  * 貫通は、戦闘の数値の表の貫通に、連撃・貫(いまの連撃の段数ぶん)を足して、逓減をかけたもの。
  * high:実効防御が 100% 以上(貫通が足りず、命中は 1 ダメージ)。
  * @param {{ cast?: any, fight?: any, combat?: any, triggers?: Record<string, any>, config: any } | null} game

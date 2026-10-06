@@ -365,7 +365,7 @@ function startFight(game, grade) {
   if (t.firstHit) boosts.push({ id: "first-hit", when: "firstHit", effects: t.firstHit, uses: 1 });
   const zoneWidth = fightZoneWidth(game);
   game.fight = {
-    // 戦闘中の一時的な上乗せ(D-089・D-186)。戦闘が終わると消え、保存しない。
+    // 戦闘中の一時的な上乗せ(D-186)。戦闘が終わると消え、保存しない。
     boosts,
     // 連撃の段数(続けて命中した回数)。ミスで 0 に戻る(D-185)。
     combo: 0,
@@ -482,7 +482,7 @@ function fightTap(game) {
   if (isHit(position, fight.zone)) {
     const triggered = triggeredStats(game, position);
     const active = triggered.active;
-    // 会心率・倍率・貫通の合計に逓減をかける(D-239・D-245)。
+    // 会心率・倍率・貫通の合計に逓減をかける(D-255・D-260)。
     const stats = effectiveStats(triggered.stats, config.formula ?? null);
     // クリティカルの乱数は、命中のたびに 1 回だけ引く。会心率 100% 超は追加の段(D-169)。
     const roll = fight.critRng();
