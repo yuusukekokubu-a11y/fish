@@ -14,13 +14,13 @@ const gameAt = (stage, extra = {}) => createGame(1, { progress: progressAt(stage
 test("店:画面の表に「店」がある。いまの段階の魚の名前の餌・価格・所持数/上限・一言", () => {
   assert.ok(SCREENS.some((s) => s.id === "shop" && s.title === "店"));
   const v = shopView(gameAt(1, { coins: 100, bait: 3 }));
-  assert.deepEqual([v.name, v.price, v.priceText, v.countText, v.note], ["クロダイの餌", 4, "1 個 4", "3 / 99", REFUND_NOTE]);
+  assert.deepEqual([v.name, v.price, v.priceText, v.countText, v.note], ["クロダイの餌", 4, "1 個 4 ウロコイン", "3 / 99", REFUND_NOTE]);
   assert.deepEqual(
     v.buttons.map((b) => [b.count, b.label, b.cost, b.disabled]),
     [
       [1, "1 個", 4, false],
       [10, "10 個", 40, false],
-      [25, "上限まで(25 個)", 100, false],
+      [25, "上限まで 25 個", 100, false],
     ],
   );
 });

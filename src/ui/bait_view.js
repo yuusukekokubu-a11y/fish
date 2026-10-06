@@ -36,11 +36,11 @@ export function shopView(game) {
   return {
     name: `${fish ? fish.name : "魚"}の餌`,
     price,
-    priceText: `1 個 ${formatCount(price)}`,
+    priceText: `1 個 ${formatCount(price)} ウロコイン`,
     count: baitCount(p),
     max,
     countText: `${baitCount(p)} / ${max}`,
-    buttons: [row(1, "1 個"), row(10, "10 個"), row(most, most > 0 ? `上限まで(${most} 個)` : "上限まで")],
+    buttons: [row(1, "1 個"), row(10, "10 個"), row(most, most > 0 ? `上限まで ${most} 個` : "上限まで")],
     note: REFUND_NOTE,
   };
 }

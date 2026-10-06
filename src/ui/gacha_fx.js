@@ -82,7 +82,7 @@ export function playPull(root, result, crateName, onClose, link = null, scrap = 
       if (scrap?.ids[i]) scrapList.append(c);
       else list.append(c);
     });
-    stage.append(title, list);
+    stage.append(title, list.childElementCount > 0 ? list : el("p", "fx-empty", "残った装備はありません"));
     if (scrap?.text) {
       const details = el("details", "fx-scrap");
       details.append(el("summary", "fx-scrap-title", scrap.text), scrapList);
