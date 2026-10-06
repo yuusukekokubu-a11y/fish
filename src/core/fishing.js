@@ -115,12 +115,12 @@ function ownProgress(progress) {
 /** 装備を反映した戦闘の数値の表を作り直す(装着・外す・分解のあとに呼ぶ:D-181)。 */
 export function refreshCombat(game) {
   const { config, content } = game;
-  // スキルのレベル(竿の段階で最大が伸びる)と、報酬・待ち時間の倍率(D-174)。
+  // スキルのレベル(竿の段階で最大が伸びる)と、報酬・待ち時間の倍率(D-210)。
   game.skills = skillStates(game.progress.gear, game.progress.rodStage, config.skills, content.skills);
   game.rates = skillRates(game.skills, content.skills);
   // 条件発動型の効果の量(条件ごと)。戦闘の命中のたびに、条件を満たしたものだけを使う(D-184)。
   game.triggers = triggerAmounts(game.skills, content.skills);
-  // 基本の表 → 装備の基本効果(足し算)→ スキル(足し算 → 掛け算)→ 点検と丸め(D-174・D-181)。
+  // 基本の表 → 装備の基本効果(足し算)→ スキル(足し算 → 掛け算)→ 点検と丸め(D-181・D-210)。
   const geared = applyGear(game.baseCombat, game.progress.gear, content.equipKinds);
   game.combat = normalizeCombat(applySkillsToCombat(geared, game.skills, content.skills), config.combat, config.combatLimits);
   return game.combat;
@@ -203,7 +203,7 @@ export function phaseDuration(game) {
     case PHASES.CASTING:
       return c.castMs;
     case PHASES.WAITING:
-      // 俊敏:引いた待ち時間に倍率を掛ける(引く乱数の数と値は変えない:D-174)。
+      // 俊敏:引いた待ち時間に倍率を掛ける(引く乱数の数と値は変えない:D-210)。
       return scaledWait(game.cast.waitMs, game.rates.wait, c.skills.minWaitMs);
     case PHASES.BITE:
       return currentHookTiming(game).ringMs;

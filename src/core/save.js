@@ -2,7 +2,7 @@
 // 版 7 の形(版 5・6 と同じ形。版 6 でルアーの値の意味が、版 7 でスキルの数がポイントからレベルに変わった:D-188・D-199):
 //   { version: 7, progress: { coins, scales: { 魚の id: 数 }, rod: { stage, step }, seen: [魚の id, ...],
 //     gear: { items: [[…]], equipped: [[…]], draws, seed, nextId } } }
-//   装備は表の番号の短い配列で書く(D-171・D-178。形は gear_save.js)。
+//   装備は表の番号の短い配列で書く(D-208。形は gear_save.js)。
 // 装備とガチャのまとまり(gear)の点検は gear_save.js にある。
 // 古い版は、版ごとの小さな関数(MIGRATIONS)で 1 つずつ新しい版に読み替える。版を足すときは、
 // SAVE_VERSION を上げ、「前の版 → 新しい版」の関数を 1 つ足す。

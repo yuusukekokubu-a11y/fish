@@ -35,7 +35,7 @@ export function mountCrates(container, ctx) {
   message.setAttribute("role", "status");
   container.append(space, message);
 
-  // スキルの抽選に使う表と数値(ゲームの表を使う:D-177)。
+  // スキルの抽選に使う表と数値(ゲームの表を使う:D-207)。
   const skillDraw = { skills: game.content.skills ?? SKILL_ROWS, config: game.config.skills ?? DEFAULT_CONFIG.skills };
   const list = el("div", "crate-list");
   for (const card of crateCards(game, crates)) {

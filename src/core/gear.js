@@ -19,7 +19,7 @@ import { levelRange, SKILL_ROWS } from "./skills.js";
  * @property {number} rate 排出率(千分率:1000 で 100%)。全部の行の合計は 1000
  * @property {number} multiplier 基本効果の範囲に掛ける倍率
  * @property {number} refundRate 分解したときに返るウロコインの、クレートの価格に対する割合
- * @property {number} skillCount 装備 1 個に付くスキルの数(D-166)
+ * @property {number} skillCount 装備 1 個に付くスキルの数(D-195)
  */
 
 /**
@@ -244,7 +244,7 @@ export function drawSeed(seed, index) {
 export const DEFAULT_SKILL_DRAW = Object.freeze({ skills: SKILL_ROWS, config: DEFAULT_CONFIG.skills });
 
 /**
- * 1 回ぶんの抽選。乱数は決まった順に引く(D-148・D-177):
+ * 1 回ぶんの抽選。乱数は決まった順に引く(D-148・D-207):
  * レア度 → 種類(等確率)→ 基本効果の値 → スキル(数はレア度で決まる。表から等確率、重複なし)→ 各スキルのレベル。
  * 前の 3 つは ②-4a と同じなので、スキルが付かないノーマルの結果は前と同じ。
  * @param {number} seed @param {number} index 何回目か(0 から) @param {Crate} crate
