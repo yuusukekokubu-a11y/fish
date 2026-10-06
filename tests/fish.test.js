@@ -55,7 +55,9 @@ test("ヌシの体力は同じ段階の強い魚より多く、防御は高く�
   for (const { stage, craft, boss } of STAGE_LIST) {
     const s = FISH_LIST.find((f) => f.id === craft.scale).minigame;
     const b = FISH_LIST.find((f) => f.id === boss).minigame;
-    assert.ok(b.hp > 2 * s.hp, `段階 ${stage}`);
+    // 防御を入れた体力(体力 ÷(1 − 防御)。100% 以上は無限)で比べる(D-254)。
+    const tough = (m) => (m.defense >= 1 ? Infinity : m.hp / (1 - m.defense));
+    assert.ok(tough(b) > 2 * tough(s), `段階 ${stage}`);
     assert.ok(stage <= 2 ? b.defense === 0 && s.defense === 0 : b.defense > s.defense, `段階 ${stage} の防御`);
     assert.ok(b.timeLimitMs > s.timeLimitMs);
     assert.ok(b.sweepMs <= s.sweepMs && b.zoneWidth <= s.zoneWidth);

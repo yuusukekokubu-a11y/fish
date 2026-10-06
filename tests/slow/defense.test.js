@@ -1,5 +1,5 @@
-// 重いテスト:防御とヌシ戦の長さ(②-4c 防御の条件 2〜5・8、D-235〜D-239・D-245)。
-// 装備は builds.js:平均的な装備・育てた装備(各枠 100 個から)・最強の装備。戦闘は「上手」(真ん中で命中、タップの間 250 ミリ秒以上)。
+// 重いテスト:防御とヌシ戦の長さ(②-4c 防御、戦闘の調整の条件 4〜6:D-235・D-245・D-254・D-255・D-260)。
+// 装備は builds.js:平均的な装備・育てた装備(各枠 N(g) 個から)・最強の装備。戦闘は「上手」(真ん中で命中、タップの間 250 ミリ秒以上)。
 // 結果の表は報告に使う(console.log)。
 
 import assert from "node:assert/strict";
@@ -41,7 +41,8 @@ test("ヌシの命中回数(育てた装備・貫通を含む):s=1 は 4〜6 回
     const m = CONTENT.byId.get(boss(g)).minigame;
     byS[s].push(r.median);
     lines.push(`| ${g} | ${s} | ${bossHitTarget(g)} | ${m.hp} | ${Math.round(m.defense * 1000) / 10}% | ${r.per.join("・")} | ${r.median} |`);
-    const [lo, hi] = s === 1 ? [4, 6] : s === 5 ? [10, 14] : [4, 14];
+    // g=5 だけは、貫通なしで勝てない条件(体力の下限)と両立できず 15 回まで(D-260)。
+    const [lo, hi] = s === 1 ? [4, 6] : s === 5 ? [10, g === 5 ? 15 : 14] : [4, 14];
     if (!(r.median >= lo && r.median <= hi)) problems.push(`g=${g} s=${s}:${r.median} 回`);
   }
   const means = [1, 2, 3, 4, 5].map((s) => byS[s].reduce((a, b) => a + b, 0) / byS[s].length);
@@ -100,14 +101,17 @@ function damageRow(g, items) {
   const stats = effectiveStats(game.combat, DEFAULT_CONFIG.formula);
   const limits = DEFAULT_CONFIG.combatLimits;
   const per = [0, 1, 2, 3].map((k) => hitDamage(stats, k, limits));
+  // ジャストの初撃(防御で減らす前):基本のダメージ × ジャスト倍率(表 + ジャスト・ブースト、逓減つき:D-256)。
+  const just = effectiveStats({ ...game.combat, justMultiplier: game.combat.justMultiplier + (game.triggers.just?.justMultiplier ?? 0) }, DEFAULT_CONFIG.formula).justMultiplier;
+  const strike = Math.round(stats.damage * just);
   const whole = Math.floor(stats.critChance);
   const frac = stats.critChance - whole;
   const expected = hitDamage(stats, whole, limits) * (1 - frac) + hitDamage(stats, whole + 1, limits) * frac;
-  return { per, expected, chance: stats.critChance, mult: stats.critMultiplier, top: hitDamage(stats, limits.maxCritStages, limits) };
+  return { per, expected, strike, chance: stats.critChance, mult: stats.critMultiplier, top: hitDamage(stats, limits.maxCritStages, limits) };
 }
 
 test("1 命中のダメージの差:育てた装備は平均的な装備の 100 倍以内、最強は 1000 倍以内、最強でも安全上限(10 億)に届かない", () => {
-  const lines = ["| g | 装備 | 通常 / 1 段 / 2 段 / 3 段 | 会心率・倍率 | 期待値 | ヌシの命中回数 |"];
+  const lines = ["| g | 装備 | 通常 / 1 段 / 2 段 / 3 段 | 会心率・倍率 | 期待値 | 初撃 | ヌシの命中回数 |"];
   for (const g of [1, 2, 5, 6, 10, 20, 50, 100]) {
     const avg = averageItems(CONTENT, g);
     const grown = grownItems(CONTENT, g, boss(g), 11000 + g);
@@ -119,7 +123,7 @@ test("1 命中のダメージの差:育てた装備は平均的な装備の 100 
     ].map(([name, items]) => {
       const d = damageRow(g, items);
       const hits = measure(CONTENT, g, items, boss(g), FIGHT_SEEDS).median;
-      lines.push(`| ${g} | ${name}(${skillSummary(items) || "スキルなし"}) | ${d.per.join(" / ")} | ${(d.chance * 100).toFixed(0)}%・${d.mult.toFixed(2)} 倍 | ${Math.round(d.expected)} | ${hits} |`);
+      lines.push(`| ${g} | ${name}(${skillSummary(items) || "スキルなし"}) | ${d.per.join(" / ")} | ${(d.chance * 100).toFixed(0)}%・${d.mult.toFixed(2)} 倍 | ${Math.round(d.expected)} | ${d.strike} | ${hits} |`);
       return d;
     });
     const [a, gr, b] = rows;
@@ -130,7 +134,7 @@ test("1 命中のダメージの差:育てた装備は平均的な装備の 100 
   console.log(lines.join("\n"));
 });
 
-test("会心率と会心威力の逓減:Lv1〜7 は線形、8 からは増分がだんだん小さく、合計は増え続ける(単独で付けたとき)", () => {
+test("会心率と会心威力の逓減:Lv1〜7 は線形(+15%・+0.05 倍)、8 からは増分がだんだん小さく、合計は増え続ける(単独で付けたとき)", () => {
   const rate = SKILL_ROWS.find((s) => s.id === "crit-rate");
   const power = SKILL_ROWS.find((s) => s.id === "crit-power");
   const f = DEFAULT_CONFIG.formula;
@@ -145,7 +149,7 @@ test("会心率と会心威力の逓減:Lv1〜7 は線形、8 からは増分が
     const t = total(L);
     const inc = [t[0] - prev[0], t[1] - prev[1]];
     if (L <= 7) {
-      assert.ok(Math.abs(inc[0] - 0.15) < 1e-9 && Math.abs(inc[1] - 0.1) < 1e-9, `Lv${L} は線形`);
+      assert.ok(Math.abs(inc[0] - 0.15) < 1e-9 && Math.abs(inc[1] - 0.05) < 1e-9, `Lv${L} は線形`);
     } else {
       assert.ok(inc[0] > 0 && inc[1] > 0, `Lv${L} の増分はプラス`);
       assert.ok(inc[0] <= prevInc[0] + 1e-12 && inc[1] <= prevInc[1] + 1e-12, `Lv${L} の増分は前以下`);

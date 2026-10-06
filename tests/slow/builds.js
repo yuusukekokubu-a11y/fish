@@ -1,6 +1,6 @@
 // 重いテストで共通に使う、装備の組み立てと戦闘のシミュレーション(テストではない:D-238・D-245)。
 // - 平均的な装備:レア・グレード g・値は真ん中・スキルなし(②-4c 土台の時間の測定と同じ)。
-// - 育てた装備:段階 g のクレートを 100 回引いた中から、糸・リール・ルアーの組み合わせで、命中回数が最も少ないもの。
+// - 育てた装備:各枠で、段階 g のクレートを N(g) 個引いた中から、糸・リール・ルアーの組み合わせで、命中回数が最も少ないもの(D-254)。
 // - 最強の装備:レジェンド・グレード g・値は最大。スキル枠 9 つ(3 個 × 3 つ)を、命中回数が最も少ない組み合わせで埋めたもの。
 // 戦闘は「上手」:印が命中範囲の真ん中に来るたびに必ずタップする(真ん中 = 芯。縁は狙わない)。
 // 印が真ん中に来る時刻へ時間を飛ばして進めるので、速い(結果は 16 ミリ秒ごとに見る遊び方とほぼ同じ)。
@@ -12,6 +12,7 @@ export const MIN_TAP_GAP_MS = 250;
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { createGame, PHASES, tap, update } from "../../src/core/fishing.js";
 import { drawItem, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
+import { referenceDraws } from "../../src/core/formula.js";
 import { levelRange, SKILL_ROWS } from "../../src/core/skills.js";
 import { startQuickFight } from "../../src/ui/debug_view.js";
 
@@ -103,14 +104,15 @@ function dominates(a, b) {
 }
 
 /**
- * 育てた装備(D-238):糸・リール・ルアーの各枠で、段階 g のクレートから 100 個ずつ(ガチャの種 seed で引き続け、
- * 種類ごとに先に出た 100 個)を候補にし、命中回数が最も少ない組み合わせを選ぶ。
+ * 育てた装備(D-254):糸・リール・ルアーの各枠で、段階 g のクレートから N(g) 個ずつ(ガチャの種 seed で引き続け、
+ * 種類ごとに先に出た N(g) 個)を候補にし、命中回数が最も少ない組み合わせを選ぶ。
  * 候補は、ほかの候補に負けているもの(値と、命中回数に効くスキルのレベルが全部以下)を除く。
  * 1 シードで全部の組み合わせを比べ、良い 10 通りを 3 シードで比べ直す。noPen なら、貫通と連撃・貫を持つ装備は使わない。
  */
-export function grownItems(content, g, fishId, seed, { noPen = false } = {}) {
+export function grownItems(content, g, fishId, seed, options = {}) {
+  const noPen = options.noPen ?? false;
   const crate = makeCrates(content, DEFAULT_CONFIG)[g - 1];
-  const per = 100;
+  const per = options.per ?? referenceDraws(g);
   const byKind = new Map(content.equipKinds.map((k) => [k.id, []]));
   for (let i = 0; [...byKind.values()].some((l) => l.length < per) && i < 5000; i++) {
     const it = drawItem(seed, i, crate, content.equipKinds, GG);

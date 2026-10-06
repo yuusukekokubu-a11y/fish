@@ -1,4 +1,4 @@
-// 重いテスト:クレートガチャの排出率と、クレート 1 回分が貯まる時間(②-4a の受け入れ条件 3・6、D-146・D-147)。
+// 重いテスト:クレートガチャの排出率と、クレート 1 回分が貯まる時間(②-4a の受け入れ条件 3・6、戦闘の調整の条件 8:D-147・D-253・D-259)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -8,7 +8,8 @@ import { makeContent } from "../../src/core/fish.js";
 import { createGame, update } from "../../src/core/fishing.js";
 import { emptyGear, EQUIP_KIND_ROWS, makeCrates, pullCrate } from "../../src/core/gear.js";
 import { progressAt, stage6Content } from "../helpers.js";
-import { makePolicy } from "./policy.js";
+import { averageItems, progressWith } from "./builds.js";
+import { policyOf, SKILLED, SLOPPY } from "./policy.js";
 
 const GACHA = DEFAULT_CONFIG.gacha;
 
@@ -39,10 +40,10 @@ test("排出率:各クレートで 1 万回(1 回引きと 10 連をまぜる)�
   console.log(lines.join("\n"));
 });
 
-/** 段階 stage で、ウロコイン 0 から price が貯まるまでの時間(秒)。上手・ときどき失敗の遊び方で。 */
-function secondsToEarn(content, stage, price, rate, hookOk, seed) {
-  const g = createGame(seed, { content, progress: progressAt(stage) });
-  const policy = makePolicy(rate, hookOk, seed);
+/** 段階 stage で、ウロコイン 0 から price が貯まるまでの時間(秒)。平均的な装備で、上手・ときどき失敗の遊び方で。 */
+function secondsToEarn(content, stage, price, style, seed) {
+  const g = createGame(seed, { content, progress: progressWith(stage, averageItems(content, stage)) });
+  const policy = policyOf(style, seed);
   for (let t = 16; t <= 1800000; t += 16) {
     update(g, 16);
     policy(g);
@@ -57,25 +58,25 @@ function measure(content) {
   const crates = makeCrates(content, DEFAULT_CONFIG);
   return crates.map((crate) => {
     const seeds = Array.from({ length: 12 }, (_, i) => i + 1);
-    const skilled = median(seeds.map((s) => secondsToEarn(content, crate.stage, crate.price, 1, 1, s)));
-    const sloppy = median(seeds.map((s) => secondsToEarn(content, crate.stage, crate.price, 0.7, 0.8, s)));
+    const skilled = median(seeds.map((s) => secondsToEarn(content, crate.stage, crate.price, SKILLED, s)));
+    const sloppy = median(seeds.map((s) => secondsToEarn(content, crate.stage, crate.price, SLOPPY, s)));
     return { crate, skilled, sloppy };
   });
 }
 
-test("価格と時間:各段階で、上手なら 1〜3 分、ときどき失敗でも 4 分以内に 1 回分が貯まる(シード 12 個の真ん中の値)", () => {
+test("価格と時間:各段階で、上手なら 30〜90 秒、ときどき失敗でも 120 秒以内に 1 回分が貯まる(平均的な装備、シード 12 個の真ん中の値)", () => {
   const rows = measure(makeContent());
   console.log(rows.map((r) => `${r.crate.name} ${r.crate.price}:上手 ${r.skilled.toFixed(0)} 秒、ときどき失敗 ${r.sloppy.toFixed(0)} 秒`).join("\n"));
   for (const r of rows) {
-    assert.ok(r.skilled >= 60 && r.skilled <= 180, `${r.crate.name}:上手 ${r.skilled} 秒`);
-    assert.ok(r.sloppy <= 240, `${r.crate.name}:ときどき失敗 ${r.sloppy} 秒`);
+    assert.ok(r.skilled >= 30 && r.skilled <= 90, `${r.crate.name}:上手 ${r.skilled} 秒`);
+    assert.ok(r.sloppy <= 120, `${r.crate.name}:ときどき失敗 ${r.sloppy} 秒`);
   }
 });
 
-test("段階 6 を表に足しても、数式のままで 1〜3 分に収まる", () => {
+test("段階 6 を表に足しても、数式のままで 30〜90 秒(ときどき失敗 120 秒以内)に収まる", () => {
   const content = stage6Content();
   const six = measure(content).at(-1);
   console.log(`段階 6:${six.crate.name} ${six.crate.price}:上手 ${six.skilled.toFixed(0)} 秒、ときどき失敗 ${six.sloppy.toFixed(0)} 秒`);
-  assert.ok(six.skilled >= 60 && six.skilled <= 180);
-  assert.ok(six.sloppy <= 240);
+  assert.ok(six.skilled >= 30 && six.skilled <= 90);
+  assert.ok(six.sloppy <= 120);
 });

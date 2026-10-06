@@ -19,13 +19,14 @@ import { createRng } from "../src/core/rng.js";
 import { equipItem, makeCrates, pullCrate } from "../src/core/gear.js";
 import { initialNav, isPaused, setDrawer, showScreen } from "../src/ui/screens.js";
 import { act, advance, createSession, setPaused, tapSession } from "../src/ui/session.js";
-import { hookJust, progressAt } from "./helpers.js";
+import { hookGood, hookJust, progressAt } from "./helpers.js";
 
 const FRAME_MS = 16;
 
 /** 上手に遊ぶ操作(ゲームの状態だけを見て決めるので、止めていた時間には左右されない)。 */
 function wantsTap(game) {
-  if (game.phase === PHASES.BITE) return hookJust(game);
+  // 強い魚は通常の成功で合わせる(ジャストの初撃で釣れて、体力制にならないことがあるので:D-256)。
+  if (game.phase === PHASES.BITE) return game.cast.kind === "strong" ? hookGood(game) : hookJust(game);
   if (game.phase === PHASES.MINIGAME) {
     const z = game.fight.zone;
     return Math.abs(currentMarker(game) - (z.start + z.end) / 2) < 0.02;

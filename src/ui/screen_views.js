@@ -68,6 +68,12 @@ export function critStageText(chance) {
   return `${name(whole)} ${percent(1 - frac)} / ${name(whole + 1)} ${percent(frac)}`;
 }
 const times = (x) => `${x} 倍`;
+
+/** 初撃のジャスト倍率:表 + ジャスト・ブースト(game があれば)に逓減をかけ、0.01 に丸める(D-256・D-257)。 */
+function justStrikeMultiplier(c, game) {
+  const total = (c.justMultiplier ?? 1) + (game?.triggers?.just?.justMultiplier ?? 0);
+  return Math.round(softCurve(total, DEFAULT_CONFIG.formula.justMultiplierCurve) * 100) / 100;
+}
 /** 逓減の形(config.formula)。 */
 const CURVES = DEFAULT_CONFIG.formula;
 const seconds = (ms) => `${Math.round(ms) / 1000} 秒`;
@@ -97,7 +103,13 @@ const ITEM = Object.freeze({
     extra: (c, game) => zoneWidthRows(c, game),
   },
   timeBonus: { label: "制限時間の増減", value: (c) => c.timeLimitBonusMs, format: signedSeconds },
-  justMultiplier: { label: "ジャストの倍率", value: (c) => c.hook.justMultiplier, format: times },
+  // ジャスト倍率(強い魚のジャストの初撃:D-256)。表 + ジャスト・ブースト(条件つき)に逓減をかけた、実際に効く値(D-257)。
+  justMultiplier: {
+    label: "ジャスト倍率(初撃)",
+    value: (c, _r, game) => justStrikeMultiplier(c, game),
+    format: times,
+    extra: (c, game) => [["初撃のダメージ(防御の前)", String(Math.round(c.damage * justStrikeMultiplier(c, game)))]],
+  },
   success: { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
   just: { label: "ジャスト帯(強い魚)", value: (c) => c.hook.strong.justMs, format: seconds },
   // 報酬と待ち時間の倍率(スキル:豊漁・俊敏)。基本は全部 1。鱗を増やす効果はない(D-211)。
@@ -188,9 +200,9 @@ export function statusView({ game }) {
       title,
       rows: items.map((item) => ({
         label: item.label,
-        value: item.format(item.value(game.combat, rates)),
+        value: item.format(item.value(game.combat, rates, game)),
         detail: [
-          ["今の値(装備・スキル込み)", item.format(item.value(game.combat, rates))],
+          ["今の値(装備・スキル込み)", item.format(item.value(game.combat, rates, game))],
           ["基本の値", item.format(item.value(base, BASE_RATES))],
           ...(item.extra ? item.extra(game.combat, game) : []),
         ],

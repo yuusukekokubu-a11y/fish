@@ -131,8 +131,8 @@ test("掛かったらすぐ合わせ、真ん中を狙えば、弱いも強い�
   assert.equal(game.counts.escaped, 0);
 });
 
-test("合わせだけしてミニゲームで何もしないと、強い魚は時間切れで逃げる", () => {
-  const game = play(createGame(4), 300000, { hook: hookJust });
+test("合わせだけしてミニゲームで何もしないと、強い魚は時間切れで逃げる(ジャストの初撃で釣れた魚は除く)", () => {
+  const game = play(createGame(4), 300000, { hook: hookGood });
   assert.ok(game.counts.weak > 0);
   assert.equal(game.counts.strong, 0);
   for (const r of game.results.filter((x) => x.kind === FISH_KINDS.STRONG)) {

@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boostedDamage } from "../src/core/combat.js";
+import { strikeDamage } from "../src/core/combat.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { DEFAULT_CONTENT, makeContent } from "../src/core/fish.js";
 import {
@@ -51,11 +51,12 @@ test("クレートは段階ごとに 1 種類。名前・解放の段階・グ�
   assert.deepEqual(
     CRATES.map((c) => [c.name, c.stage, c.grade, c.price]),
     [
-      ["クロダイのクレート", 1, 1, 20],
-      ["スズキのクレート", 2, 2, 46],
-      ["ヒラメのクレート", 3, 3, 110],
-      ["ワラサのクレート", 4, 4, 260],
-      ["ブリのクレート", 5, 5, 610],
+      // 目標の時間 60 秒(D-253)。前(120 秒)の 20・46・110・260・610 のおよそ半分。
+      ["クロダイのクレート", 1, 1, 12],
+      ["スズキのクレート", 2, 2, 28],
+      ["ヒラメのクレート", 3, 3, 67],
+      ["ワラサのクレート", 4, 4, 160],
+      ["ブリのクレート", 5, 5, 370],
     ],
   );
   for (const c of CRATES) {
@@ -275,12 +276,10 @@ test("効果はヌシ戦にも効き、外すと元に戻る", () => {
   assert.ok(Math.abs(g2.fight.zone.end - g2.fight.zone.start - 0.19 * 1.2) < 1e-9, "ヌシ・クロダイの幅 0.19 × 1.2");
 });
 
-test("ダメージの順:通常 → クリティカルの倍率 → ジャストの倍率(四捨五入)。足し算の上乗せはダメージに直接は足さない", () => {
-  const just = { id: "just", damageMultiplier: 1.5, uses: 1 };
-  const first = { id: "first-hit", when: "firstHit", effects: { damage: 3 }, uses: 1 };
-  assert.equal(boostedDamage(15, [just]), 23, "15 × 1.5 = 22.5 → 23");
-  assert.equal(boostedDamage(15, [just, first]), 23, "先手の足し算は、基本のダメージの側で足す");
-  assert.equal(boostedDamage(15, []), 15);
+test("初撃のダメージ:基本のダメージ(リールを足したもの)× ジャスト倍率を四捨五入。防御で減らす(D-256)", () => {
+  assert.deepEqual(strikeDamage(15, 3, 0, 1e9), { raw: 45, damage: 45 }, "リールで 15 → 初撃 45");
+  assert.deepEqual(strikeDamage(15, 3.3, 0, 1e9), { raw: 50, damage: 50 }, "49.5 → 50");
+  assert.deepEqual(strikeDamage(15, 3, 0.1, 1e9), { raw: 45, damage: 41 }, "45 × 0.9 = 40.5 → 41");
 });
 
 test("装備なし・ガチャを引いても付けなければ、結果は前と同じ(魚の並びもガチャ・分解・装着で変わらない)", () => {

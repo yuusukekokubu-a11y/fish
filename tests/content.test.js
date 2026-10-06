@@ -69,7 +69,9 @@ test("段階 5 を進化すると段階 6 へ進み、段階 6 の製作 → ヌ
   for (let i = 0; i < 80 && (game.progress.scales.kanpachi ?? 0) < need; i++) play(game, 120000, SKILLED);
   assert.ok(game.results.some((r) => r.fishId === "kasago"), "新しい弱い魚が釣れる");
   assert.ok(game.progress.scales.kanpachi >= need, "新しい強い魚の鱗");
-  assert.equal(game.results.find((r) => r.fishId === "kasago").reward.coins, fishCoins("weak", 6), "報酬は式から");
+  // 報酬は式から(ジャストなら × 1.5:D-258)。
+  const kasago = game.results.find((r) => r.fishId === "kasago");
+  assert.equal(kasago.reward.coins, Math.round(fishCoins("weak", 6) * (kasago.hook === "just" ? 1.5 : 1)), "報酬は式から");
   assert.equal(craftGameRod(game), true);
   while (![PHASES.CASTING, PHASES.WAITING].includes(game.phase)) update(game, 16);
   assert.equal(challengeBoss(game), true);

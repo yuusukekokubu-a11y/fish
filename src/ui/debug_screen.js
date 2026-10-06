@@ -30,6 +30,7 @@ import { readUrlOptions, withUrlOptions } from "./url_params.js";
  * @property {() => void} rerender
  * @property {() => void} onGearChanged
  * @property {() => void} backToMain
+ * @property {(hook: { grade: string, strike?: any }) => void} [showHook] 合わせの演出を出す(ジャストの初撃も)
  */
 
 /** @param {string} title */
@@ -176,6 +177,7 @@ export function mountDebug(container, ctx) {
     const r = startQuickFight(game, target.value, /** @type {"good" | "just"} */ (hook.value));
     if (!r.ok) return say(r.error ?? "始められません", true);
     ctx.backToMain();
+    if (r.hook) ctx.showHook?.(r.hook);
   });
   fight.append(field("相手", target), field("合わせの結果", hook), el("p", "debug-note", "戦いのあとは釣りに戻ります。報酬はデバッグのデータに入ります。"), go);
 

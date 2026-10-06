@@ -38,6 +38,9 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {{ knee: number, soft: number }} critChanceCurve 会心率の合計の逓減(knee までは そのまま、こえた分は log で緩やかに:D-239)
  * @property {{ knee: number, soft: number }} critMultiplierCurve 会心の倍率の合計の逓減
  * @property {{ knee: number, soft: number }} penetrationCurve 貫通の合計の逓減(D-245)
+ * @property {{ knee: number, soft: number }} justMultiplierCurve ジャスト倍率の合計の逓減(D-257)
+ * @property {number} referenceDrawsFirst 基準の回数 N(g) = referenceDrawsFirst × g^referenceDrawsExponent(D-254)
+ * @property {number} referenceDrawsExponent
  * @property {number} defenseStartStage 防御を持ち始める通し番号(それより前は 0%:D-237)
  * @property {number} defensePenPerLevel 防御の式が前提にする、貫通の 1 レベルの量(スキルの表の貫通と同じ値)
  * @property {number} defenseFloor 5 体目のヌシ(s=5)の防御の下限(1 以上=貫通なしでは実効防御 100% 以上)
@@ -47,11 +50,12 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {number} nonFinalDefenseMax 5 体目より前のヌシと強い魚の防御の上限(100% 未満)
  * @property {number} bossHitsFirst ヌシの命中回数の目標(s=1)
  * @property {number} bossHitsLast ヌシの命中回数の目標(s=5)
- * @property {{ levelRatio: number, penGap: number, reelRatio: number, scale: number, growth: number, positionScale: readonly number[] }} bossReference
+ * @property {{ levelRatio: number, penGap: number, penGapDraws: number, reelRatio: number, scale: number, growth: number, positionScale: readonly number[] }} bossReference
  *   ヌシの体力の基準の装備(育てた装備の目安:スキルのレベルは最大 × levelRatio、リールは最大 × reelRatio、
- *   貫通は最大レベルの貫通 − penGap。scale × g^growth を掛けて、シミュレーションの命中回数に合わせる)
+ *   貫通は最大レベルの貫通 −(penGap + penGapDraws ÷ N(g))。scale × g^growth を掛けて、シミュレーションの命中回数に合わせる)
  * @property {number} stagesPerGround 位置 s を数える段階の数(釣り場が入るまでの仮:5)
  * @property {number} noPenTapsFactor 5 体目のヌシの体力の下限 = 押せる回数 × これ
+ * @property {number} noPenBonusDraws 押せる回数を数えるときに足す、糸と粘りの最大の割合 = min(1, N(g) ÷ これ)(育てた装備の目安:D-260)
  */
 
 /** @param {FormulaConfig} [f] */
@@ -169,7 +173,8 @@ export function bossHitTarget(g, f) {
 
 /**
  * ヌシの体力の基準にする、1 命中の期待ダメージ(防御で減らす前)(D-238・D-245)。
- * 基準の装備:リールはレジェンド・グレード g の最大 × reelRatio、強打・会心率・会心威力・芯のレベルは最大 × levelRatio。
+ * 基準の装備:リールはレジェンド・グレード g の最大 × reelRatio、強打・会心率・会心威力・芯のレベルは最大 × levelRatio
+ * (1 レベルの量は、強打 2・会心率 0.15・芯 0.1・会心威力 0.05:スキルの表と同じ値)。
  * 戦闘と同じ式(基本 + 強打、会心率と倍率の逓減、段数乗の期待値)で計算する。乱数は使わない。
  * @param {number} g @param {FormulaConfig} [f]
  */
@@ -182,29 +187,36 @@ export function bossReferenceDamage(g, f) {
   const reel = 2 * 3.2 * gradeFactor(g, DEFAULT_CONFIG.gacha.gradeGrowth) * r.reelRatio;
   const base = combat.damage + reel + 2 * level;
   const chance = softCurve(combat.critChance + 0.15 * level + 0.1 * level, c.critChanceCurve);
-  const mult = softCurve(combat.critMultiplier + 0.1 * level, c.critMultiplierCurve);
+  const mult = softCurve(combat.critMultiplier + 0.05 * level, c.critMultiplierCurve);
   const whole = Math.floor(chance);
   const frac = chance - whole;
   return base * mult ** whole * (1 - frac + frac * mult) * r.scale * stageNumber(g) ** r.growth;
 }
 
 /**
- * 5 体目のヌシの体力の下限:制限時間(糸と粘りを最大まで足したもの)の中で、印が真ん中を通る回数 × noPenTapsFactor。
+ * 5 体目のヌシの体力の下限:制限時間(糸と粘りの最大 × min(1, N(g) ÷ noPenBonusDraws) を足したもの)の中で、印が真ん中を通る回数 × noPenTapsFactor。
  * 貫通なしでは 1 命中 1 ダメージなので、これより少ない回数では倒せない(D-238)。
  * @param {number} g @param {FormulaConfig} [f]
  */
 export function noPenetrationFloor(g, f) {
   const c = conf(f);
   // 糸(レジェンドの最大:基本 1 秒 × 3.2 × グレードの倍率)と粘り(1 秒 × 最大レベル)を足した、いちばん長い制限時間。
-  const bonus = 1000 * 3.2 * gradeFactor(g, DEFAULT_CONFIG.gacha.gradeGrowth) + 1000 * (2 + stageNumber(g));
+  // 育てた装備の糸と粘りは、引く数 N(g) が少ないほど最大から遠い(N(g) ÷ noPenBonusDraws の割合。最大で 1:D-260)。
+  const ratio = Math.min(1, referenceDraws(g, c) / c.noPenBonusDraws);
+  const bonus = ratio * (1000 * 3.2 * gradeFactor(g, DEFAULT_CONFIG.gacha.gradeGrowth) + 1000 * (2 + stageNumber(g)));
   const taps = (fishTimeLimitMs("boss", g, c) + bonus) / fishSweepMs("boss", g, c);
   return Math.ceil(taps * c.noPenTapsFactor);
 }
 
-/** ヌシの体力の基準にする実効防御(基準の装備の貫通 = 最大レベルの貫通 − penGap)。 @param {number} g @param {FormulaConfig} [f] */
+/**
+ * ヌシの体力の基準にする実効防御。基準の装備の貫通 = 最大レベルの貫通 −(penGap + penGapDraws ÷ N(g))。
+ * 引く数 N(g) が少ないほど、育てた装備の貫通は最大から遠い(D-254)。
+ * @param {number} g @param {FormulaConfig} [f]
+ */
 export function bossReferenceDefense(g, f) {
   const c = conf(f);
-  const pen = Math.max(0, maxPenetration(g, c) - c.bossReference.penGap);
+  const r = c.bossReference;
+  const pen = Math.max(0, maxPenetration(g, c) - r.penGap - r.penGapDraws / referenceDraws(g, c));
   return Math.max(0, fishDefense("boss", g, c) - pen);
 }
 
@@ -279,4 +291,13 @@ export function gradeFactor(grade, gradeGrowth) {
  */
 export function growthMaxLevel(g, skills) {
   return skills.growthMaxBase + skills.growthMaxPerStage * g;
+}
+
+/**
+ * 基準の回数 N(g)(D-254):育てた装備は、各枠で g のクレートを N(g) 個引いた中の最良。
+ * N(g) = referenceDrawsFirst × g^referenceDrawsExponent を四捨五入(N(1) = 10・N(100) = 100)。
+ * @param {number} g @param {{ referenceDrawsFirst: number, referenceDrawsExponent: number }} [f]
+ */
+export function referenceDraws(g, f = DEFAULT_CONFIG.formula) {
+  return Math.round(f.referenceDrawsFirst * g ** f.referenceDrawsExponent);
 }

@@ -28,11 +28,11 @@ function gameWith(stage, coins, items = [], equipped = {}) {
 }
 
 test("クレートの画面:解放済みだけを段階の新しい順に。価格は 1 回と 10 連、足りないと引けない理由", () => {
-  const game = gameWith(3, 100);
+  const game = gameWith(3, 50);
   const crates = makeCrates(game.content, game.config);
   const cards = crateCards(game, crates);
   assert.deepEqual(cards.map((c) => c.name), ["ヒラメのクレート", "スズキのクレート", "クロダイのクレート"]);
-  assert.deepEqual(cards[0].price, { one: "110", ten: "1100" });
+  assert.deepEqual(cards[0].price, { one: "67", ten: "670" });
   assert.deepEqual(cards[0].blockers, { one: "coins", ten: "coins" });
   assert.deepEqual(cards[2].blockers, { one: null, ten: "coins" });
   assert.deepEqual(cards[0].rates.map((r) => r.rate), ["70%", "22%", "6.5%", "1.5%"]);

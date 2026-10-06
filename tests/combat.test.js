@@ -18,15 +18,16 @@ const norm = (stats) => {
   return rest;
 };
 
-test("基本の表:ダメージ 10・確率 10%・倍率 1.5(D-239)・回復 10・時間の増減 0・貫通 0", () => {
+test("基本の表:ダメージ 10・確率 10%・倍率 1.3(D-255)・回復 10・時間の増減 0・貫通 0・ジャスト倍率 3(D-256)", () => {
   assert.deepEqual(norm(BASE), {
     damage: 10,
     critChance: 0.1,
-    critMultiplier: 1.5,
+    critMultiplier: 1.3,
     missHeal: 10,
     timeLimitBonusMs: 0,
     zoneWidthBonus: 0,
     penetration: 0,
+    justMultiplier: 3,
   });
   assert.deepEqual(norm(undefined), norm(BASE), "表がなければ基本の表");
 });
@@ -41,6 +42,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     timeLimitBonusMs: 0,
     zoneWidthBonus: 0,
     penetration: 0,
+    justMultiplier: 3,
   });
   assert.deepEqual(norm({ damage: 0, critChance: -0.2, critMultiplier: 0.5, missHeal: 0, timeLimitBonusMs: 0 }), {
     damage: 1,
@@ -50,7 +52,11 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     timeLimitBonusMs: 0,
     zoneWidthBonus: 0,
     penetration: 0,
+    justMultiplier: 3,
   });
+  // ジャスト倍率は 1 倍以上、安全上限まで(D-256)。
+  assert.equal(norm({ ...BASE, justMultiplier: 0.2 }).justMultiplier, 1);
+  assert.equal(norm({ ...BASE, justMultiplier: 1e12 }).justMultiplier, LIMITS.maxJustMultiplier);
   // 境目ちょうどはそのまま。
   assert.deepEqual(norm({ damage: 1, critChance: 1, critMultiplier: 10, missHeal: 0, timeLimitBonusMs: 0 }).critChance, 1);
   // 安全上限:確率 2000%(20 段)、倍率 100 倍。
@@ -114,16 +120,16 @@ test("クリティカルの判定は規則の一覧で、後から条件を足�
   assert.ok(waitForCenter(game));
   const r = tap(game);
   assert.equal(r.critical, true);
-  assert.equal(r.damage, 15, "倍率 1.5(D-239)");
+  assert.equal(r.damage, 13, "倍率 1.3(D-255)");
 });
 
 test("確率 0% の戦闘では一度も出ず、100% では毎回出て倍率どおりに削る", () => {
   for (const [critChance, critMultiplier, expected] of [
-    [0, 2, 10],
-    [1, 2, 20],
+    [0, 1.5, 10],
     [1, 1.5, 15],
+    [1, 1.3, 13],
   ]) {
-    // 倍率は逓減の始まり(2.2 倍)より小さい値で確かめる(こえた分は逓減:D-239)。
+    // 倍率は逓減の始まり(1.65 倍)より小さい値で確かめる(こえた分は逓減:D-255)。
     const game = untilFight("suzuki", { combat: { ...BASE, critChance, critMultiplier } });
     let hp = 30;
     while (game.phase === PHASES.MINIGAME) {
@@ -167,6 +173,7 @@ test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より�
     timeLimitBonusMs: -LIMITS.maxTimeLimitBonusMs,
     zoneWidthBonus: 0,
     penetration: 0,
+    justMultiplier: 3,
   });
   assert.equal(game.fight.timeLimitMs, LIMITS.minTimeLimitMs);
   const rng = createRng(3);

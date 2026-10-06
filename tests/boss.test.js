@@ -25,13 +25,22 @@ import { hookGood, progressAt } from "./helpers.js";
 function makeSkill(rate, seed) {
   const r = createRng(seed * 7919 + 13);
   let plan = null;
+  // 人の指の速さ:タップとタップの間は 250 ミリ秒以上あける(D-245)。
+  let last = -Infinity;
+  let fightRef = null;
   return (g) => {
     if (g.phase !== PHASES.MINIGAME) return;
+    if (g.fight !== fightRef) {
+      fightRef = g.fight;
+      last = -Infinity;
+    }
+    if (g.phaseMs - last < 250) return;
     const z = g.fight.zone;
     const p = currentMarker(g);
     if (plan === "miss") {
       if (p < z.start - 0.03 || p > z.end + 0.03) {
         tap(g);
+        last = g.phaseMs;
         plan = null;
       }
       return;
@@ -40,6 +49,7 @@ function makeSkill(rate, seed) {
       if (plan === null) plan = r() < rate ? "hit" : "miss";
       if (plan === "hit") {
         tap(g);
+        last = g.phaseMs;
         plan = null;
       }
     }
