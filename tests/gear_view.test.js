@@ -58,7 +58,7 @@ test("装備の画面:3 枠、持ち物の並べ替え、差と ▲、まとめ�
   assert.deepEqual([line.better, line.diff, line.effect], [true, "+1.5 秒", "制限時間 +1.5 秒"]);
   assert.deepEqual([equipped.equipped, equipped.better, equipped.diff], [true, false, "±0"]);
   assert.deepEqual([worse.better, worse.diff, worse.diffSign], [false, "−1", -1]);
-  assert.deepEqual(bulkDismantlePreview(game, crates, "normal"), { count: 1, coins: worse.refund });
+  assert.deepEqual(bulkDismantlePreview(game, crates, "normal"), { count: 1, coins: worse.refund, locked: 0 });
   assert.equal(inventoryLabel(game), "持ち物 4 / 100");
 });
 

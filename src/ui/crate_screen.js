@@ -40,6 +40,8 @@ export function mountCrates(container, ctx) {
     const box = el("div", `space-warning ${warning.level}`);
     box.setAttribute("role", "alert");
     box.append(el("p", "space-warning-text", warning.text));
+    // ロック中の数(D-246)。
+    if (warning.lockedText) box.append(el("p", "space-warning-locked", `🔒 ${warning.lockedText}`));
     if (warning.level === "full") {
       const go = button("装備へ(分解する)", "primary-button space-warning-go");
       go.addEventListener("click", () => ctx.navigate("equipment"));

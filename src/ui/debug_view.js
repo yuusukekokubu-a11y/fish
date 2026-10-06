@@ -140,6 +140,7 @@ export function setDebugField(game, id, value) {
  * @property {"min" | "max" | "mid" | number} value
  * @property {{ id: string, level: number }[]} skills
  * @property {boolean} [equip] すぐ装着する
+ * @property {boolean} [lock] ロックして作る(D-246)
  */
 
 /**
@@ -187,6 +188,7 @@ export function addDebugItem(game, spec) {
   if (gear.items.length >= game.config.gacha.inventoryMax) return { ok: false, error: "持ち物がいっぱいです" };
   /** @type {Item} */
   const item = { id: gear.nextId, ...built.item };
+  if (spec.lock) item.locked = true;
   gear.nextId += 1;
   gear.items.push(item);
   if (spec.equip) gear.equipped[item.kind] = item.id;
