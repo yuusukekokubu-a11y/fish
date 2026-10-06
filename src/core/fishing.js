@@ -6,7 +6,6 @@
 
 import {
   boostedDamage,
-  boostSum,
   consumeBoosts,
   critSeed,
   critStages,
@@ -65,7 +64,7 @@ export const REASONS = Object.freeze({
 /**
  * 「魚の系統」の乱数で、竿の段階 rodStage の 1 回の投げを決める(D-046・D-064)。
  * 引く順番は固定:待ち時間 → 魚 →(強い魚なら)ミニゲームの種。引く回数は Issue #6 から同じ。
- * ミニゲームの種から、最初の当たり範囲と「ミニゲームの系統」の乱数を作る。
+ * ミニゲームの種から、最初の命中範囲と「ミニゲームの系統」の乱数を作る。
  * options:{ fish: 魚の設定表, strongChance: 強い魚の出現率 }(なければ基本の表と config の値)。
  */
 export function drawCast(rng, config = DEFAULT_CONFIG, rodStage = 1, options = {}) {
@@ -352,11 +351,13 @@ function startFight(game, grade) {
   /** @type {object[]} */
   const boosts = [];
   // ジャストなら、最初の命中のダメージを上げる(D-089)。ジャスト・ブーストは、その倍率に足す(D-184)。
+  // ジャストの条件のほかの効果(ダメージ・会心率など)も、最初の命中に載せる。
   if (grade === HOOK_GRADES.JUST) {
-    boosts.push({ id: "just", damageMultiplier: game.combat.hook.justMultiplier + (t.just?.justMultiplier ?? 0), uses: 1 });
+    const multiplier = game.combat.hook.justMultiplier + (t.just?.justMultiplier ?? 0);
+    boosts.push(t.just ? { id: "just", damageMultiplier: multiplier, when: "just", effects: t.just, uses: 1 } : { id: "just", damageMultiplier: multiplier, uses: 1 });
   }
-  // 先手:合わせの成功(ジャストを含む)とヌシ戦の始まりのあと、最初の命中のダメージを足す。
-  if (t.firstHit?.damage) boosts.push({ id: "first-hit", damageAdd: t.firstHit.damage, uses: 1 });
+  // 先手:合わせの成功(ジャストを含む)とヌシ戦の始まりのあと、最初の命中に効く。
+  if (t.firstHit) boosts.push({ id: "first-hit", when: "firstHit", effects: t.firstHit, uses: 1 });
   const zoneWidth = fightZoneWidth(game);
   game.fight = {
     // 戦闘中の一時的な上乗せ(D-089・D-186)。戦闘が終わると消え、保存しない。
@@ -391,33 +392,29 @@ export function triggeredStats(game) {
   const t = game.triggers ?? {};
   const limits = config.combatLimits;
   const stages = Math.min(fight.combo, config.skills.comboMax);
+  // いま満たしている条件と、その効果と、掛ける数(連撃は段数、ほかは 1)。
+  /** @type {[string, Record<string, number> | null | undefined, number][]} */
+  const met = [];
+  if (stages > 0) met.push(["combo", t.combo, stages]);
+  // 「最初の命中」「クリティカルの次」などは、戦闘中の一時的な上乗せに積んである(D-186)。
+  for (const b of fight.boosts) if (b.when) met.push([b.when, b.effects, 1]);
+  if (fight.hp >= fight.maxHp) met.push(["fullHp", t.fullHp, 1]);
+  if (fight.hp <= fight.maxHp * config.skills.lowHpRatio) met.push(["lowHp", t.lowHp, 1]);
   /** @type {string[]} */
   const active = [];
   let damageAdd = 0;
   let critAdd = 0;
   let pct = 0;
-  if (stages > 0 && t.combo) {
-    damageAdd += (t.combo.damage ?? 0) * stages;
-    critAdd += (t.combo.critChance ?? 0) * stages;
-    active.push("combo");
-  }
-  const firstHit = boostSum(fight.boosts, "damageAdd");
-  if (firstHit > 0) {
-    damageAdd += firstHit;
-    active.push("firstHit");
-  }
-  const momentum = boostSum(fight.boosts, "critChanceAdd");
-  if (momentum > 0) {
-    critAdd += momentum;
-    active.push("afterCrit");
-  }
-  if (fight.hp >= fight.maxHp && t.fullHp?.critChance) {
-    critAdd += t.fullHp.critChance;
-    active.push("fullHp");
-  }
-  if (fight.hp <= fight.maxHp * config.skills.lowHpRatio && t.lowHp?.damagePct) {
-    pct += t.lowHp.damagePct;
-    active.push("lowHp");
+  for (const [when, effects, k] of met) {
+    if (!effects) continue;
+    const add = (effects.damage ?? 0) * k;
+    const crit = (effects.critChance ?? 0) * k;
+    const p = (effects.damagePct ?? 0) * k;
+    if (add === 0 && crit === 0 && p === 0) continue;
+    damageAdd += add;
+    critAdd += crit;
+    pct += p;
+    active.push(when);
   }
   if (damageAdd === 0 && critAdd === 0 && pct === 0) return { stats: combat, active };
   const damage = Math.min(limits.maxDamage, Math.max(limits.minDamage, Math.round((combat.damage + damageAdd) * (1 + pct))));
@@ -438,9 +435,9 @@ function fightTap(game) {
     const boosted = fight.boosts.some((b) => b.damageMultiplier);
     const damage = Math.min(limits.maxHitDamage, boostedDamage(hitDamage(stats, stages, limits), fight.boosts));
     fight.boosts = consumeBoosts(fight.boosts);
-    // 勢い:クリティカルのあと、次の命中の会心率を上げる(次の 1 回だけ)。
-    const momentum = game.triggers?.afterCrit?.critChance ?? 0;
-    if (critical && momentum > 0) fight.boosts.push({ id: "momentum", critChanceAdd: momentum, uses: 1 });
+    // 勢い:クリティカルのあと、次の命中に効く(次の 1 回だけ)。
+    const afterCrit = game.triggers?.afterCrit;
+    if (critical && afterCrit) fight.boosts.push({ id: "momentum", when: "afterCrit", effects: afterCrit, uses: 1 });
     // 残りの体力より大きいダメージは、超過を切り捨てる(体力は 0 より下にしない)。
     fight.hp = Math.max(0, fight.hp - damage);
     fight.hits += 1;

@@ -14,9 +14,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   // 合わせをこの回数続けて逃すと、投げ直しを止めて休む(タップで再開)。
   missStreakLimit: 5,
   minigame: Object.freeze({
-    zoneMargin: 0.08, // 当たり範囲をゲージの端から離す幅
+    zoneMargin: 0.08, // 命中範囲をゲージの端から離す幅
     // 絶対に当たらない状態にしないための限界(D-036・D-048)。
-    minZoneWidth: 0.1, // 当たり範囲の幅は、ゲージの 10% より狭くしない
+    minZoneWidth: 0.1, // 命中範囲の幅は、ゲージの 10% より狭くしない
     minSweepMs: 450, // 印は、端から端まで 0.45 秒より速く動かさない
   }),
   // 装備なしの「戦闘の数値の表」(D-071・D-078・D-080)。装備はこれを書き換えて渡す。

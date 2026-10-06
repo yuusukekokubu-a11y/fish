@@ -86,18 +86,13 @@ export function judgeHook(timing, t) {
 }
 
 /**
- * 戦闘中の一時的な上乗せ(D-089・D-186)。{ id, damageMultiplier?, damageAdd?, critChanceAdd?, uses } の一覧。
+ * 戦闘中の一時的な上乗せ(D-089・D-186)。{ id, damageMultiplier?, when?, effects?, uses } の一覧。
  * - damageMultiplier:命中のダメージに掛ける倍率(ジャスト)。クリティカルのあとに掛けて四捨五入する。
- * - damageAdd:基本のダメージに足す量(先手)。critChanceAdd:会心率に足す量(勢い)。どちらも fishing.js が使う。
+ * - when・effects:条件発動型の「次の命中に効く」効果(先手・勢いなど)。fishing.js の triggeredStats が使う。
  */
 export function boostedDamage(damage, boosts) {
   const multiplier = boosts.reduce((m, b) => m * (b.damageMultiplier ?? 1), 1);
   return Math.max(damage, Math.round(damage * multiplier));
-}
-
-/** 上乗せの、ある項目の合計。 @param {{ [k: string]: any }[]} boosts @param {string} key */
-export function boostSum(boosts, key) {
-  return boosts.reduce((sum, b) => sum + (b[key] ?? 0), 0);
 }
 
 /**
@@ -133,14 +128,14 @@ export function fightTimeLimit(fishTimeLimitMs, stats, limits) {
 
 /**
  * クリティカルの規則:確率で出る。
- * 規則は、当たりのたびに次の値を受け取り、クリティカルなら true を返す関数。
- * { roll: 0 以上 1 未満の乱数, stats: 戦闘の数値の表, position: 印の位置, zone: 当たり範囲 }
+ * 規則は、命中のたびに次の値を受け取り、クリティカルなら true を返す関数。
+ * { roll: 0 以上 1 未満の乱数, stats: 戦闘の数値の表, position: 印の位置, zone: 命中範囲 }
  */
 export function chanceRule({ roll, stats }) {
   return roll < stats.critChance;
 }
 
-/** 規則の一覧の基本。腕前型(当たり範囲の中心の帯)などは、ここに規則を足す(D-070・D-080)。 */
+/** 規則の一覧の基本。腕前型(命中範囲の中心の帯)などは、ここに規則を足す(D-070・D-080)。 */
 export const DEFAULT_CRIT_RULES = Object.freeze([chanceRule]);
 
 /** 規則の一覧のどれか 1 つでも当てはまれば、クリティカル。 */
@@ -150,7 +145,7 @@ export function isCritical(context, rules = DEFAULT_CRIT_RULES) {
 
 /**
  * クリティカルの段数(D-169)。会心率 c の整数部分は必ず起きる段数、小数部分は、もう 1 段増える確率。
- * 乱数 roll は当たりのたびに 1 回だけ引いたもの。c が 1 以下なら、前と同じ(0 段か 1 段)。
+ * 乱数 roll は命中のたびに 1 回だけ引いたもの。c が 1 以下なら、前と同じ(0 段か 1 段)。
  * 規則の一覧(腕前型など)のどれかに当てはまれば、少なくとも 1 段。段数は安全上限で止める。
  */
 export function critStages(context, rules = DEFAULT_CRIT_RULES, maxStages = Infinity) {
@@ -162,7 +157,7 @@ export function critStages(context, rules = DEFAULT_CRIT_RULES, maxStages = Infi
 }
 
 /**
- * 当たり 1 回のダメージ。クリティカルは「通常ダメージ × 倍率の段数乗」を四捨五入(通常ダメージより小さくしない)。
+ * 命中 1 回のダメージ。クリティカルは「通常ダメージ × 倍率の段数乗」を四捨五入(通常ダメージより小さくしない)。
  * critical は段数(数)か、前の形の true/false(true は 1 段)。総倍率とダメージは安全上限で止める。
  */
 export function hitDamage(stats, critical, limits = null) {

@@ -31,9 +31,12 @@ export function currentStates(game, gear = game.progress.gear) {
   return skillStates(gear, game.progress.rodStage, config, skills);
 }
 
-/** レベル 0 の効果の文。 @param {SkillRow} skill @param {number} level */
-function effectText(skill, level) {
-  return level === 0 ? "効果なし" : formatSkillEffect(skill, level);
+/**
+ * 効果の文(レベル 0 は「効果なし」)。条件発動型は条件の短い言い方つき(例:「連続命中 1 段ごとにダメージ +2(最大 10 段)」)。
+ * @param {SkillRow} skill @param {number} level @param {import("../core/skills.js").SkillConfig} config
+ */
+function effectText(skill, level, config) {
+  return level === 0 ? "効果なし" : formatSkillEffect(skill, level, config);
 }
 
 /**
@@ -67,12 +70,14 @@ export function skillRows(game) {
       growth: skill.type === "growth",
       progress: isMax ? 1 : Math.max(0, Math.min(1, into / per)),
       next: isMax ? (s.points > s.max * per ? `余り ${s.points - s.max * per} ポイント` : "最大") : `次の Lv まで ${per - into} ポイント`,
-      effect: effectText(skill, s.level),
+      effect: effectText(skill, s.level, config),
+      // 条件発動型か(数値型と同じ一覧に出す:D-191)。
+      triggered: skill.target.kind === "trigger",
       description: skill.description,
       breakdown: equipped
         .map((it) => ({ name: itemName(it, game.content), points: it.skills.find((x) => x.id === skill.id)?.points ?? 0 }))
         .filter((b) => b.points > 0),
-      levels: Array.from({ length: s.max }, (_, i) => ({ level: i + 1, effect: formatSkillEffect(skill, i + 1) })),
+      levels: Array.from({ length: s.max }, (_, i) => ({ level: i + 1, effect: formatSkillEffect(skill, i + 1, config) })),
     };
   });
 }

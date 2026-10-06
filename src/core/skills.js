@@ -50,7 +50,7 @@ export const SKILL_ROWS = Object.freeze([
     target: { kind: "combat", stat: "damage", op: "add" },
     perLevel: 2,
     display: { label: "通常ダメージ", scale: 1, unit: "", sign: "+" },
-    description: "当たりのダメージが増える。",
+    description: "命中のダメージが増える。",
   },
   {
     id: "crit-rate",
@@ -130,8 +130,8 @@ export const SKILL_ROWS = Object.freeze([
     type: "capped",
     target: { kind: "combat", stat: "missHeal", op: "scale" },
     perLevel: 1 / 3,
-    display: { label: "外したときの回復", scale: 0.01, unit: "%", sign: "−" },
-    description: "外したときの魚の回復が減る。Lv3 で回復しない。",
+    display: { label: "ミスしたときの回復", scale: 0.01, unit: "%", sign: "−" },
+    description: "ミスしたときの魚の回復が減る。Lv3 で回復しない。",
   },
   // ここから条件発動型(D-184)。番号はセーブコードに使うので、表の末尾に足す(D-188)。
   {

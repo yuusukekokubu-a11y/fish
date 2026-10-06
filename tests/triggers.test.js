@@ -202,3 +202,71 @@ test("計算の順:基本(表 + 連撃・攻 × 段数 + 先手)→ とどめを
   assert.equal(hit.critStages, 2);
   assert.equal(hit.damage, 40);
 });
+
+test("戦闘の画面の小さな表示:連撃は 2 段から「連撃 ×n」、次の命中で効く条件の短い名前(持っているスキルだけ)", async () => {
+  const { fightBadges } = await import("../src/ui/fight_view.js");
+  const game = bossFight({ "first-hit": 1, "first-strike": 1, finisher: 1, "combo-power": 1 });
+  assert.deepEqual(fightBadges(game), { combo: null, labels: ["先手", "先制"] });
+  hitOnce(game);
+  hitOnce(game);
+  assert.deepEqual(fightBadges(game), { combo: "連撃 ×2", labels: [] });
+  game.fight.hp = 5;
+  assert.deepEqual(fightBadges(game).labels, ["とどめ"]);
+  const plain = bossFight({});
+  assert.deepEqual(fightBadges(plain), { combo: null, labels: [] }, "条件発動型がなければ何も出さない");
+  assert.deepEqual(fightBadges(null), { combo: null, labels: [] });
+});
+
+test("データ駆動:既にある条件の種類を使う条件発動型を表に 1 行足すと、ガチャ・計算・スキルの画面に加わる", async () => {
+  const { makeContent } = await import("../src/core/fish.js");
+  const { makeCrates, pullCrate, EQUIP_KIND_ROWS } = await import("../src/core/gear.js");
+  const { SKILL_ROWS } = await import("../src/core/skills.js");
+  const { skillRows } = await import("../src/ui/skill_view.js");
+  const row = {
+    id: "finisher-crit",
+    name: "とどめ・心",
+    type: "growth",
+    target: { kind: "trigger", when: "lowHp", effect: "critChance" },
+    perLevel: 0.2,
+    display: { label: "会心率", scale: 0.01, unit: "%", sign: "+", when: "魚の体力 25% 以下で" },
+    description: "体力が残り少ないと、クリティカルが出やすい。",
+  };
+  const skills = [...SKILL_ROWS, row];
+  const content = makeContent(undefined, undefined, undefined, skills);
+  // ガチャ:抽選に加わる。
+  const p = progressAt(5, ROD_STEPS.NONE, { coins: 1e12, gear: { ...emptyGear(), seed: 9 } });
+  const crates = makeCrates(content, DEFAULT_CONFIG);
+  let seen = false;
+  for (let i = 0; i < 40 && !seen; i++) {
+    pullCrate(p, crates[4], 10, EQUIP_KIND_ROWS, DEFAULT_CONFIG.gacha, { skills, config: DEFAULT_CONFIG.skills });
+    seen = p.gear.items.some((it) => it.skills.some((s) => s.id === "finisher-crit"));
+    p.gear.items = [];
+  }
+  assert.ok(seen, "抽選に加わる");
+  // 計算:条件(体力 25% 以下)のときだけ、会心率に足される。
+  const item = { id: 1, kind: "reel", rarity: "legend", grade: 1, value: 0, skills: [{ id: "finisher-crit", points: 8 }] };
+  const game = createGame(5, { content, combat: noCrit, progress: progressAt(1, ROD_STEPS.CRAFTED, { gear: { ...emptyGear(), seed: 1, items: [item], equipped: { reel: 1 }, nextId: 2 } }) });
+  challengeBoss(game);
+  assert.equal(triggeredStats(game).stats.critChance, 0);
+  game.fight.hp = 1;
+  assert.ok(Math.abs(triggeredStats(game).stats.critChance - 0.4) < 1e-9);
+  // スキルの画面:一覧に、条件つきの効果の一文で出る。
+  const r = skillRows(game).find((x) => x.id === "finisher-crit");
+  assert.equal(r.effect, "魚の体力 25% 以下で会心率 +40%");
+  assert.equal(r.triggered, true);
+});
+
+test("スキルの画面:条件発動型も同じ一覧に、条件つきの一文で出る", async () => {
+  const { skillRows } = await import("../src/ui/skill_view.js");
+  const game = createGame(1, { progress: progressWith({ "combo-power": 2, "just-boost": 1, momentum: 3 }) });
+  const rows = Object.fromEntries(skillRows(game).map((r) => [r.id, r]));
+  assert.equal(rows["combo-power"].effect, "連続命中 1 段ごとにダメージ +2(最大 10 段)");
+  assert.equal(rows["combo-power"].label, "Lv2 / 7");
+  assert.equal(rows["just-boost"].effect, "ジャストのあとの最初の命中でジャスト倍率 +0.15");
+  assert.equal(rows.momentum.effect, "クリティカルの次の命中で会心率 +30%");
+  assert.equal(rows["first-hit"].effect, "効果なし");
+  assert.deepEqual(rows["combo-power"].levels.slice(0, 2).map((l) => l.effect), [
+    "連続命中 1 段ごとにダメージ +1(最大 10 段)",
+    "連続命中 1 段ごとにダメージ +2(最大 10 段)",
+  ]);
+});

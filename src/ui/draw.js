@@ -56,7 +56,7 @@ function drawTimeBar(ctx, x, y, width, ratio, color) {
 }
 
 /**
- * ミニゲームのゲージ:当たり範囲(緑)と、往復する印(白)。
+ * ミニゲームのゲージ:命中範囲(緑)と、往復する印(白)。
  * 上に数値つきの体力のバー、下に制限時間の残りの細いバーを出す(D-092)。
  */
 function drawGauge(ctx, w, h, view) {
@@ -86,6 +86,23 @@ function drawGauge(ctx, w, h, view) {
   ctx.textAlign = "center";
   ctx.fillText(`${view.hp} / ${view.maxHp}`, w / 2, by + 15);
   drawTimeBar(ctx, gx, gy + gh + 10, gw, view.timeLeft, "#ffd166");
+
+  // 連撃の段数(左)と、次の命中で効く条件の短い名前(右)。説明の文章は置かない(D-191)。
+  const badges = view.badges;
+  if (badges) {
+    const ty = by - 10;
+    ctx.font = "bold 15px system-ui, sans-serif";
+    if (badges.combo) {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#ffd166";
+      ctx.fillText(badges.combo, gx, ty);
+    }
+    if (badges.labels.length > 0) {
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#8be9fd";
+      ctx.fillText(badges.labels.join("・"), gx + gw, ty);
+    }
+  }
 }
 
 // 縮む輪の大きさ(半径、ピクセル)。「!」のときに最大で、輪の時間が終わると最小になる。

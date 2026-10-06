@@ -277,7 +277,7 @@ test("効果はヌシ戦にも効き、外すと元に戻る", () => {
 
 test("ダメージの順:通常 → クリティカルの倍率 → ジャストの倍率(四捨五入)。足し算の上乗せはダメージに直接は足さない", () => {
   const just = { id: "just", damageMultiplier: 1.5, uses: 1 };
-  const first = { id: "first-hit", damageAdd: 3, uses: 1 };
+  const first = { id: "first-hit", when: "firstHit", effects: { damage: 3 }, uses: 1 };
   assert.equal(boostedDamage(15, [just]), 23, "15 × 1.5 = 22.5 → 23");
   assert.equal(boostedDamage(15, [just, first]), 23, "先手の足し算は、基本のダメージの側で足す");
   assert.equal(boostedDamage(15, []), 15);
