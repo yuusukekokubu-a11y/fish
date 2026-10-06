@@ -270,3 +270,27 @@ test("スキルの画面:条件発動型も同じ一覧に、条件つきの一�
     "連続命中 1 段ごとにダメージ +2(最大 10 段)",
   ]);
 });
+
+test("魚の並びの独立:条件発動型のスキルとルアーを付けても、魚の乱数の並び(待ち時間・魚)は変わらない", () => {
+  const play = (progress) => {
+    const game = createGame(21, { progress });
+    const casts = [];
+    for (let t = 0; t < 600000; t += 16) {
+      const before = game.castCount;
+      update(game, 16);
+      if (game.castCount !== before) casts.push([game.cast.fish.id, game.cast.waitMs]);
+      if (game.phase === PHASES.BITE && game.phaseMs >= 1000) tap(game);
+      else if (game.phase === PHASES.MINIGAME && game.phaseMs % 240 < 16) tap(game);
+      else if (game.phase === PHASES.RESTING) tap(game);
+    }
+    return casts;
+  };
+  const plain = play(progressAt(5, ROD_STEPS.CRAFTED));
+  const skills = Object.fromEntries(["combo-power", "combo-crit", "first-hit", "just-boost", "finisher", "momentum", "first-strike"].map((id) => [id, 7]));
+  const p = progressWith(skills);
+  p.gear.items.push({ id: 2, kind: "lure", rarity: "legend", grade: 5, value: 58, skills: [] });
+  p.gear.equipped.lure = 2;
+  const built = play(p);
+  assert.ok(plain.length > 30);
+  assert.deepEqual(built.slice(0, 30), plain.slice(0, 30));
+});
