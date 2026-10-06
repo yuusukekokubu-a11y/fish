@@ -15,7 +15,7 @@ import { decodeSave, encodeSave, initialProgress, SAVE_VERSION } from "./save.js
 /** @typedef {import("./save.js").SaveContent} SaveContent */
 
 export const CODE_PREFIX = "TSURI";
-// 長さの上限(D-232)。持ち物 100 個(全部スキル 3 つ)・鱗 20 種類で約 1500 文字。魚 300 種類を全部持っても約 1 万文字。
+// 長さの上限(D-232)。持ち物 100 個(全部スキル 3 つ)・鱗 20 種類で約 2000 文字。魚 300 種類を全部持っても約 1 万文字。
 export const MAX_CODE_LENGTH = 50000;
 const PATTERN = /^TSURI(\d+)-(.+)-([0-9a-f]{8})$/;
 const OLD_PATTERN = /^FISH\d+-/;
