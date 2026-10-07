@@ -1,13 +1,14 @@
 // @ts-check
-// 保存の形(版 4:D-223・D-232・D-247・D-267・D-280)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 5:D-223・D-232・D-247・D-267・D-280・D-300)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
-// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 10 の欄に分ける:
+// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 11 の欄に分ける:
 //   ウロコイン ~ 竿の段階.工程の番号 ~ 鱗(魚の id:数 を「,」で) ~ 釣れた魚(魚の id を「,」で)
 //   ~ 引いた回数.ガチャの種.次の個体の番号 ~ 装着(種類の番号.個体の番号 を「,」で) ~ 持ち物(装備を「,」で)
 //   ~ ロック(持ち物の順に、1 個 1 字で「1」ロック中・「0」ロックなし。版 2 で足した:D-247)
 //   ~ 餌の所持数.餌を使うスイッチ(0/1).自動分解の設定の番号(AUTO_SCRAP_ROWS の順。版 3 で足した:D-267)
 //   ~ いまいる釣り場の id(古い釣り場にいるときだけ。いちばん新しい釣り場なら空。版 4 で足した:D-280)
+//   ~ 出会ったスキル(スキルの表の順の印。表の i 番目に出会っていれば 2 の i 乗を足した数。版 5 で足した:D-300)
 // 装備 1 個:前の個体の番号との差.種類とレア度の番号.グレード.基本効果の値 のあとに、スキルを「英大文字 1 字(スキルの番号)+ レベル」で並べる。
 //   例:「1.b.5.2s」+「B7C7D7」。種類とレア度の番号 = 種類の番号 × レア度の数 + レア度の番号。
 // - 魚は id で書く(D-228)。鱗は持っているもの(1 以上)だけを書く。
@@ -27,7 +28,7 @@ import { itemLevelRange } from "./skills.js";
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -35,7 +36,7 @@ export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_
 /** スキルの番号を書く文字(26 個まで)。 */
 const SKILL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SEED_MAX = 4294967295;
-const FIELDS = 10;
+const FIELDS = 11;
 
 /**
  * 進み具合。
@@ -50,6 +51,7 @@ const FIELDS = 10;
  * @property {boolean} [useBait] 餌を使うスイッチ(入っているときだけ持つ)
  * @property {string} [autoScrap] 自動分解の設定(オフでないときだけ持つ:D-266)
  * @property {string} [area] いまいる釣り場の id(古い釣り場にいるときだけ持つ:D-280)
+ * @property {string[]} [skillsSeen] 出会ったスキルの id(スキルの表の順。1 つ以上のときだけ持つ:D-300)
  */
 
 /**
@@ -94,6 +96,20 @@ export const UPGRADES = Object.freeze({
     parts[6] = parts[6].replace(/([A-Z])([0-9a-z]+)/g, (m, letter) => (skills[SKILL_LETTERS.indexOf(letter)]?.type === "capped" ? `${letter}1` : m));
     return [...parts, ""].join("~");
   },
+  // 版 4 → 5(D-300):出会ったスキルの欄を足す。持ち物の装備(装着中を含む)に付いているスキルを「出会った」にする
+  // (読み替えのあとに NEW が一斉に出ないように)。
+  4: (body) => {
+    const parts = body.split("~");
+    if (parts.length !== 10) return null;
+    let mask = 0;
+    const seen = new Set();
+    for (const [, letter] of parts[6].matchAll(/([A-Z])[0-9a-z]+/g)) {
+      const i = SKILL_LETTERS.indexOf(letter);
+      if (!seen.has(i)) mask += 2 ** i;
+      seen.add(i);
+    }
+    return [...parts, num(mask)].join("~");
+  },
 });
 
 /**
@@ -128,6 +144,14 @@ function readNum(text) {
 
 /** @param {SaveContent} content */
 const skillTable = (content) => content.skills ?? [];
+
+/**
+ * 出会ったスキルの印(表の i 番目に出会っていれば 2 の i 乗を足す:D-300)。表にない id は無視する。
+ * @param {readonly string[]} ids @param {readonly { id: string }[]} skills
+ */
+function seenMask(ids, skills) {
+  return skills.reduce((m, s, i) => (ids.includes(s.id) ? m + 2 ** i : m), 0);
+}
 
 /**
  * 進み具合を、保存の本文(今の版)にする。
@@ -167,6 +191,7 @@ export function encodeSave(progress, content = DEFAULT_CONTENT) {
     items.map((it) => (it.locked ? "1" : "0")).join(""),
     `${num(progress.bait ?? 0)}.${progress.useBait ? 1 : 0}.${num(Math.max(0, AUTO_SCRAP_ROWS.findIndex((r) => r.id === (progress.autoScrap ?? "off"))))}`,
     progress.area ?? "",
+    num(seenMask(progress.skillsSeen ?? [], skills)),
   ].join("~");
 }
 
@@ -211,7 +236,7 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (typeof body !== "string") return fail;
   const parts = body.split("~");
   if (parts.length !== FIELDS) return fail;
-  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText, areaText] = parts;
+  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText, areaText, skillSeenText] = parts;
 
   const coins = readNum(coinText);
   if (coins === null) return fail;
@@ -296,5 +321,12 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
     const newest = areas.find((a) => stage >= a.firstStage && stage < a.firstStage + a.stages);
     if (area !== newest) progress.area = area.id;
   }
+
+  // 出会ったスキル(D-300):表の数より大きい印は拒否する。印なので重複は起きない。表の順に並べる。
+  const skills = skillTable(content);
+  const mask = readNum(skillSeenText);
+  if (mask === null || mask >= 2 ** skills.length) return fail;
+  const skillsSeen = skills.filter((_, i) => Math.floor(mask / 2 ** i) % 2 === 1).map((s) => s.id);
+  if (skillsSeen.length > 0) progress.skillsSeen = skillsSeen;
   return { ok: true, progress };
 }

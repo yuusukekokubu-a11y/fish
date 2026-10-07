@@ -5,6 +5,7 @@ import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
+import { SKILL_ROWS } from "../src/core/skills.js";
 import { initialProgress } from "../src/core/save.js";
 import { checksum, encodeSaveCode } from "../src/core/savecode.js";
 import { DEBUG_KEY_ID, readSaveCode, SIGNATURE_LENGTH, signSaveCode, SIGNED_CODE_ERRORS, UNSIGNED_WARNING } from "../src/core/signed_code.js";
@@ -31,9 +32,9 @@ function bigProgress() {
 test("書き出すと TSURI5-(鍵の番号)-(保存の版)-(本文)-(署名 22 文字)。読むと元に戻る(往復)", async () => {
   for (const c of JSON.parse(readText("tests/fixtures/compat_v4.json")).cases) {
     const code = await signSaveCode(c.progress, DEV);
-    assert.match(code, /^TSURI5-dev-4-[0-9A-Za-z.,:~-]+-[A-Za-z0-9_-]{22}$/);
+    assert.match(code, /^TSURI5-dev-5-[0-9A-Za-z.,:~-]+-[A-Za-z0-9_-]{22}$/);
     // 本文は、これまでの本文(TSURI4 の形)のまま。
-    assert.ok(code.includes(`-4-${encodeSaveCode(c.progress).slice(7, -9)}-`), c.name);
+    assert.ok(code.includes(`-5-${encodeSaveCode(c.progress).slice(7, -9)}-`), c.name);
     assert.deepEqual(await readSaveCode(code, { keys: [DEV] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
   }
 });
@@ -43,19 +44,22 @@ test("1 文字でも変えると読めない。本文と署名のどこを変え
   p.coins = 12345;
   const code = await signSaveCode(p, DEV);
   const before = structuredClone(p);
-  const bodyStart = "TSURI5-dev-4-".length;
+  const bodyStart = "TSURI5-dev-5-".length;
+  const sigStart = code.length - SIGNATURE_LENGTH;
   const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:~-_";
   for (let i = 0; i < code.length; i++) {
     const other = chars[(chars.indexOf(code[i]) + 7) % chars.length];
     const changed = code.slice(0, i) + other + code.slice(i + 1);
     const r = await readSaveCode(changed, { keys: [DEV] });
     assert.equal(r.ok, false, `${i} 文字目`);
-    if (i >= bodyStart && i !== code.length - SIGNATURE_LENGTH - 1 && "-".indexOf(other) < 0 && code[i] !== "-") {
+    // 署名の 22 文字の中に、署名に使わない文字(. , : ~)を入れたときは「形がちがう」で拒否される(読めないことは同じ)。
+    const offAlphabet = i >= sigStart && !/[A-Za-z0-9_-]/.test(other);
+    if (i >= bodyStart && i !== sigStart - 1 && other !== "-" && code[i] !== "-" && !offAlphabet) {
       assert.equal(r.error, "signature", `${i} 文字目(${code[i]} → ${other}):${r.ok ? "" : r.message}`);
     }
   }
   assert.deepEqual(p, before);
-  assert.equal(SIGNED_CODE_ERRORS.signature, "署名が合いません");
+  assert.equal(SIGNED_CODE_ERRORS.signature, "署名が合いません。コピーし直してください");
 });
 
 test("長さの増えは 40 文字以内(持ち物 100 個・スキル 3 つ・鱗 20 種類)", async () => {
@@ -117,13 +121,26 @@ test("署名なしの古い形式(TSURI1〜4):acceptUnsigned が true なら注�
   assert.equal((await readSaveCode("TSURI5-dev-4-abc", { keys: [DEV] })).error, "format");
 });
 
+/** 持ち物のスキルを、出会ったスキルにしたもの(表の順)。 @param {any} progress */
+function withSeen(progress) {
+  const p = structuredClone(progress);
+  const ids = new Set(p.gear.items.flatMap((/** @type {any} */ it) => it.skills.map((/** @type {any} */ s) => s.id)));
+  const seen = SKILL_ROWS.map((s) => s.id).filter((id) => ids.has(id));
+  if (seen.length > 0) p.skillsSeen = seen;
+  return p;
+}
+
 test("互換の正解データ(compat_v5.json):仮の鍵(dev)の署名つきのコードが、いつまでも読めて決まった結果になる", async () => {
   const fixture = JSON.parse(readText("tests/fixtures/compat_v5.json"));
   assert.deepEqual([fixture.version, fixture.keyId], [5, "dev"]);
   for (const c of fixture.cases) {
-    assert.deepEqual(await readSaveCode(c.code, { keys: [DEV] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
-    // 書き出しも同じ(署名は決まった計算なので、同じ鍵・同じ中身なら同じコード)。
-    assert.equal(await signSaveCode(c.progress, DEV), c.code, c.name);
+    // 中身は保存の版 4。版 5 の読み替えで、持ち物のスキルが出会ったスキルになる(D-300)。
+    const expected = withSeen(c.progress);
+    assert.deepEqual(await readSaveCode(c.code, { keys: [DEV] }), { ok: true, progress: expected, signed: true, keyId: "dev", warning: null }, c.name);
+    // 書き出すと保存の版 5(TSURI5-dev-5-)になり、読み直すと同じ。
+    const again = await signSaveCode(expected, DEV);
+    assert.match(again, /^TSURI5-dev-5-/);
+    assert.deepEqual((await readSaveCode(again, { keys: [DEV] })).progress, expected, c.name);
   }
   for (const c of fixture.rejected) {
     const r = await readSaveCode(c.code, { keys: [DEV] });

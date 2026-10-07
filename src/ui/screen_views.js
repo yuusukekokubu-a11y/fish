@@ -95,16 +95,17 @@ const ITEM = Object.freeze({
     extra: (c) => [["段の内わけ", critStageText(softCurve(c.critChance, CURVES.critChanceCurve))]],
   },
   critMultiplier: { label: "クリティカルの倍率", value: (c) => Math.round(softCurve(c.critMultiplier, CURVES.critMultiplierCurve) * 1000) / 1000, format: times },
-  penetration: { label: "貫通(合計)", value: (c) => softCurve(c.penetration ?? 0, CURVES.penetrationCurve), format: percent },
-  missHeal: { label: "ミスしたときの回復", value: (c) => c.missHeal, format: String },
+  penetration: { label: "貫通(合計)", value: (c) => softCurve(c.penetration ?? 0, CURVES.penetrationCurve), format: percent, neutral: 0 },
+  missHeal: { label: "ミスしたときの回復", value: (c) => c.missHeal, format: String, neutral: 0 },
   zoneWidth: {
     label: "命中範囲の広さ(ルアー)",
     value: (c) => c.zoneWidthBonus ?? 0,
     format: (n) => `+${n}%`,
+    neutral: 0,
     // いまの段階の強い魚とヌシの、命中範囲の幅の変化(例:「マグロ 11% → 17%」:D-191)。
     extra: (c, game) => zoneWidthRows(c, game),
   },
-  timeBonus: { label: "制限時間の増減", value: (c) => c.timeLimitBonusMs, format: signedSeconds },
+  timeBonus: { label: "制限時間の増減", value: (c) => c.timeLimitBonusMs, format: signedSeconds, neutral: 0 },
   // ジャスト倍率(強い魚のジャストの初撃:D-256)。表 + ジャスト・ブースト(条件つき)に逓減をかけた、実際に効く値(D-257)。
   justMultiplier: {
     label: "ジャスト倍率(初撃)",
@@ -115,8 +116,8 @@ const ITEM = Object.freeze({
   success: { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
   just: { label: "ジャスト帯(強い魚)", value: (c) => c.hook.strong.justMs, format: seconds },
   // 報酬と待ち時間の倍率(スキル:豊漁・俊敏)。基本は全部 1。鱗を増やす効果はない(D-211)。
-  coins: { label: "ウロコイン", value: (_c, r) => r.coins, format: rate },
-  wait: { label: "待ち時間", value: (_c, r) => r.wait, format: rate },
+  coins: { label: "ウロコイン", value: (_c, r) => r.coins, format: rate, neutral: 1 },
+  wait: { label: "待ち時間", value: (_c, r) => r.wait, format: rate, neutral: 1 },
 });
 
 export const STATUS_SECTIONS = Object.freeze([
@@ -164,7 +165,7 @@ function bandRows(when, config, game) {
 }
 
 /**
- * 条件つきの効果(条件発動型:D-184・D-191)。「今の値」には含めず、別の節に出す。レベル 0 のものは出さない。
+ * 条件つきの効果(条件発動型:D-184・D-191)。「今の値」には含めず、別の節に出す。レベル 0 のものは出さない(D-303)。
  */
 function conditionalRows(game) {
   const skills = game.content?.skills ?? SKILL_ROWS;
@@ -176,7 +177,7 @@ function conditionalRows(game) {
       const text = formatSkillEffect(s, level, config);
       return { label: s.name, value: `Lv${level}`, detail: [["条件つき", text], ...bandRows(s.target.when, config, game)] };
     });
-  return rows.length > 0 ? rows : [{ label: "なし", value: "", detail: null }];
+  return rows;
 }
 
 /** 全部の項目(節の順)。 */
@@ -188,9 +189,14 @@ function baseCombat(game) {
   return normalizeCombat(game.baseCombat ?? config.combat, config.combat, config.combatLimits);
 }
 
+/** 効いていない値(neutral。足し算の項目は 0、倍率は 1)か。丸めの誤差は無視する。 */
+const isNeutral = (item, v) => item.neutral !== undefined && Math.abs(v - item.neutral) < 1e-9;
+
 /**
  * ステータスタブ:上に竿の名前と段階、下に戦闘の数値と報酬の倍率。
  * 今の値は装備とスキルを反映した game.combat・game.rates から、基本の値は装備なしの表から作る(D-179)。
+ * 値が 0 の項目(貫通・回復・制限時間・命中範囲・報酬と待ち時間の倍率)と、項目がなくなった節、
+ * 発動していない条件つきの効果は出さない(D-303)。
  */
 export function statusView({ game }) {
   const content = game.content ?? DEFAULT_CONTENT;
@@ -200,7 +206,7 @@ export function statusView({ game }) {
     header: `${rodName(game.progress, content)}(${stageLabel(content, game.progress.rodStage)})`,
     sections: STATUS_SECTIONS.map(({ title, items }) => ({
       title,
-      rows: items.map((item) => ({
+      rows: items.filter((item) => !isNeutral(item, item.value(game.combat, rates, game))).map((item) => ({
         label: item.label,
         value: item.format(item.value(game.combat, rates, game)),
         detail: [
@@ -209,6 +215,8 @@ export function statusView({ game }) {
           ...(item.extra ? item.extra(game.combat, game) : []),
         ],
       })),
-    })).concat([{ title: "条件つき", rows: conditionalRows(game) }]),
+    }))
+      .concat([{ title: "条件つき", rows: conditionalRows(game) }])
+      .filter((section) => section.rows.length > 0),
   };
 }

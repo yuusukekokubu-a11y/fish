@@ -76,12 +76,9 @@ test("ステータスの画面:竿の名前と段階、戦闘の数値の表か�
           ["通常ダメージ", "10"],
           ["クリティカルの確率", "10%"],
           ["クリティカルの倍率", "1.3 倍"],
-          ["貫通(合計)", "0%"],
           ["ミスしたときの回復", "10"],
-          ["命中範囲の広さ(ルアー)", "+0%"],
         ],
       ],
-      ["時間", [["制限時間の増減", "+0 秒"]]],
       [
         "合わせ",
         [
@@ -90,18 +87,12 @@ test("ステータスの画面:竿の名前と段階、戦闘の数値の表か�
           ["ジャスト倍率(初撃)", "3 倍"],
         ],
       ],
-      [
-        "報酬と待ち時間",
-        [
-          ["ウロコイン", "+0%"],
-          ["待ち時間", "+0%"],
-        ],
-      ],
-      ["条件つき", [["なし", ""]]],
     ],
   );
+  // 値が 0 の項目(貫通・命中範囲・制限時間・ウロコイン・待ち時間)と、空になった節(時間・報酬と待ち時間・条件つき)は出さない(D-303)。
   assert.equal(STATUS_SECTIONS.length, 4);
-  assert.equal(rowsOf(view).length, STATUS_ITEMS.length + 1, "項目 + 条件つきの「なし」");
+  assert.equal(rowsOf(view).length, STATUS_ITEMS.length - 5);
+  assert.ok(!rowsOf(view).some((r) => r.label === "なし"));
 });
 
 test("ステータスの画面:戦闘の数値の表を書き換えると、表示も変わる(基本の値は詳細に残る)", () => {
@@ -118,11 +109,11 @@ test("ステータスの画面:戦闘の数値の表を書き換えると、表�
   };
   const game = createGame(1, { combat });
   const rows = rowsOf(statusView({ game }));
-  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.02 倍", "30%", "4", "+0%", "+1.5 秒", "0.5 秒", "0.2 秒", "2 倍", "+0%", "+0%", ""]);
+  assert.deepEqual(rows.map((r) => r.value), ["13", "25.5%", "2.02 倍", "30%", "4", "+1.5 秒", "0.5 秒", "0.2 秒", "2 倍"]);
   // 倍率 2.5 は逓減の始まり(1.65)をこえるので 2.02 倍(D-255)。貫通 30% はそのまま。
   // マイナスの増減。
   const minus = createGame(1, { combat: { ...DEFAULT_CONFIG.combat, timeLimitBonusMs: -2000 } });
-  assert.equal(rowsOf(statusView({ game: minus }))[6].value, "−2 秒");
+  assert.equal(rowsOf(statusView({ game: minus })).find((r) => r.label === "制限時間の増減").value, "−2 秒");
 });
 
 test("ステータスの画面:装備を反映した今の値と、装備なしの基本の値の両方が出る", () => {

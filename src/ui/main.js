@@ -38,6 +38,7 @@ import { syntheticContent } from "../core/synthetic.js";
 import { versionLabel } from "../version.js";
 import { DEBUG_READ_CONFIG } from "./debug_view.js";
 import { makeSaveCode } from "./save_sign.js";
+import { equipViewKeyFor, loadPrefs, savePrefs } from "./equip_prefs.js";
 import { clearText, loadText as loadKey, OLD_DATA_MESSAGE, OLD_SAVE_KEYS, saveText, shouldShowOldDataNotice, storeKeyFor } from "./save_store.js";
 import { openSheet } from "./sheet.js";
 import { readUrlOptions } from "./url_params.js";
@@ -59,6 +60,8 @@ import {
 const URL_OPTIONS = readUrlOptions(location.search);
 // 保存場所:?debug のときは、デバッグ専用の場所を使う。本番の保存データは読みも書きもしない(D-214)。
 const STORE_KEY = storeKeyFor(URL_OPTIONS);
+// 装備の画面の並べ替えと絞り込みの保存場所(D-304)。
+const EQUIP_VIEW_STORE = equipViewKeyFor(URL_OPTIONS);
 // 魚の表:?debug&stages=n のときだけ、大きな確かめ用の表(D-233)。ふだんは港の表。
 const CONTENT = URL_OPTIONS.stages === null ? DEFAULT_CONTENT : syntheticContent(URL_OPTIONS.stages);
 // デバッグのデータは、スキルのレベルをそのスキルの最大まで許して読む(本番の点検は変えない:D-219)。
@@ -329,6 +332,8 @@ function main() {
     ctx: {
       game,
       app,
+      // ?debug か(スキル画面の「全スキルを見る」、装備画面の並べ替えの保存場所:D-299・D-304)。
+      debug: URL_OPTIONS.debug,
       storage: { save: saveProgress, clear: clearSave },
       // セーブコードの書き出しと読み込み(表と点検の数値は、遊んでいる表のもの)。
       // 書き出すのは署名つき(TSURI5:D-291)。?debug のときはデバッグ用の鍵(D-293)。
@@ -342,6 +347,11 @@ function main() {
       // デバッグの「すぐ戦う」で合わせたときの演出(ジャストの初撃も:D-256)。
       showHook: (hook) => addHookEffects(effects, hook.grade, performance.now(), hook.strike ?? null),
       // タイミング補正(D-285)。端末ごとの設定で、ゲームの保存データには入れない。
+      // 装備の画面の並べ替えと絞り込み(D-304)。ゲームの保存データとは別の場所(本番とデバッグで別)。
+      equipView: {
+        get: () => loadPrefs(localStorage, EQUIP_VIEW_STORE, game.content.equipKinds),
+        set: (/** @type {import("./equip_prefs.js").EquipPrefs} */ prefs) => savePrefs(localStorage, EQUIP_VIEW_STORE, prefs),
+      },
       timing: {
         get: () => clampTiming(session.offsetMs),
         set: (v) => {
