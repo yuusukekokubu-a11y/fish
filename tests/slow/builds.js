@@ -1,7 +1,8 @@
 // 重いテストで共通に使う、装備の組み立てと戦闘のシミュレーション(テストではない:D-254・D-260)。
 // - 平均的な装備:レア・グレード g・値は真ん中・スキルなし(②-4c 土台の時間の測定と同じ)。
-// - 育てた装備:各枠で、段階 g のクレートを N(g) 個引いた中から、糸・リール・ルアーの組み合わせで、命中回数が最も少ないもの(D-254)。
-// - 最強の装備:レジェンド・グレード g・値は最大。スキル枠 9 つ(3 個 × 3 つ)を、命中回数が最も少ない組み合わせで埋めたもの。
+// - 育てた装備:段階 g のクレートを 3 × N(g) 個引いた中から(枠が 6 つでも引く数は同じ:D-327)、6 枠の組み合わせで、
+//   命中回数が最も少ないもの(D-254・D-322)。
+// - 最強の装備:レジェンド・グレード g・値は最大。スキル枠 18(3 個 × 6 枠)を、命中回数が最も少ない組み合わせで埋めたもの。
 // 戦闘は「上手」:印が命中範囲の真ん中に来るたびに必ずタップする(真ん中 = 芯。縁は狙わない)。
 // 印が真ん中に来る時刻へ時間を飛ばして進めるので、速い(結果は 16 ミリ秒ごとに見る遊び方とほぼ同じ)。
 // 人の指の速さとして、タップとタップの間は 250 ミリ秒以上あける(命中範囲が動いた直後に、すぐ押せないように)。
@@ -10,15 +11,15 @@
 export const MIN_TAP_GAP_MS = 250;
 
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
-import { createGame, PHASES, tap, update } from "../../src/core/fishing.js";
-import { drawItem, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
+import { createGame, fightSweepMs, PHASES, tap, update } from "../../src/core/fishing.js";
+import { BASE_KIND_IDS, drawItem, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
 import { referenceDraws } from "../../src/core/formula.js";
 import { levelRange, SKILL_ROWS } from "../../src/core/skills.js";
 import { startQuickFight } from "../../src/ui/debug_view.js";
 
 const GG = DEFAULT_CONFIG.gacha.gradeGrowth;
 
-/** 装備 3 個(id 1〜3)を付けた、段階 g の進み具合。 */
+/** 装備(id 1〜)を全部付けた、段階 g の進み具合。 */
 export function progressWith(g, items) {
   const own = items.map((it, i) => ({ ...it, id: i + 1 }));
   return {
@@ -31,9 +32,9 @@ export function progressWith(g, items) {
   };
 }
 
-/** 平均的な装備(レア・グレード g・値は真ん中・スキルなし)。 */
+/** 平均的な装備(糸・リール・ルアーの 3 枠に、レア・グレード g・値は真ん中・スキルなし。経済の基準:D-323)。 */
 export function averageItems(content, g) {
-  return content.equipKinds.map((kind) => {
+  return content.equipKinds.filter((kind) => BASE_KIND_IDS.includes(kind.id)).map((kind) => {
     const r = effectRange(kind, RARITY_ROWS[1], g, GG);
     return { kind: kind.id, rarity: "rare", grade: g, value: Math.round((r.min + r.max) / 2 / kind.step) * kind.step, skills: [] };
   });
@@ -52,7 +53,7 @@ export function fightOnce(content, g, items, fishId, seed) {
   const effs = [];
   let lastTap = -Infinity;
   while (game.phase === PHASES.MINIGAME) {
-    const s = game.cast.minigame.sweepMs;
+    const s = fightSweepMs(game);
     const z = game.fight.zone;
     const c = (z.start + z.end) / 2;
     const t = Math.max(game.phaseMs, lastTap + MIN_TAP_GAP_MS - 1e-6);
@@ -104,43 +105,71 @@ function dominates(a, b) {
 }
 
 /**
- * 育てた装備(D-254):糸・リール・ルアーの各枠で、段階 g のクレートから N(g) 個ずつ(ガチャの種 seed で引き続け、
- * 種類ごとに先に出た N(g) 個)を候補にし、命中回数が最も少ない組み合わせを選ぶ。
+ * 育てた装備(D-254・D-322・D-327):段階 g のクレートから 3 × N(g) 個(ガチャの種 seed で引いた順)を引き、
+ * 種類ごとに分けて候補にする(枠が 6 つになっても、引く数は 3 枠のときと同じ)。
  * 候補は、ほかの候補に負けているもの(値と、命中回数に効くスキルのレベルが全部以下)を除く。
- * 1 シードで全部の組み合わせを比べ、良い 10 通りを 3 シードで比べ直す。noPen なら、貫通と連撃・貫を持つ装備は使わない。
+ * 選び方:(1) 糸・リール・ルアーの全部の組み合わせを 1 シードで比べ、良い 10 通りを 3 シードで比べ直す。
+ * (2) おもり・浮き・おまもりを、この順に 1 枠ずつ、3 シードで一番良い候補に決める(何も付けないより悪ければ付けない)。
+ * (3) 6 枠を順に、ほかを決めたまま 3 シードで一番良い候補に替える(1 周)。
+ * noPen なら、貫通と連撃・貫を持つ装備は使わない。
  */
 export function grownItems(content, g, fishId, seed, options = {}) {
   const noPen = options.noPen ?? false;
   const crate = makeCrates(content, DEFAULT_CONFIG)[g - 1];
   const per = options.per ?? referenceDraws(g);
   const byKind = new Map(content.equipKinds.map((k) => [k.id, []]));
-  for (let i = 0; [...byKind.values()].some((l) => l.length < per) && i < 5000; i++) {
+  const total = per * BASE_KIND_IDS.length;
+  for (let i = 0; i < total; i++) {
     const it = drawItem(seed, i, crate, content.equipKinds, GG);
-    const list = byKind.get(it.kind);
-    if (list.length < per) list.push(it);
+    byKind.get(it.kind).push(it);
   }
   const isPen = (it) => it.skills.some((s) => s.id === "penetration" || s.id === "combo-pen");
   const candidates = content.equipKinds.map((kind) => {
     const own = byKind.get(kind.id).filter((it) => !(noPen && isPen(it)));
     return own.filter((it, i) => !own.some((o, j) => j !== i && dominates(o, it) && (!dominates(it, o) || j < i)));
   });
+  const baseIdx = BASE_KIND_IDS.map((id) => content.equipKinds.findIndex((k) => k.id === id));
+  const extraIdx = content.equipKinds.map((_, i) => i).filter((i) => !baseIdx.includes(i));
+  const pick = (slots) => slots.filter(Boolean);
+  // (1) 糸・リール・ルアー。
+  const [c0, c1, c2] = baseIdx.map((i) => (candidates[i].length > 0 ? candidates[i] : [null]));
   const scored = [];
-  for (const a of candidates[0]) {
-    for (const b of candidates[1]) {
-      for (const c of candidates[2]) {
-        const items = [a, b, c];
+  for (const a of c0) {
+    for (const b of c1) {
+      for (const c of c2) {
+        const items = pick([a, b, c]);
         const r = fightOnce(content, g, items, fishId, 101);
-        scored.push({ items, s: r.caught ? r.hits : 1000 });
+        scored.push({ slots: [a, b, c], s: r.caught ? r.hits : 1000 });
       }
     }
   }
   scored.sort((x, y) => x.s - y.s);
   let best = null;
-  for (const { items } of scored.slice(0, 10)) {
-    const sc = score(content, g, items, fishId);
-    if (!best || sc < best.score) best = { items, score: sc };
+  for (const { slots } of scored.slice(0, 10)) {
+    const sc = score(content, g, pick(slots), fishId);
+    if (!best || sc < best.score) best = { slots, score: sc };
   }
-  return best.items;
+  /** 6 枠(表の順)。 */
+  const slots = content.equipKinds.map(() => null);
+  baseIdx.forEach((k, i) => (slots[k] = best.slots[i]));
+  let current = best.score;
+  /** 枠 k を、候補の中で一番良いものに替える(今より良いときだけ)。 */
+  const improve = (k) => {
+    for (const cand of candidates[k]) {
+      if (cand === slots[k]) continue;
+      const trial = slots.map((x, i) => (i === k ? cand : x));
+      const sc = score(content, g, pick(trial), fishId);
+      if (sc < current) {
+        current = sc;
+        slots[k] = cand;
+      }
+    }
+  };
+  // (2) おもり・浮き・おまもり。
+  for (const k of extraIdx) improve(k);
+  // (3) 6 枠を 1 周、見直す。
+  for (let k = 0; k < slots.length; k++) improve(k);
+  return pick(slots);
 }
 
 /** 最強の装備の候補に使うスキル(ヌシ戦で命中回数を減らすもの。縁は真ん中を狙うので効かない、ジャストはヌシ戦で効かない)。 */
@@ -154,24 +183,34 @@ function combinations(list, k, start = 0, acc = [], out = []) {
 }
 
 /**
- * 最強の装備:レジェンド・グレード g・値は最大。スキル 5 つ(A〜D は 2 枠、E は 1 枠)を
- * 糸 [A, B, C]・リール [A, B, D]・ルアー [C, D, E] に置き、レベルは装備 1 個の上限。5 つの選び方と、E の選び方を全部試す。
+ * 最強の装備:レジェンド・グレード g・値は最大で、6 枠全部に付ける(D-327)。スキル 6 つを、
+ * 枠 i にスキル i・i+1・i+2(6 で割った余り)を置いて、どのスキルも 3 枠ずつにする。レベルは装備 1 個の上限。
+ * 6 つの選び方を全部、1 シードで比べ、良い 10 通りを 3 シードで比べ直す。
  */
 export function strongestItems(content, g, fishId, { noPen = false } = {}) {
   const pool = STRONG_SKILLS.filter((id) => !(noPen && (id === "penetration" || id === "combo-pen")));
   const lv = levelRange("legend", g, DEFAULT_CONFIG.skills).max;
-  const values = content.equipKinds.map((kind) => effectRange(kind, RARITY_ROWS[3], g, GG).max);
-  const make = (layout) =>
-    content.equipKinds.map((kind, i) => ({ kind: kind.id, rarity: "legend", grade: g, value: values[i], skills: layout[i].map((id) => ({ id, level: lv })) }));
+  const kinds = content.equipKinds;
+  const values = kinds.map((kind) => effectRange(kind, RARITY_ROWS[3], g, GG).max);
+  const n = kinds.length;
+  const make = (six) =>
+    kinds.map((kind, i) => ({
+      kind: kind.id,
+      rarity: "legend",
+      grade: g,
+      value: values[i],
+      skills: [0, 1, 2].map((d) => ({ id: six[(i + d) % six.length], level: lv })),
+    }));
+  const scored = combinations(pool, Math.min(n, pool.length)).map((six) => {
+    const items = make(six);
+    const r = fightOnce(content, g, items, fishId, 101);
+    return { items, s: r.caught ? r.hits : 1000 };
+  });
+  scored.sort((x, y) => x.s - y.s);
   let best = null;
-  for (const five of combinations(pool, 5)) {
-    for (let e = 0; e < 5; e++) {
-      const [A, B, C, D] = five.filter((_, i) => i !== e);
-      const E = five[e];
-      const items = make([[A, B, C], [A, B, D], [C, D, E]]);
-      const sc = score(content, g, items, fishId);
-      if (!best || sc < best.score) best = { items, score: sc };
-    }
+  for (const { items } of scored.slice(0, 10)) {
+    const sc = score(content, g, items, fishId);
+    if (!best || sc < best.score) best = { items, score: sc };
   }
   return best.items;
 }

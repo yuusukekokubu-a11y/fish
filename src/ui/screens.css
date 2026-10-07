@@ -179,6 +179,14 @@
   font-weight: bold;
   white-space: nowrap;
 }
+/* 詳細のシート:レア度と「装着中」を 1 行に(D-318)。 */
+.item-sheet-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
 .item-tag {
   padding: 1px 6px;
   border-radius: 4px;
@@ -204,7 +212,7 @@
 #code-status.error {
   color: #ff8fa3;
 }
-/* 装備の画面(D-155・D-162・D-179)。枠は小さめの 3 列のグリッドで上に固定(7 枠でも 3 段)。持ち物は 1 列のカード。 */
+/* 装備の画面(D-155・D-162・D-179)。枠は小さめの 3 列のグリッドで上に固定(6 枠で 2 段:D-321)。持ち物は 1 列のカード。 */
 .slots-fixed {
   position: sticky;
   top: -12px;

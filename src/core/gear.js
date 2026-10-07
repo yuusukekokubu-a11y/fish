@@ -31,7 +31,9 @@ import { levelRange, SKILL_ROWS } from "./skills.js";
  * @property {string} stat 足し算する「戦闘の数値の表」の項目
  * @property {{ min: number, max: number }} base グレード 1・ノーマルのときの基本効果の範囲(stat の単位)
  * @property {number} step 基本効果の刻み(この倍数だけが出る)
- * @property {{ label: string, scale: number, unit: string }} display 画面の見せ方(値 ÷ scale に unit を付ける)
+ * @property {{ label: string, scale: number, unit: string, sign?: string }} display 画面の見せ方(値 ÷ scale に unit を付ける)
+ * @property {{ cap: number, k: number }} [curve] 拮抗型(D-320):基本効果の値(点)を、割合 = cap × 値 ÷(値 + k)にする。
+ *   値がいくら大きくても cap に届かない(成長が無駄にならず、上限・下限をこえない)。画面は割合(%)で見せる。
  */
 
 /**
@@ -132,7 +134,51 @@ export const EQUIP_KIND_ROWS = Object.freeze([
     step: 1,
     display: { label: "命中範囲", scale: 1, unit: "%" },
   },
+  // ここから下の 3 種類は拮抗型(D-320・D-327)。値は「点」で、割合 = cap × 点 ÷(点 + k)で効く。
+  {
+    id: "weight",
+    name: "おもり",
+    // 印の動きを遅くする割合。印の速さ ×(1 − 割合)。基準の 50% より遅くしない(割合は 40% に届かない)。
+    stat: "markerSlow",
+    base: { min: 10, max: 15 },
+    step: 1,
+    curve: { cap: 0.4, k: 60 },
+    display: { label: "印の速さ", scale: 1, unit: "%", sign: "−" },
+  },
+  {
+    id: "float",
+    name: "浮き",
+    // 合わせの成功帯とジャスト帯を広げる割合(成功帯は輪の 60%、ジャスト帯は成功帯の 50% まで)。
+    stat: "hookWiden",
+    base: { min: 10, max: 15 },
+    step: 1,
+    curve: { cap: 0.6, k: 60 },
+    display: { label: "合わせの帯", scale: 1, unit: "%", sign: "+" },
+  },
+  {
+    id: "charm",
+    name: "おまもり",
+    // 獲得ウロコインを増やす割合(豊漁と足し算)。
+    stat: "coinBonus",
+    base: { min: 10, max: 15 },
+    step: 1,
+    curve: { cap: 0.6, k: 112 },
+    display: { label: "ウロコイン", scale: 1, unit: "%", sign: "+" },
+  },
 ]);
+
+/** 経済の基準の「平均的な装備」に使う種類(新しい 3 枠は付けない:D-323)。 */
+export const BASE_KIND_IDS = Object.freeze(["line", "reel", "lure"]);
+
+/**
+ * 基本効果の値から、戦闘の数値の表に足す量。拮抗型は割合(0〜cap 未満)、ほかは値のまま。
+ * @param {EquipKind} kind @param {number} value
+ */
+export function kindEffect(kind, value) {
+  if (!kind.curve) return value;
+  const v = Math.max(0, value);
+  return (kind.curve.cap * v) / (v + kind.curve.k);
+}
 
 /** 初めて遊ぶときの装備とガチャのまとまり。 @returns {Gear} */
 export function emptyGear() {
@@ -492,7 +538,7 @@ export function applyGear(base, gear, kinds) {
   for (const kind of kinds) {
     const item = equippedItem(gear, kind.id);
     if (!item) continue;
-    result[kind.stat] = (Number.isFinite(result[kind.stat]) ? result[kind.stat] : 0) + item.value;
+    result[kind.stat] = (Number.isFinite(result[kind.stat]) ? result[kind.stat] : 0) + kindEffect(kind, item.value);
   }
   return /** @type {T} */ (result);
 }
@@ -507,6 +553,12 @@ export function itemName(item, content) {
 
 /** 基本効果の見せ方(例:「制限時間 +1.3 秒」)。 @param {EquipKind} kind @param {number} value */
 export function formatEffect(kind, value) {
+  if (kind.curve) return `${kind.display.label} ${kind.display.sign ?? "+"}${percentText(kindEffect(kind, value))}%`;
   const n = Math.round((value / kind.display.scale) * 1000) / 1000;
   return `${kind.display.label} ${n >= 0 ? "+" : "−"}${Math.abs(n)}${kind.display.unit}`;
+}
+
+/** 割合を「12.3」の形(%の数。小数 1 けた)に。 @param {number} x */
+export function percentText(x) {
+  return String(Math.round(x * 1000) / 10);
 }

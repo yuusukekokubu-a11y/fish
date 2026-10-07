@@ -5,7 +5,7 @@
 import { groupByArea, stageLabel } from "./area_view.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { softCurve } from "../core/formula.js";
-import { lureZoneWidth, normalizeCombat } from "../core/combat.js";
+import { lureZoneWidth, normalizeCombat, widenRing } from "../core/combat.js";
 import { DEFAULT_CONTENT, FISH_KINDS, scaleName } from "../core/fish.js";
 import { rodName, scaleCount, stageRodNames } from "../core/rod.js";
 import { formatSkillEffect, SKILL_ROWS } from "../core/skills.js";
@@ -113,17 +113,34 @@ const ITEM = Object.freeze({
     format: times,
     extra: (c, game) => [["初撃のダメージ(防御の前)", String(Math.round(c.damage * justStrikeMultiplier(c, game)))]],
   },
-  success: { label: "合わせの成功帯(強い魚)", value: (c) => c.hook.strong.successMs, format: seconds },
-  just: { label: "ジャスト帯(強い魚)", value: (c) => c.hook.strong.justMs, format: seconds },
+  // 合わせの帯は、浮きで広げたあとの値(D-320)。
+  success: { label: "合わせの成功帯(強い魚)", value: (c) => strongRing(c).successMs, format: seconds },
+  just: { label: "ジャスト帯(強い魚)", value: (c) => strongRing(c).justMs, format: seconds },
+  // おもり・浮き(D-320・D-327)。付けていないとき(0)は出さない。
+  markerSlow: {
+    label: "印の速さ(おもり)",
+    value: (c) => c.markerSlow ?? 0,
+    format: (x) => `−${percent(x)}`,
+    neutral: 0,
+    extra: (c, game) => sweepRows(c, game),
+  },
+  hookWiden: { label: "合わせの帯の広さ(浮き)", value: (c) => c.hookWiden ?? 0, format: (x) => `+${percent(x)}`, neutral: 0 },
   // 報酬と待ち時間の倍率(スキル:豊漁・俊敏)。基本は全部 1。鱗を増やす効果はない(D-211)。
-  coins: { label: "ウロコイン", value: (_c, r) => r.coins, format: rate, neutral: 1 },
+  // おまもりの分も入る(豊漁と足し算:D-320)。
+  coins: {
+    label: "ウロコイン",
+    value: (_c, r) => r.coins,
+    format: rate,
+    neutral: 1,
+    extra: (c) => ((c.coinBonus ?? 0) > 0 ? [["うち おまもり", `+${percent(c.coinBonus)}`]] : []),
+  },
   wait: { label: "待ち時間", value: (_c, r) => r.wait, format: rate, neutral: 1 },
 });
 
 export const STATUS_SECTIONS = Object.freeze([
-  { title: "戦闘", items: [ITEM.damage, ITEM.critChance, ITEM.critMultiplier, ITEM.penetration, ITEM.missHeal, ITEM.zoneWidth] },
+  { title: "戦闘", items: [ITEM.damage, ITEM.critChance, ITEM.critMultiplier, ITEM.penetration, ITEM.missHeal, ITEM.zoneWidth, ITEM.markerSlow] },
   { title: "時間", items: [ITEM.timeBonus] },
-  { title: "合わせ", items: [ITEM.success, ITEM.just, ITEM.justMultiplier] },
+  { title: "合わせ", items: [ITEM.success, ITEM.just, ITEM.hookWiden, ITEM.justMultiplier] },
   { title: "報酬と待ち時間", items: [ITEM.coins, ITEM.wait] },
 ]);
 
@@ -131,6 +148,21 @@ const BASE_RATES = Object.freeze({ coins: 1, wait: 1 });
 
 /** 幅(0〜1)を「22%」の形に。 */
 const widthText = (x) => `${Math.round(x * 1000) / 10}%`;
+
+/** 強い魚の合わせの輪(浮きで広げたあと:D-320)。 */
+function strongRing(c) {
+  const ring = c.hook.strong;
+  return widenRing(ring, c.hookWiden ?? 0, DEFAULT_CONFIG.combatLimits);
+}
+
+/** いまの段階の強い魚とヌシの、印が端から端まで動く時間の変化(おもり:D-320)。 */
+function sweepRows(c, game) {
+  const content = game.content ?? DEFAULT_CONTENT;
+  const slow = c.markerSlow ?? 0;
+  return content.fish
+    .filter((f) => f.stage === game.progress.rodStage && f.minigame)
+    .map((f) => [`印の端から端(${f.name})`, `${seconds(f.minigame.sweepMs)} → ${seconds(f.minigame.sweepMs / (1 - slow))}`]);
+}
 
 /** いまの段階の、ミニゲームのある魚(強い魚とヌシ)の命中範囲の幅の変化。 */
 function zoneWidthRows(c, game) {

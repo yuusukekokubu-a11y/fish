@@ -20,6 +20,7 @@ import {
   lureZoneWidth,
   normalizeCombat,
   strikeDamage,
+  widenRing,
   widenZone,
 } from "./combat.js";
 import { AREA_ROWS, areaOfStage, inNewestArea, makeAreas, poolRange, setArea } from "./areas.js";
@@ -165,6 +166,8 @@ export function refreshCombat(game) {
   // 基本の表 → 装備の基本効果(足し算)→ スキル(足し算 → 掛け算)→ 点検と丸め(D-181・D-210)。
   const geared = applyGear(game.baseCombat, game.progress.gear, content.equipKinds);
   game.combat = normalizeCombat(applySkillsToCombat(geared, game.skills, content.skills), config.combat, config.combatLimits);
+  // おまもり:獲得ウロコインの倍率に足す(豊漁と足し算:D-320)。なければ倍率はそのまま。
+  if (game.combat.coinBonus > 0) game.rates = { ...game.rates, coins: game.rates.coins + game.combat.coinBonus };
   return game.combat;
 }
 
@@ -254,7 +257,20 @@ export { HOOK_GRADES };
 /** 今の魚の、合わせの輪の時間の区切り(「!」からのミリ秒)(D-087)。 */
 export function currentHookTiming(game) {
   const { hook } = game.combat;
-  return hookTiming(game.cast.kind === FISH_KINDS.STRONG ? hook.strong : hook.normal);
+  const ring = game.cast.kind === FISH_KINDS.STRONG ? hook.strong : hook.normal;
+  // 浮き:成功帯とジャスト帯を割合で広げる(D-320)。
+  return hookTiming(widenRing(ring, game.combat.hookWiden ?? 0, game.config.combatLimits));
+}
+
+/**
+ * 戦闘の印が端から端まで動く時間(おもりで遅くした値:D-320)。印の速さ ×(1 − 割合)。基準の 50% より遅くしない。
+ * おもりがなければ、魚の値のまま。
+ * @param {any} game
+ */
+export function fightSweepMs(game) {
+  const sweep = game.cast.minigame.sweepMs;
+  const slow = Math.min(game.config.combatLimits.maxMarkerSlow ?? 0.5, game.combat.markerSlow ?? 0);
+  return slow > 0 ? sweep / (1 - slow) : sweep;
 }
 
 /** 今の場面の長さ(ミリ秒)。休みは終わりがない(タップで再開)。 */
@@ -404,7 +420,7 @@ export function update(game, dtMs) {
 /** ミニゲーム中の印の位置(0〜1)。ミニゲーム中でなければ null。 */
 export function currentMarker(game) {
   if (game.phase !== PHASES.MINIGAME) return null;
-  return markerPosition(game.phaseMs, game.cast.minigame.sweepMs);
+  return markerPosition(game.phaseMs, fightSweepMs(game));
 }
 
 function resumeAfterBoss(game) {
@@ -562,7 +578,7 @@ function tapTime(game, backMs) {
 
 function fightTap(game, at = game.phaseMs) {
   const { fight, config, combat } = game;
-  const position = markerPosition(at, game.cast.minigame.sweepMs);
+  const position = markerPosition(at, fightSweepMs(game));
   fight.lastTapMs = at;
   if (isHit(position, fight.zone)) {
     const triggered = triggeredStats(game, position);

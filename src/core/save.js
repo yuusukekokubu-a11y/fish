@@ -1,5 +1,5 @@
 // @ts-check
-// 保存の形(版 5:D-223・D-232・D-247・D-267・D-280・D-300)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 6:D-223・D-232・D-247・D-267・D-280・D-300・D-325)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
 // 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 11 の欄に分ける:
@@ -28,7 +28,7 @@ import { itemLevelRange } from "./skills.js";
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -110,6 +110,10 @@ export const UPGRADES = Object.freeze({
     }
     return [...parts, num(mask)].join("~");
   },
+  // 版 5 → 6(D-325):装着の枠が 6 つになった(おもり・浮き・おまもりを装備の種類の表の最後に足した)。
+  // 装着と持ち物は種類の表の番号で書くので、本文の形は同じ(新しい枠は空)。版で区切るのは、版 5 までの読み手が
+  // 新しい種類の番号を読めないため(版がちがう、として断れるように)。
+  5: (body) => (body.split("~").length === 11 ? body : null),
 });
 
 /**

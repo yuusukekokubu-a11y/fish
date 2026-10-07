@@ -89,9 +89,10 @@ test("ステータスの画面:竿の名前と段階、戦闘の数値の表か�
       ],
     ],
   );
-  // 値が 0 の項目(貫通・命中範囲・制限時間・ウロコイン・待ち時間)と、空になった節(時間・報酬と待ち時間・条件つき)は出さない(D-303)。
+  // 値が 0 の項目(貫通・命中範囲・印の速さ・制限時間・合わせの帯の広さ・ウロコイン・待ち時間)と、
+  // 空になった節(時間・報酬と待ち時間・条件つき)は出さない(D-303・D-327)。
   assert.equal(STATUS_SECTIONS.length, 4);
-  assert.equal(rowsOf(view).length, STATUS_ITEMS.length - 5);
+  assert.equal(rowsOf(view).length, STATUS_ITEMS.length - 7);
   assert.ok(!rowsOf(view).some((r) => r.label === "なし"));
 });
 
@@ -201,4 +202,20 @@ test("ステータスの画面:条件発動型は「条件つき」の節に出�
     ["命中範囲(ブリ)", "10% → 15%"],
     ["命中範囲(ヌシ・ブリ)", "10% → 15%"],
   ]);
+});
+
+test("ステータスの画面:おもり・浮き・おまもりを付けると、印の速さ・合わせの帯の広さ・ウロコインの行が出る(D-327)", () => {
+  const game = createGame(1, { progress: progressAt(3, "none", {}) });
+  game.combat = { ...game.combat, markerSlow: 0.2, hookWiden: 0.3, coinBonus: 0.15 };
+  game.rates = { ...game.rates, coins: 1.15 };
+  const rows = rowsOf(statusView({ game }));
+  const find = (label) => rows.find((r) => r.label === label);
+  assert.equal(find("印の速さ(おもり)").value, "−20%");
+  assert.ok(find("印の速さ(おもり)").detail.some(([k, v]) => k.startsWith("印の端から端") && v.includes("→")));
+  assert.equal(find("合わせの帯の広さ(浮き)").value, "+30%");
+  // 成功帯 0.4 秒 × 1.3 = 0.52 秒(輪 1.2 秒の 60% = 0.72 秒より狭いので、そのまま)。ジャスト帯 0.14 × 1.3 = 0.182 秒。
+  assert.equal(find("合わせの成功帯(強い魚)").value, "0.52 秒");
+  assert.equal(find("ジャスト帯(強い魚)").value, "0.182 秒");
+  assert.equal(find("ウロコイン").value, "+15%");
+  assert.deepEqual(find("ウロコイン").detail.at(-1), ["うち おまもり", "+15%"]);
 });
