@@ -549,9 +549,21 @@ export function triggeredStats(game, position = null) {
   return { stats: { ...combat, damage, critChance, penetration }, active };
 }
 
-function fightTap(game) {
+/**
+ * タップを判定する、場面の中の時刻(ミリ秒)。backMs だけさかのぼる。場面の始まりと、前のタップより前にはしない。
+ * @param {any} game @param {number} backMs
+ */
+function tapTime(game, backMs) {
+  const back = Number.isFinite(backMs) && backMs > 0 ? backMs : 0;
+  if (back === 0) return game.phaseMs;
+  const floor = game.phase === PHASES.MINIGAME ? (game.fight?.lastTapMs ?? 0) : 0;
+  return Math.max(floor, game.phaseMs - back);
+}
+
+function fightTap(game, at = game.phaseMs) {
   const { fight, config, combat } = game;
-  const position = currentMarker(game);
+  const position = markerPosition(at, game.cast.minigame.sweepMs);
+  fight.lastTapMs = at;
   if (isHit(position, fight.zone)) {
     const triggered = triggeredStats(game, position);
     const active = triggered.active;
@@ -620,11 +632,14 @@ function fightTap(game) {
  * - 休み:再開して、次の魚を投げる。
  * それ以外の場面では何もせず null を返す。
  */
-export function tap(game) {
+export function tap(game, backMs = 0) {
+  // 押した時刻が、いまのゲームの時刻より backMs だけ前のときは、その時刻で判定する(D-284)。
+  // さかのぼれるのは、いまの場面の中で、前のタップのあとまで(場面の始まりや前のタップより前にはしない)。
+  const at = tapTime(game, backMs);
   switch (game.phase) {
     case PHASES.BITE: {
       // 縮む輪の位置(「!」からの時間)で決める。乱数は使わない(D-088)。
-      const grade = judgeHook(currentHookTiming(game), game.phaseMs);
+      const grade = judgeHook(currentHookTiming(game), at);
       if (grade === HOOK_GRADES.EARLY) {
         finish(game, OUTCOMES.ESCAPED, REASONS.EARLY);
         return { action: "hook", grade };
@@ -639,7 +654,7 @@ export function tap(game) {
       return strike ? { action: "hook", grade, strike } : { action: "hook", grade };
     }
     case PHASES.MINIGAME:
-      return fightTap(game);
+      return fightTap(game, at);
     case PHASES.RESTING:
       game.missStreak = 0;
       nextCast(game);

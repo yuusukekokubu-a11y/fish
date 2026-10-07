@@ -30,7 +30,9 @@ import { currentArea } from "../core/areas.js";
 import { formatCount } from "./format.js";
 import { createScreenShell } from "./screen_shell.js";
 import { initialNav, isPaused, screensFor, setDrawer, showScreen } from "./screens.js";
-import { act, advance, createSession, setPaused, tapSession } from "./session.js";
+import { act, advanceTo, createSession, setOffset, setPaused, tapAt, viewLeadMs } from "./session.js";
+import { clampTiming, createRecent, loadTiming, perfText, saveTiming, timingKeyFor } from "./timing.js";
+import { markerPosition } from "../core/minigame.js";
 import { decodeSaveCode, encodeSaveCode, parseSave } from "../core/savecode.js";
 import { syntheticContent } from "../core/synthetic.js";
 import { versionLabel } from "../version.js";
@@ -101,7 +103,21 @@ function readDebugCombat() {
 // ブラウザの設定で使えないときも、エラーで止めずに遊べるようにする(D-050)。
 /** 保存する。できたら true(保存できなくても遊びは続ける)。 */
 function saveProgress(progress) {
+  saveCount += 1;
   return saveText(STORE_KEY, encodeSaveCode(progress, CONTENT));
+}
+
+// 保存した回数(?debug の確かめ用)。
+let saveCount = 0;
+// タイミング補正の保存場所(本番とデバッグで別。ゲームの保存データとは別:D-285)。
+const TIMING_KEY = timingKeyFor(URL_OPTIONS);
+
+/**
+ * 合わせと戦闘の間(輪が出てから結果まで)は、保存と重い更新を後回しにする場面(D-284)。
+ * @param {string} phase
+ */
+function isBusyPhase(phase) {
+  return phase === PHASES.BITE || phase === PHASES.REELING || phase === PHASES.MINIGAME;
 }
 
 function clearSave() {
@@ -198,12 +214,37 @@ function main() {
   const effects = createEffects();
   // 時間とタップは、この窓口を通して渡す。メニューを開いている間は止まる(D-134)。
   const session = createSession(game, { maxStepMs: MAX_STEP_MS });
+  setOffset(session, loadTiming(localStorage, TIMING_KEY));
+
+  /** @type {HTMLElement | null} */
+  let perfBox = null;
+  let perfVisible = true;
+
+  // 保存は後回しにできる(D-284)。合わせと戦闘の間は印だけ付け、場面が終わったら保存する。
+  let saveDirty = false;
+  const requestSave = () => {
+    saveDirty = true;
+    if (!isBusyPhase(game.phase)) flushSave();
+  };
+  const flushSave = () => {
+    if (!saveDirty) return;
+    saveDirty = false;
+    saveProgress(game.progress);
+  };
+  // ページを離れる・隠れるときは、場面によらず、すぐ保存する。
+  window.addEventListener("pagehide", flushSave);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushSave();
+  });
   el.seed.textContent = `seed ${game.seed}`;
   el.version.textContent = versionLabel();
 
+  // 絵の大きさ(描画のたびに測り直さない:測ると、ページの配置の計算が走って重くなる)。
+  let sceneSize = { width: 0, height: 0 };
   function resize() {
     const ratio = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
+    sceneSize = { width: rect.width, height: rect.height };
     canvas.width = Math.round(rect.width * ratio);
     canvas.height = Math.round(rect.height * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -214,19 +255,31 @@ function main() {
   if (typeof ResizeObserver === "function") new ResizeObserver(() => resize()).observe(canvas);
   resize();
 
-  canvas.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    const result = tapSession(session);
+  // 合わせと命中のタップ(D-284):指が触れた瞬間のイベント(pointerdown)の時刻で判定する。
+  // ハンドラが遅れて呼ばれても、判定は押した時刻のまま。演出は判定したときに出す。
+  const delays = createRecent(20);
+  const frameGaps = createRecent(120);
+  const showTapEffects = (result) => {
     const now = performance.now();
     if (result?.action === "hook") addHookEffects(effects, result.grade, now, result.strike ?? null);
     else if (result?.action === "hit") addHitEffects(effects, result, now);
     else if (result?.action === "miss") addMissEffects(effects, result, now);
+  };
+  session.onTap = showTapEffects;
+  canvas.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const handled = performance.now();
+    // 入力の遅れ:押した瞬間のイベントの時刻と、ここが呼ばれた時刻の差(?debug の表示用)。
+    delays.push(Math.max(0, handled - event.timeStamp));
+    showTapEffects(tapAt(session, event.timeStamp, handled));
   });
+  // 長押しのメニュー(画像の保存など)を出さない。
+  document.getElementById("stage").addEventListener("contextmenu", (event) => event.preventDefault());
 
   // 知らせ(払い戻しなど)を数秒だけ出す。
   let noticeUntil = 0;
   function showNotice(text, ms = NOTICE_MS) {
-    el.notice.textContent = text;
+    setText(el.notice, text);
     noticeUntil = performance.now() + ms;
   }
 
@@ -235,7 +288,7 @@ function main() {
     if (!button.enabled) return;
     const text = act(session, () => button.run());
     if (text === false) return;
-    saveProgress(game.progress);
+    requestSave();
     if (text) addRodEffects(effects, text, performance.now());
     // 進化で段階が進んだら、残りの餌の払い戻しと、釣り場の解放を知らせる(D-263・D-273)。
     const notices = button.evolve ? [unlockMessage(game.areaUnlocked), refundMessage(game.baitRefund)].filter(Boolean) : [];
@@ -246,7 +299,7 @@ function main() {
   el.baitToggle.addEventListener("click", () => {
     if (oldAreaNotes(game)) return;
     setUseBait(game.progress, !game.progress.useBait);
-    saveProgress(game.progress);
+    requestSave();
   });
 
   // 釣り場の色(D-278):移ったら 0.5 秒で切り替える。
@@ -289,6 +342,23 @@ function main() {
       },
       // デバッグの「すぐ戦う」で合わせたときの演出(ジャストの初撃も:D-256)。
       showHook: (hook) => addHookEffects(effects, hook.grade, performance.now(), hook.strike ?? null),
+      // タイミング補正(D-285)。端末ごとの設定で、ゲームの保存データには入れない。
+      timing: {
+        get: () => clampTiming(session.offsetMs),
+        set: (v) => {
+          const n = saveTiming(localStorage, TIMING_KEY, v);
+          setOffset(session, n);
+          return n;
+        },
+      },
+      // 確かめ用の表示(?debug のときだけ:D-286)。
+      perf: {
+        visible: () => perfVisible,
+        setVisible: (on) => {
+          perfVisible = Boolean(on);
+          if (perfBox) perfBox.hidden = !perfVisible;
+        },
+      },
     },
     onChange: (screen) => applyNav(showScreen(nav, screen)),
   });
@@ -325,21 +395,42 @@ function main() {
     window.fishDebug = game;
     window.fishSession = session;
     window.fishNav = () => nav;
+    window.fishSaveCount = () => saveCount;
   }
 
-  let shownResults = 0;
-  let last = performance.now();
-  function frame(now) {
-    // メニューを開いている間は時間を渡さない。閉じたら、その時点から続きを進める。
-    advance(session, now - last);
-    last = now;
+  // 確かめ用の表示(?debug のときだけ):入力の遅れとフレーム間隔(D-286)。デバッグ画面で出す・消すを切り替える。
+  if (URL_OPTIONS.debug) {
+    perfBox = document.createElement("div");
+    perfBox.id = "perf";
+    perfBox.setAttribute("aria-hidden", "true");
+    document.getElementById("stage").append(perfBox);
+  }
 
-    // 新しい結果が出たら、保存して演出を足す。
+  // 文字は、変わったときだけ書き換える(毎回書き換えると、ページの配置の計算が走って重くなる)。
+  /** @type {Map<HTMLElement, string>} */
+  const shown = new Map();
+  const setText = (node, text) => {
+    if (shown.get(node) === text) return;
+    shown.set(node, text);
+    node.textContent = text;
+  };
+
+  let shownResults = 0;
+  let lastFrame = 0;
+  let wasBusy = false;
+  function frame(now) {
+    // メニューを開いている間は時間を渡さない。閉じたら、その時点から続きを進める(D-134・D-284)。
+    advanceTo(session, now);
+    if (lastFrame) frameGaps.push(now - lastFrame);
+    lastFrame = now;
+
+    // 新しい結果が出たら、演出を足し、保存を頼む(合わせと戦闘の間は、場面が終わってから保存する)。
     while (shownResults < game.results.length) {
       addResultEffects(effects, game.results[shownResults], now, game.content);
       shownResults += 1;
-      saveProgress(game.progress);
+      saveDirty = true;
     }
+    if (saveDirty && !isBusyPhase(game.phase)) flushSave();
 
     const target = sceneColors(game);
     if (target.sky !== colorTo.sky) {
@@ -347,18 +438,21 @@ function main() {
       colorTo = target;
       colorStart = now;
     }
-    const rect = canvas.getBoundingClientRect();
+    const rect = sceneSize;
+    // 補正が − のときは、縮む輪と動く印を、その分だけ先の位置で描く(判定は押した時刻のまま:D-285)。
+    const lead = viewLeadMs(session);
+    const viewMs = game.phaseMs + (game.phase === PHASES.BITE || game.phase === PHASES.MINIGAME ? lead : 0);
     const view = {
       colors: mixColors(colorFrom, colorTo, (now - colorStart) / COLOR_FADE_MS),
       phase: game.phase,
-      progress: game.phase === PHASES.RESTING ? 0 : Math.min(1, game.phaseMs / phaseDuration(game)),
+      progress: game.phase === PHASES.RESTING ? 0 : Math.min(1, viewMs / phaseDuration(game)),
       fish: game.phase === PHASES.RESULT ? fishById(game.lastResult.fishId, game.content) : game.cast.fish,
       zone: game.fight?.zone ?? game.cast.zone,
-      marker: currentMarker(game),
+      marker: game.phase === PHASES.MINIGAME ? markerPosition(viewMs, game.cast.minigame.sweepMs) : currentMarker(game),
       hp: game.fight?.hp ?? 0,
       maxHp: game.fight?.maxHp ?? 0,
-      timeLeft: game.phase === PHASES.MINIGAME ? 1 - game.phaseMs / phaseDuration(game) : 0,
-      hook: game.phase === PHASES.BITE ? { t: game.phaseMs, timing: currentHookTiming(game) } : null,
+      timeLeft: game.phase === PHASES.MINIGAME ? Math.max(0, 1 - viewMs / phaseDuration(game)) : 0,
+      hook: game.phase === PHASES.BITE ? { t: Math.min(viewMs, phaseDuration(game)), timing: currentHookTiming(game) } : null,
       caught: game.lastResult?.outcome === OUTCOMES.CAUGHT,
       badges: game.phase === PHASES.MINIGAME ? fightBadges(game) : null,
       bands: game.phase === PHASES.MINIGAME ? gaugeBands(game) : null,
@@ -370,27 +464,35 @@ function main() {
     ctx.restore();
     drawEffects(ctx, rect.width, rect.height, effects, now);
 
-    el.coins.textContent = formatCount(game.progress.coins);
+    setText(el.coins, formatCount(game.progress.coins));
     if (shell.current() !== null) shell.setCoins(`ウロコイン ${formatCount(game.progress.coins)}`);
-    el.need.textContent = needLabel(game);
-    el.areaName.textContent = currentArea(game.progress, game.content).name;
-    el.rodName.textContent = `${rodName(game.progress, game.content)}(${stageLabel(game.content, game.progress.rodStage)})`;
-    el.message.textContent = messageFor(game);
-    const bait = baitHud(game, oldAreaNotes(game)?.name ?? null);
-    el.baitToggle.hidden = bait === null;
-    if (bait) {
-      el.baitCount.textContent = bait.countText;
-      el.baitState.textContent = bait.stateText;
-      el.baitToggle.disabled = bait.disabled;
-      el.baitToggle.setAttribute("aria-pressed", String(bait.on && !bait.disabled));
+    setText(el.message, messageFor(game));
+    // 竿・釣り場・餌・竿のボタンの欄は、合わせと戦闘の間は変わらないので、書き換えない(D-284)。
+    // 場面に入った・出たときだけ 1 回書き換える(挑むボタンを押せない見た目にするなど)。
+    const busy = isBusyPhase(game.phase);
+    if (!busy || busy !== wasBusy) {
+      setText(el.need, needLabel(game));
+      setText(el.areaName, currentArea(game.progress, game.content).name);
+      setText(el.rodName, `${rodName(game.progress, game.content)}(${stageLabel(game.content, game.progress.rodStage)})`);
+      const bait = baitHud(game, oldAreaNotes(game)?.name ?? null);
+      if (el.baitToggle.hidden !== (bait === null)) el.baitToggle.hidden = bait === null;
+      if (bait) {
+        setText(el.baitCount, bait.countText);
+        setText(el.baitState, bait.stateText);
+        if (el.baitToggle.disabled !== bait.disabled) el.baitToggle.disabled = bait.disabled;
+        const pressed = String(bait.on && !bait.disabled);
+        if (el.baitToggle.getAttribute("aria-pressed") !== pressed) el.baitToggle.setAttribute("aria-pressed", pressed);
+      }
+      const button = rodButton(game);
+      setText(el.upgrade, button.label);
+      if (el.upgrade.disabled !== !button.enabled) el.upgrade.disabled = !button.enabled;
     }
+    wasBusy = busy;
     if (noticeUntil && now > noticeUntil) {
-      el.notice.textContent = "";
+      setText(el.notice, "");
       noticeUntil = 0;
     }
-    const button = rodButton(game);
-    el.upgrade.textContent = button.label;
-    el.upgrade.disabled = !button.enabled;
+    if (perfBox && perfVisible) setText(perfBox, perfText(delays.values, frameGaps.values));
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

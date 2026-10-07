@@ -1,9 +1,10 @@
-// 設定の画面の中身(D-130・D-152):セーブコードと「データを消す」。
+// 設定の画面の中身(D-130・D-152・D-285):セーブコード・タイミング補正・「データを消す」。
 // 動きは前の画面の隅にあったときと同じ(D-059・D-065・D-092)。
 // - セーブコード:書き出し・コピー・読み込み。読み込みは、コードが正しく、上書きの確認に「はい」と答えたときだけ保存を書き換える。
 // - データを消す:3 秒のうちに 2 回押したときだけ消す。
 
 import { decodeSaveCode, encodeSaveCode } from "../core/savecode.js";
+import { mountTiming } from "./timing_screen.js";
 
 /** 書き出しと読み込み(ctx.saveCode がなければ、港の表と本番の点検)。 */
 const DEFAULT_SAVE_CODE = { encode: (progress) => encodeSaveCode(progress), decode: (text) => decodeSaveCode(text) };
@@ -41,7 +42,10 @@ export function mountSettings(container, ctx) {
   danger.append(el("h2", { class: "section-title" }, "データ"));
   const reset = el("button", { id: "reset", type: "button" }, "データを消す");
   danger.append(reset);
-  container.append(code, danger);
+  container.append(code);
+  // タイミング補正(D-285)。ctx.timing がないとき(テストなど)は出さない。
+  if (ctx.timing && ctx.app) mountTiming(container, ctx.timing, ctx.app);
+  container.append(danger);
 
   const show = (message, isError = false) => {
     status.textContent = message;

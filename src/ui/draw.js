@@ -35,7 +35,7 @@ function drawFish(ctx, x, y, size, color) {
 }
 
 /** 空と海。colors は釣り場の色({ sky: [上, 下], sea: [上, 下] }:D-278)。なければ港の色。 */
-function drawBackground(ctx, w, h, waterY, colors = null) {
+function paintBackground(ctx, w, h, waterY, colors) {
   const skyColors = colors?.sky ?? [COLORS.skyTop, COLORS.skyBottom];
   const seaColors = colors?.sea ?? [COLORS.water, COLORS.waterDeep];
   const sky = ctx.createLinearGradient(0, 0, 0, waterY);
@@ -48,6 +48,26 @@ function drawBackground(ctx, w, h, waterY, colors = null) {
   water.addColorStop(1, seaColors[1]);
   ctx.fillStyle = water;
   ctx.fillRect(0, waterY, w, h - waterY);
+}
+
+// 空と海は、色と大きさが変わらない間は、描いた絵を取っておいて写すだけにする(毎回の色の重ね塗りは重い:D-284)。
+const background = { key: "", canvas: null };
+
+function drawBackground(ctx, w, h, waterY, colors = null) {
+  const ratio = typeof ctx.getTransform === "function" ? Math.abs(ctx.getTransform().a) || 1 : 1;
+  const key = `${w}x${h}@${ratio}:${colors ? [...colors.sky, ...colors.sea].join(",") : ""}`;
+  if (typeof document === "undefined") return paintBackground(ctx, w, h, waterY, colors);
+  if (background.key !== key) {
+    const canvas = background.canvas ?? document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(w * ratio));
+    canvas.height = Math.max(1, Math.round(h * ratio));
+    const bg = canvas.getContext("2d");
+    bg.setTransform(ratio, 0, 0, ratio, 0, 0);
+    paintBackground(bg, w, h, waterY, colors);
+    background.canvas = canvas;
+    background.key = key;
+  }
+  ctx.drawImage(background.canvas, 0, 0, w, h);
 }
 
 /** 残りの割合(0〜1)を、細い横のバーで描く。 */
