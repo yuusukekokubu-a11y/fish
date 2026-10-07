@@ -121,19 +121,27 @@
 .group-head[aria-expanded="false"] .group-mark::after {
   content: "▶";
 }
+/* セーブコードの署名の説明(D-291)。 */
+.code-note {
+  margin: 8px 2px 0;
+  font-size: 14px;
+  opacity: 0.85;
+}
 /* タイミング補正(D-285)。 */
 .timing-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 .timing-step {
   min-width: 56px;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: bold;
 }
+/* 値は 1 行を使い、その下に「早める(−)」「遅らせる(+)」「0 に戻す」を並べる(文字を併記したので幅が要る)。 */
 .timing-value {
-  min-width: 80px;
+  flex: 1 0 100%;
   text-align: center;
   font-size: 18px;
   font-weight: bold;

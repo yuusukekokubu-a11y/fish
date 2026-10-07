@@ -16,6 +16,7 @@ import {
   TIMING_KEY,
   timingKeyFor,
   timingLabel,
+  timingNumber,
 } from "../src/ui/timing.js";
 import { DEBUG_SAVE_KEY, SAVE_KEY } from "../src/ui/save_store.js";
 import { progressAt } from "./helpers.js";
@@ -30,7 +31,8 @@ test("補正は ±100 ミリ秒・5 ミリ秒刻みに丸める。数でなけ�
   assert.deepEqual([0, 5, 7, 8, -12, 100, 101, 250, -250, -100].map(clampTiming), [0, 5, 5, 10, -10, 100, 100, 100, -100, -100]);
   for (const bad of [NaN, Infinity, "x", "", null, undefined, {}]) assert.equal(clampTiming(bad), 0, String(bad));
   assert.equal(clampTiming("35"), 35);
-  assert.deepEqual([15, -20, 0, -0].map(timingLabel), ["+15 ms", "−20 ms", "0 ms", "0 ms"]);
+  assert.deepEqual([15, -20, 0, -0].map(timingLabel), ["+15 ms(遅らせる)", "−20 ms(早める)", "0 ms", "0 ms"]);
+  assert.deepEqual([15, -20, 0].map(timingNumber), ["+15 ms", "−20 ms", "0 ms"]);
 });
 
 test("補正の保存場所は、本番とデバッグで別。ゲームの保存場所とも別。読むときも丸める", () => {

@@ -139,6 +139,8 @@ export const DEFAULT_CONFIG = Object.freeze({
     noPenTapsFactor: 1,
     noPenBonusDraws: 45,
   }),
+  // セーブコード(D-294):署名なしの古い形式(TSURI1〜4)を受け付けるか。この版は true(次の版以降に false)。
+  saveCode: Object.freeze({ acceptUnsigned: true }),
   // 餌(D-263):所持数の上限。
   bait: Object.freeze({ max: 99 }),
   // クレートガチャ(D-140・D-147・D-149・D-253)。

@@ -6,7 +6,7 @@
 
 import { button, el } from "./list_view.js";
 import { openSheet } from "./sheet.js";
-import { clampTiming, suggestTiming, TIMING_MAX, TIMING_MIN, TIMING_STEP, timingLabel } from "./timing.js";
+import { clampTiming, suggestTiming, TIMING_EARLIER, TIMING_LATER, TIMING_MAX, TIMING_MIN, TIMING_STEP, timingLabel } from "./timing.js";
 
 /** 測るときの 1 回の長さ(縮むのに 1 秒、間 0.5 秒)と、押す回数。 */
 export const MEASURE_SHRINK_MS = 1000;
@@ -23,17 +23,17 @@ export function mountTiming(container, timing, app) {
   const box = el("section", "screen-section timing-section");
   box.append(el("h2", "section-title", "タイミング補正"));
   const row = el("div", "timing-row");
-  const minus = button("−", "chip timing-step");
+  const minus = button(TIMING_EARLIER, "chip timing-step");
   minus.setAttribute("aria-label", "補正を 5 ミリ秒早める");
   const value = el("output", "timing-value");
-  const plus = button("+", "chip timing-step");
+  const plus = button(TIMING_LATER, "chip timing-step");
   plus.setAttribute("aria-label", "補正を 5 ミリ秒遅らせる");
   const reset = button("0 に戻す", "chip timing-reset");
-  row.append(minus, value, plus, reset);
+  row.append(value, minus, plus, reset);
   const note = el(
     "p",
     "timing-note",
-    "合わせと命中で、押した時刻に足す補正です。「早すぎ」が多いときは +(判定を遅らせる)、「遅すぎ」が多いときは −(判定を早める)。この端末だけの設定で、セーブコードには入りません。",
+    "合わせと命中で、押した時刻に足す補正です。「早すぎ」が多いときは「遅らせる(+)」、「遅すぎ」が多いときは「早める(−)」を押します。この端末だけの設定で、セーブコードには入りません。",
   );
   const measure = button("測る(輪に合わせて 8 回押す)", "secondary-button timing-measure");
   box.append(row, note, measure);

@@ -33,10 +33,11 @@ import { initialNav, isPaused, screensFor, setDrawer, showScreen } from "./scree
 import { act, advanceTo, createSession, setOffset, setPaused, tapAt, viewLeadMs } from "./session.js";
 import { clampTiming, createRecent, loadTiming, perfText, saveTiming, timingKeyFor } from "./timing.js";
 import { markerPosition } from "../core/minigame.js";
-import { decodeSaveCode, encodeSaveCode, parseSave } from "../core/savecode.js";
+import { encodeSaveCode, parseSave } from "../core/savecode.js";
 import { syntheticContent } from "../core/synthetic.js";
 import { versionLabel } from "../version.js";
 import { DEBUG_READ_CONFIG } from "./debug_view.js";
+import { makeSaveCode } from "./save_sign.js";
 import { clearText, loadText as loadKey, OLD_DATA_MESSAGE, OLD_SAVE_KEYS, saveText, shouldShowOldDataNotice, storeKeyFor } from "./save_store.js";
 import { openSheet } from "./sheet.js";
 import { readUrlOptions } from "./url_params.js";
@@ -330,10 +331,8 @@ function main() {
       app,
       storage: { save: saveProgress, clear: clearSave },
       // セーブコードの書き出しと読み込み(表と点検の数値は、遊んでいる表のもの)。
-      saveCode: {
-        encode: (progress) => encodeSaveCode(progress, CONTENT),
-        decode: (text) => decodeSaveCode(text, CONTENT, READ_CONFIG),
-      },
+      // 書き出すのは署名つき(TSURI5:D-291)。?debug のときはデバッグ用の鍵(D-293)。
+      saveCode: makeSaveCode({ debug: URL_OPTIONS.debug }, CONTENT, READ_CONFIG),
       reload: () => location.reload(),
       // 装着・外す・分解のあと:装備を反映した戦闘の数値の表を作り直して保存する(D-181)。
       onGearChanged: () => {

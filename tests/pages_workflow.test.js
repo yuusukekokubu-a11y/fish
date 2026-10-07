@@ -56,3 +56,16 @@ test("テストの設定(ci.yml)とは別で、ci-result に公開は混ざら�
   assert.doesNotMatch(CI, /deploy-pages|upload-pages-artifact/);
   assert.doesNotMatch(PAGES, /ci-result/);
 });
+
+test("署名の鍵(Secrets の SAVE_SIGNING_KEY)は、集めたあとの公開用のファイルにだけ書き込む(D-292)", () => {
+  const step = PAGES.match(/name: 署名の鍵を書き込む\n((?: {8}.*\n)+)/);
+  assert.ok(step, "鍵を書き込む手順がない");
+  assert.match(step[1], /env:\n {10}SAVE_SIGNING_KEY: \$\{\{ secrets\.SAVE_SIGNING_KEY \}\}\n/);
+  assert.match(step[1], /run: node scripts\/stamp_key\.mjs _site\/src\/save_key\.js\n/);
+  // 集める手順のあと、公開用のファイルを上げる前。鍵は環境変数で渡し、コマンドの文字に書かない。
+  assert.ok(PAGES.indexOf("name: 公開するファイルを集める") < PAGES.indexOf("name: 署名の鍵を書き込む"));
+  assert.ok(PAGES.indexOf("name: 署名の鍵を書き込む") < PAGES.indexOf("upload-pages-artifact"));
+  assert.equal(PAGES.match(/secrets\./g)?.length, 1, "Secrets を使うのはここだけ");
+  assert.doesNotMatch(CI, /SAVE_SIGNING_KEY/, "テストの設定には鍵を渡さない");
+});
+
