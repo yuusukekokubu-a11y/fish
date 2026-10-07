@@ -261,21 +261,3 @@
   margin: 6px 0;
   font-size: 15px;
 }
-/* セーブコードの共有(D-315)。書き出したあとに、使える端末でだけ出す。 */
-#code-share-row {
-  margin-top: 8px;
-}
-#code-share {
-  width: 100%;
-  min-height: 48px;
-  border: 1px solid #5d7380;
-  border-radius: 10px;
-  background: #0b3954;
-  color: #ffffff;
-  font: inherit;
-  font-size: 15px;
-  font-weight: bold;
-}
-#code-share[hidden] {
-  display: none;
-}

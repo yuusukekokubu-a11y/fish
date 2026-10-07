@@ -29,6 +29,16 @@ import { DEFAULT_CONFIG } from "./config.js";
 import { applyGear, copyGear, emptyGear } from "./gear.js";
 import { applySkillsToCombat, scaledReward, scaledWait, skillRates, skillStates, triggerAmounts } from "./skills.js";
 import { availableFish, DEFAULT_CONTENT, effectiveMinigame, FISH_KINDS, FISH_LIST, pickWeighted } from "./fish.js";
+import { triggeredStats, zoneBand } from "./fight_stats.js";
+import {
+  copyGloveField,
+  countCatchForRetry,
+  gloveEffect,
+  inGrazeBand,
+  rollGloveCrate,
+  takeCrateGlove,
+  useRetry,
+} from "./glove_play.js";
 import { drawZone, isHit, markerPosition, zoneAt } from "./minigame.js";
 import { createRng, normalizeSeed } from "./rng.js";
 import {
@@ -45,7 +55,7 @@ import {
 } from "./rod.js";
 import { initialProgress } from "./save.js";
 
-export { FISH_KINDS };
+export { FISH_KINDS, triggeredStats, zoneBand };
 
 export const PHASES = Object.freeze({
   CASTING: "casting", // 投げる
@@ -152,6 +162,8 @@ function ownProgress(progress) {
   if (progress.useBait) own.useBait = true;
   if (progress.autoScrap) own.autoScrap = progress.autoScrap;
   if (progress.area) own.area = progress.area;
+  // グローブの持ち物(あるときだけ:D-335)。
+  copyGloveField(progress, own);
   return own;
 }
 
@@ -218,6 +230,10 @@ export function createGame(
     bossAttempts: 0,
     pendingCast: null,
     counts: { weak: 0, strong: 0, boss: 0, escaped: 0 },
+    // 仕切り直しのストック(null は上限いっぱい)と、釣り上げた魚の数。保存しない(D-334)。
+    retry: { stock: null, fish: 0 },
+    // 釣れるクレートの出現率の上書き(?debug の 100% だけ。null なら config の値)。
+    crateChance: null,
     results: [],
     lastResult: null,
   };
@@ -307,17 +323,21 @@ function nextCast(game) {
   game.castCount += 1;
   game.fight = null;
   game.hookGrade = null;
+  game.autoHooked = false;
   enter(game, PHASES.CASTING);
 }
 
 const NO_REWARD = Object.freeze({ coins: 0, scales: 0 });
 
 function finish(game, outcome, reason) {
+  if (game.cast.crate) return finishCrate(game, outcome, reason);
   const { fish, kind } = game.cast;
   const caught = outcome === OUTCOMES.CAUGHT;
   const reward = caught ? scaledFishReward(game, fish) : NO_REWARD;
   const firstCatch = caught && !game.progress.seen.includes(fish.id);
   const result = { fishId: fish.id, kind, outcome, reason, reward, firstCatch, hook: game.hookGrade ?? null };
+  // 自動合わせで掛けた(D-334)。
+  if (game.autoHooked) result.auto = true;
   // 弱い魚のジャストのウロコインの倍率(D-258)。画面の「×1.5」に使う。
   if (caught && justCoinRate(game) !== 1) result.justCoinRate = justCoinRate(game);
   if (game.fight) {
@@ -331,6 +351,8 @@ function finish(game, outcome, reason) {
   game.lastResult = result;
   if (caught) {
     game.counts[kind] += 1;
+    // 仕切り直しのストックは、魚(弱い・強い)を 10 匹釣るごとに増える(D-334)。
+    if (kind !== FISH_KINDS.BOSS) countCatchForRetry(game);
     const p = game.progress;
     p.coins = addCount(p.coins, reward.coins);
     // 強い魚とヌシは、その魚の鱗を落とす(弱い魚は 0)(D-097)。
@@ -344,6 +366,21 @@ function finish(game, outcome, reason) {
   if (kind !== FISH_KINDS.BOSS) {
     game.missStreak = reason === REASONS.EARLY || reason === REASONS.LATE ? game.missStreak + 1 : 0;
   }
+  enter(game, PHASES.RESULT);
+}
+
+/**
+ * 釣れるクレートの結果(D-333)。合わせが成功したらグローブが手に入り、失敗したら逃げる。魚の報酬・図鑑・数には入れない。
+ * 合わせを逃したときの数え方は、魚と同じ。
+ */
+function finishCrate(game, outcome, reason) {
+  const caught = outcome === OUTCOMES.CAUGHT;
+  const glove = caught ? takeCrateGlove(game) : null;
+  const result = { fishId: null, kind: game.cast.kind, crate: true, glove, outcome, reason, reward: NO_REWARD, firstCatch: false, hook: game.hookGrade ?? null };
+  game.results.push(result);
+  game.lastResult = result;
+  if (!caught) game.counts.escaped += 1;
+  game.missStreak = reason === REASONS.EARLY || reason === REASONS.LATE ? game.missStreak + 1 : 0;
   enter(game, PHASES.RESULT);
 }
 
@@ -382,10 +419,16 @@ function advance(game) {
     case PHASES.CASTING:
       // 投げ終わったら、餌を使う(スイッチが入っていて餌があるとき:D-263・D-264)。
       applyBait(game);
+      // 釣れるクレートの判定(餌のあと。投ごとに 1 回:D-333)。
+      rollGloveCrate(game);
       return enter(game, PHASES.WAITING);
     case PHASES.WAITING:
       return enter(game, PHASES.BITE);
     case PHASES.BITE:
+      // 自動合わせ:輪が成功帯に入った瞬間に成功(ジャストなし:D-334)。
+      if (gloveEffect(game, "auto-hook")) return hookSuccess(game, HOOK_GRADES.GOOD, true);
+      // 仕切り直し:ストックがあれば、逃げずに輪をもう一度(D-334)。
+      if (useRetry(game)) return enter(game, PHASES.BITE);
       return finish(game, OUTCOMES.ESCAPED, REASONS.LATE);
     case PHASES.REELING:
       return finish(game, OUTCOMES.CAUGHT, REASONS.HOOKED);
@@ -406,7 +449,7 @@ function advance(game) {
 export function update(game, dtMs) {
   let rest = Math.max(0, dtMs);
   while (rest > 0) {
-    const remaining = phaseDuration(game) - game.phaseMs;
+    const remaining = phaseEnd(game) - game.phaseMs;
     if (rest < remaining) {
       game.phaseMs += rest;
       return game;
@@ -415,6 +458,12 @@ export function update(game, dtMs) {
     advance(game);
   }
   return game;
+}
+
+/** 場面が次へ進む時刻。自動合わせが効くときの合わせは、輪が成功帯に入る瞬間(D-334)。ほかは場面の長さ。 */
+function phaseEnd(game) {
+  if (game.phase === PHASES.BITE && gloveEffect(game, "auto-hook")) return currentHookTiming(game).successStart;
+  return phaseDuration(game);
 }
 
 /** ミニゲーム中の印の位置(0〜1)。ミニゲーム中でなければ null。 */
@@ -428,6 +477,7 @@ function resumeAfterBoss(game) {
   game.pendingCast = null;
   game.fight = null;
   game.hookGrade = null;
+  game.autoHooked = false;
   enter(game, PHASES.CASTING);
 }
 
@@ -471,6 +521,9 @@ function startFight(game, grade) {
     hits: 0,
     misses: 0,
     crits: 0,
+    // グローブ:保険で無効にしたミスの数、かすりの数(D-334)。
+    insured: 0,
+    grazes: 0,
     // ジャストの初撃の結果(D-256)。なければ null。
     strike: null,
   };
@@ -497,72 +550,6 @@ function justStrike(game) {
   fight.strike = strike;
   if (strike.caught) finish(game, OUTCOMES.CAUGHT, REASONS.STRIKE);
   return strike;
-}
-
-/**
- * 命中範囲の中の帯(D-197)。中心からの距離(中心 0、端 1)で決める。芯:coreRatio 以下(ちょうどを含む)、
- * 縁:edgeRatio 以上(ちょうどを含む)、その間は通常。範囲の外は null(ミス)。乱数は使わない。
- * @param {number} position @param {{ start: number, end: number }} zone @param {{ coreRatio: number, edgeRatio: number }} rules
- * @returns {"core" | "normal" | "edge" | null}
- */
-export function zoneBand(position, zone, rules) {
-  if (!isHit(position, zone)) return null;
-  const half = (zone.end - zone.start) / 2;
-  const d = half > 0 ? Math.abs(position - (zone.start + zone.end) / 2) / half : 0;
-  // 浮動小数の誤差で境目がずれないよう、小さい桁でそろえる。
-  const dist = Math.round(d * 1e9) / 1e9;
-  if (dist <= rules.coreRatio) return "core";
-  if (dist >= rules.edgeRatio) return "edge";
-  return "normal";
-}
-
-/**
- * 命中 1 回の、条件発動型を含めた数値(D-184・D-191)。順は
- * 基本のダメージ(表 + 連撃・攻 × 段数 + 先手)→(1 + とどめ + 縁)を掛けて四捨五入 → (クリティカルの段数を掛ける → ジャスト倍率を掛ける)。
- * 会心率は 表 + 連撃・心 × 段数 + 勢い + 先制 + 芯。position は命中した位置(芯・縁を決める。なければ芯・縁は見ない)。条件発動型がなければ、表のままの値(前と同じ結果)。
- * 返り値の active は、この命中で効いた条件の名前(画面の小さな表示に使う)。
- */
-export function triggeredStats(game, position = null) {
-  const { fight, combat, config } = game;
-  const t = game.triggers ?? {};
-  const limits = config.combatLimits;
-  const stages = Math.min(fight.combo, config.skills.comboMax);
-  // いま満たしている条件と、その効果と、掛ける数(連撃は段数、ほかは 1)。
-  /** @type {[string, Record<string, number> | null | undefined, number][]} */
-  const met = [];
-  if (stages > 0) met.push(["combo", t.combo, stages]);
-  // 「最初の命中」「クリティカルの次」などは、戦闘中の一時的な上乗せに積んである(D-186)。
-  for (const b of fight.boosts) if (b.when) met.push([b.when, b.effects, 1]);
-  // 先制:体力が満タンで、その戦闘の最初の命中まで(ミスで満タンに戻しても、もう効かない:D-192)。
-  if (fight.hp >= fight.maxHp && fight.hits === 0) met.push(["fullHp", t.fullHp, 1]);
-  if (fight.hp <= fight.maxHp * config.skills.lowHpRatio) met.push(["lowHp", t.lowHp, 1]);
-  // 芯・縁:命中した位置の帯で効く(D-197)。
-  const band = position === null ? null : zoneBand(position, fight.zone, config.skills);
-  if (band === "core" || band === "edge") met.push([band, t[band], 1]);
-  /** @type {string[]} */
-  const active = [];
-  let damageAdd = 0;
-  let critAdd = 0;
-  let pct = 0;
-  let penAdd = 0;
-  for (const [when, effects, k] of met) {
-    if (!effects) continue;
-    const add = (effects.damage ?? 0) * k;
-    const crit = (effects.critChance ?? 0) * k;
-    const p = (effects.damagePct ?? 0) * k;
-    const pen = (effects.penetration ?? 0) * k;
-    if (add === 0 && crit === 0 && p === 0 && pen === 0) continue;
-    damageAdd += add;
-    critAdd += crit;
-    pct += p;
-    penAdd += pen;
-    active.push(when);
-  }
-  if (damageAdd === 0 && critAdd === 0 && pct === 0 && penAdd === 0) return { stats: combat, active };
-  const damage = Math.min(limits.maxDamage, Math.max(limits.minDamage, Math.round((combat.damage + damageAdd) * (1 + pct))));
-  const critChance = Math.min(limits.maxCritChance, Math.max(0, combat.critChance + critAdd));
-  const penetration = Math.min(limits.maxPenetration ?? Infinity, (combat.penetration ?? 0) + penAdd);
-  return { stats: { ...combat, damage, critChance, penetration }, active };
 }
 
 /**
@@ -632,12 +619,46 @@ function fightTap(game, at = game.phaseMs) {
     fight.zone = widenZone(drawn, fight.zoneWidth, config.minigame.zoneMargin);
     return { ...base, caught: false };
   }
+  // かすり:命中範囲のすぐ外は、少しダメージが入る(命中に数えない:D-334)。
+  const graze = gloveEffect(game, "graze");
+  if (graze && inGrazeBand(position, fight.zone, graze.outer)) return grazeTap(game, position, graze.damage);
+  // 保険:戦闘ごとに決まった回数まで、ミスを無効にする(回復・連撃のリセットも起きない:D-334)。
+  const insurance = gloveEffect(game, "insurance");
+  if (insurance && fight.insured < insurance) {
+    fight.insured += 1;
+    return { action: "miss", insured: true, heal: 0, hp: fight.hp, maxHp: fight.maxHp, position, combo: fight.combo };
+  }
   // ミスしたら回復する。最大の体力はこえない。連撃は途切れる(D-185)。ミスのボーナスはない(D-181)。
   const before = fight.hp;
   fight.hp = Math.min(fight.maxHp, fight.hp + combat.missHeal);
   fight.misses += 1;
-  fight.combo = 0;
-  return { action: "miss", heal: fight.hp - before, hp: fight.hp, maxHp: fight.maxHp, position };
+  // 連撃の維持:段数の一部が残る(端数は切り捨て:D-334)。
+  const keep = gloveEffect(game, "combo-keep");
+  const kept = keep ? Math.floor(fight.combo * keep) : 0;
+  fight.combo = kept;
+  const miss = { action: "miss", heal: fight.hp - before, hp: fight.hp, maxHp: fight.maxHp, position };
+  return keep ? { ...miss, comboKept: kept } : miss;
+}
+
+/**
+ * かすり(D-334):通常の命中(会心・条件発動型なし)のダメージ × 割合(四捨五入、1 以上)を、防御と貫通で通常どおり減らす。
+ * 体力は回復しない。命中に数えない(連撃の段数・命中範囲の位置・クリティカルの乱数は変えない)。
+ */
+function grazeTap(game, position, ratio) {
+  const { fight, combat, config } = game;
+  const limits = config.combatLimits;
+  const stats = effectiveStats(combat, config.formula ?? null);
+  const raw = Math.max(1, Math.round(Math.min(limits.maxHitDamage, hitDamage(stats, 0, limits)) * ratio));
+  const effDefense = effectiveDefense(game.cast.minigame.defense ?? 0, stats.penetration ?? 0);
+  const damage = defendedDamage(raw, effDefense);
+  fight.hp = Math.max(0, fight.hp - damage);
+  fight.grazes += 1;
+  const result = { action: "graze", damage, rawDamage: raw, effDefense, defended: damage < raw, hp: fight.hp, maxHp: fight.maxHp, position, combo: fight.combo };
+  if (fight.hp === 0) {
+    finish(game, OUTCOMES.CAUGHT, REASONS.HP_ZERO);
+    return { ...result, caught: true };
+  }
+  return { ...result, caught: false };
 }
 
 /**
@@ -655,19 +676,20 @@ export function tap(game, backMs = 0) {
   switch (game.phase) {
     case PHASES.BITE: {
       // 縮む輪の位置(「!」からの時間)で決める。乱数は使わない(D-088)。
-      const grade = judgeHook(currentHookTiming(game), at);
+      const timing = currentHookTiming(game);
+      // 自動合わせが効くときは、成功帯より前のタップを無視する(早すぎで逃がさないように:D-337)。
+      if (at < timing.successStart && gloveEffect(game, "auto-hook")) return null;
+      const grade = judgeHook(timing, at);
       if (grade === HOOK_GRADES.EARLY) {
+        // 仕切り直し:ストックがあれば、逃げずに輪をもう一度(D-334)。
+        if (useRetry(game)) {
+          enter(game, PHASES.BITE);
+          return { action: "hook", grade, retry: true };
+        }
         finish(game, OUTCOMES.ESCAPED, REASONS.EARLY);
         return { action: "hook", grade };
       }
-      game.hookGrade = grade;
-      if (game.cast.kind === FISH_KINDS.WEAK) {
-        enter(game, PHASES.REELING);
-        return { action: "hook", grade };
-      }
-      // 強い魚のジャストなら初撃が入る(体力以上なら、その場で釣り上げ:D-256)。
-      const strike = startFight(game, grade);
-      return strike ? { action: "hook", grade, strike } : { action: "hook", grade };
+      return hookSuccess(game, grade, false);
     }
     case PHASES.MINIGAME:
       return fightTap(game, at);
@@ -678,6 +700,23 @@ export function tap(game, backMs = 0) {
     default:
       return null;
   }
+}
+
+/**
+ * 合わせの成功。弱い魚(と釣れるクレート)は巻き上げへ、強い魚は体力制へ(ジャストなら初撃:D-256)。
+ * auto は自動合わせ(結果に印を付ける)。
+ */
+function hookSuccess(game, grade, auto) {
+  game.hookGrade = grade;
+  game.autoHooked = auto;
+  const mark = auto ? { auto: true } : {};
+  if (game.cast.kind === FISH_KINDS.WEAK) {
+    enter(game, PHASES.REELING);
+    return { action: "hook", grade, ...mark };
+  }
+  // 強い魚のジャストなら初撃が入る(体力以上なら、その場で釣り上げ:D-256)。
+  const strike = startFight(game, grade);
+  return strike ? { action: "hook", grade, strike, ...mark } : { action: "hook", grade, ...mark };
 }
 
 /** 今の段階の表の行(製作の鱗・ヌシ・進化の鱗)。 */
@@ -751,6 +790,7 @@ export function challengeBoss(game) {
   game.cast = makeBossCast(boss, game.config, game.seed, game.bossAttempts);
   game.bossAttempts += 1;
   game.hookGrade = null;
+  game.autoHooked = false;
   startFight(game, null);
   return true;
 }

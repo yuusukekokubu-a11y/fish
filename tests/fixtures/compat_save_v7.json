@@ -1,0 +1,230 @@
+{
+  "note": "互換の正解データ(D-335)。保存の版 7(グローブの持ち物・装着・次の番号・釣れるクレートの判定の回数)。code は署名なし(TSURI7-本文-印。ブラウザの中の保存と同じ形)、signed は仮の鍵(dev。秘密ではない)で署名したセーブコード(TSURI5-dev-7-…)。これからの版でも、このコードが読めて同じ結果になることをテストで守る。消さない・書き換えない。",
+  "version": 7,
+  "cases": [
+    {
+      "name": "初めの状態(グローブの欄は空)",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        }
+      },
+      "code": "TSURI7-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~-0532d13e",
+      "signed": "TSURI5-dev-7-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~-mv2fMoOwBJ6OrP6SEMvbbQ"
+    },
+    {
+      "name": "判定の回数だけ進んだ(グローブなし)",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        },
+        "gloves": {
+          "items": [],
+          "equipped": null,
+          "nextId": 1,
+          "rolls": 42
+        }
+      },
+      "code": "TSURI7-0~1.0~~~0..1~~~~0.0.0~~0~16.1.~-696de807",
+      "signed": "TSURI5-dev-7-0~1.0~~~0..1~~~~0.0.0~~0~16.1.~-ZO6hfpqdtN_eP4_tiRRxZw"
+    },
+    {
+      "name": "グローブ 5 個(1 個はロック中、エピックのかすりを装着)",
+      "progress": {
+        "coins": 54321,
+        "scales": {
+          "mejina": 3,
+          "nushi-mejina": 1
+        },
+        "rodStage": 6,
+        "rodStep": "none",
+        "seen": [
+          "aji",
+          "mejina"
+        ],
+        "gear": {
+          "items": [
+            {
+              "id": 1,
+              "kind": "line",
+              "rarity": "rare",
+              "grade": 6,
+              "value": 2500,
+              "skills": [
+                {
+                  "id": "power",
+                  "level": 2
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "kind": "weight",
+              "rarity": "epic",
+              "grade": 6,
+              "value": 75,
+              "skills": [
+                {
+                  "id": "penetration",
+                  "level": 3
+                },
+                {
+                  "id": "core",
+                  "level": 2
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "kind": "float",
+              "rarity": "normal",
+              "grade": 5,
+              "value": 25,
+              "skills": []
+            },
+            {
+              "id": 4,
+              "kind": "charm",
+              "rarity": "legend",
+              "grade": 6,
+              "value": 90,
+              "skills": [
+                {
+                  "id": "fortune",
+                  "level": 2
+                },
+                {
+                  "id": "crit-rate",
+                  "level": 4
+                },
+                {
+                  "id": "tenacity",
+                  "level": 2
+                }
+              ],
+              "locked": true
+            },
+            {
+              "id": 5,
+              "kind": "charm",
+              "rarity": "rare",
+              "grade": 4,
+              "value": 40,
+              "skills": [
+                {
+                  "id": "agility",
+                  "level": 1
+                }
+              ]
+            }
+          ],
+          "equipped": {
+            "line": 1,
+            "weight": 2,
+            "float": 3,
+            "charm": 4
+          },
+          "draws": 33,
+          "seed": 99,
+          "nextId": 6
+        },
+        "bait": 7,
+        "autoScrap": "normal",
+        "skillsSeen": [
+          "power",
+          "crit-rate",
+          "tenacity",
+          "fortune",
+          "agility",
+          "core",
+          "penetration"
+        ],
+        "gloves": {
+          "items": [
+            {
+              "id": 1,
+              "ability": "retry",
+              "rarity": "normal",
+              "grade": 6
+            },
+            {
+              "id": 2,
+              "ability": "auto-hook",
+              "rarity": "legend",
+              "grade": 7,
+              "locked": true
+            },
+            {
+              "id": 4,
+              "ability": "graze",
+              "rarity": "epic",
+              "grade": 8
+            },
+            {
+              "id": 5,
+              "ability": "insurance",
+              "rarity": "rare",
+              "grade": 6
+            },
+            {
+              "id": 9,
+              "ability": "combo-keep",
+              "rarity": "legend",
+              "grade": 10
+            }
+          ],
+          "equipped": 4,
+          "nextId": 10,
+          "rolls": 777
+        }
+      },
+      "code": "TSURI7-15wx~6.0~mejina:3,nushi-mejina:1~aji,mejina~x.2r.6~0.1,3.2,4.3,5.4~1.1.6.1xgA2,1.e.6.23S3Q2,1.g.5.p,1.n.6.2iE2B4D2,1.l.4.14F1~00010~7.0.1~~70vv~ll.a.4~1.4.6,1.3.7.1,2.e.8,1.9.6,4.j.a-b250e9e4",
+      "signed": "TSURI5-dev-7-15wx~6.0~mejina:3,nushi-mejina:1~aji,mejina~x.2r.6~0.1,3.2,4.3,5.4~1.1.6.1xgA2,1.e.6.23S3Q2,1.g.5.p,1.n.6.2iE2B4D2,1.l.4.14F1~00010~7.0.1~~70vv~ll.a.4~1.4.6,1.3.7.1,2.e.8,1.9.6,4.j.a-D7UGi41hSQH_nVJ2F-S16Q"
+    }
+  ],
+  "rejected": [
+    {
+      "name": "表にない能力(番号 5)",
+      "code": "TSURI7-0~1.0~~~0..1~~~~0.0.0~~0~0.2.~1.k.1-00045e88",
+      "error": "content"
+    },
+    {
+      "name": "ノーマルの自動合わせ(組み合わせ違反)",
+      "code": "TSURI7-0~1.0~~~0..1~~~~0.0.0~~0~0.2.~1.0.1-e3777745",
+      "error": "content"
+    },
+    {
+      "name": "グレード 0",
+      "code": "TSURI7-0~1.0~~~0..1~~~~0.0.0~~0~0.2.~1.4.0-b718871e",
+      "error": "content"
+    },
+    {
+      "name": "装着の番号が持ち物にない",
+      "code": "TSURI7-0~1.0~~~0..1~~~~0.0.0~~0~0.2.3~1.4.1-cafb69ea",
+      "error": "content"
+    },
+    {
+      "name": "持ち物が上限(20 個)をこえる",
+      "code": "TSURI7-0~1.0~~~0..1~~~~0.0.0~~0~0.m.~1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1,1.4.1-d21295ba",
+      "error": "content"
+    }
+  ]
+}

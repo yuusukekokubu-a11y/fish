@@ -13,6 +13,8 @@ import { DEFAULT_CONTENT } from "../core/fish.js";
 import { growthMaxLevel } from "../core/formula.js";
 import { currentHookTiming, FISH_KINDS, HOOK_GRADES, makeBossCast, PHASES, refreshCombat, tap } from "../core/fishing.js";
 import { BASE_KIND_IDS, effectRange, EQUIP_KIND_ROWS, kindById, RARITY_ROWS, rarityById } from "../core/gear.js";
+import { abilityAllows, abilityById, equipGlove, gloveRarityById } from "../core/glove.js";
+import { ensureGloveBag } from "../core/glove_play.js";
 import { COUNT_MAX, ROD_STEPS } from "../core/rod.js";
 import { parseSave } from "../core/savecode.js";
 import { SKILL_ROWS } from "../core/skills.js";
@@ -253,6 +255,29 @@ export function applyPreset(game, id) {
     addDebugItem(game, { kind: kind.id, rarity: top.id, grade, value: "max", skills: skills.slice(0, top.skillCount), equip: true });
   });
   return { ok: true };
+}
+
+/**
+ * グローブを作る(?debug のときだけ:D-334)。能力・レア度・グレードを点検して、持ち物に足す(すぐ装着もできる)。
+ * 自動合わせはレジェンドだけ。保管がいっぱいなら作らない。
+ * @param {any} game @param {{ ability: string, rarity: string, grade: number, equip?: boolean, lock?: boolean }} spec
+ * @returns {{ ok: true, glove: import("../core/glove.js").Glove } | { ok: false, error: string }}
+ */
+export function addDebugGlove(game, spec) {
+  const ability = abilityById(spec.ability);
+  if (!ability || !gloveRarityById(spec.rarity)) return { ok: false, error: "能力かレア度がちがいます" };
+  if (!abilityAllows(ability, spec.rarity)) return { ok: false, error: `${ability.name}は、そのレア度では出ません` };
+  const grade = clampInt(spec.grade, 1, game.content.maxStage);
+  if (grade === null) return { ok: false, error: "グレードがちがいます" };
+  const bag = ensureGloveBag(game.progress);
+  if (bag.items.length >= game.config.glove.max) return { ok: false, error: "グローブの保管がいっぱいです" };
+  /** @type {import("../core/glove.js").Glove} */
+  const glove = { id: bag.nextId, ability: ability.id, rarity: spec.rarity, grade };
+  if (spec.lock) glove.locked = true;
+  bag.nextId += 1;
+  bag.items.push(glove);
+  if (spec.equip) equipGlove(bag, glove.id);
+  return { ok: true, glove };
 }
 
 /** すぐ戦う相手の候補(強い魚とヌシ)。 @param {any} [content] */

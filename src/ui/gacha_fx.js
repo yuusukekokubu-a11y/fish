@@ -34,6 +34,9 @@ function card(v, big) {
   top.append(el("span", "fx-rarity", `${v.stars} ${v.rarity}`));
   if (v.better) top.append(el("span", "fx-better", "▲"));
   c.append(top, el("div", "fx-name", v.name), el("div", "fx-effect", v.effect));
+  // 補足の 1 行(グローブのグレードと対応段階:D-334)。
+  const note = /** @type {{ note?: string }} */ (v).note;
+  if (note) c.append(el("div", "fx-note", note));
   // スキル(「・」で区切る)。初めて出会ったスキルのそばに小さく NEW(D-301)。
   if (v.skills.length > 0) {
     const box = el("div", "fx-skills");

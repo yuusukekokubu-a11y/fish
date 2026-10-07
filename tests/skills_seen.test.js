@@ -9,7 +9,7 @@ import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { createGame } from "../src/core/fishing.js";
 import { autoScrap, emptyGear, makeCrates, pullCrate, setAutoScrap } from "../src/core/gear.js";
 import { encodeSave, initialProgress, SAVE_VERSION } from "../src/core/save.js";
-import { decodeSaveCode, encodeSaveCode, parseSave } from "../src/core/savecode.js";
+import { checksum, decodeSaveCode, encodeSaveCode, parseSave } from "../src/core/savecode.js";
 import { readSaveCode, signSaveCode } from "../src/core/signed_code.js";
 import { SKILL_ROWS } from "../src/core/skills.js";
 import { hasSeenSkill, noteSkillsSeen } from "../src/core/skills_seen.js";
@@ -101,15 +101,15 @@ test("出会ったスキル:10 連でも、自動分解された装備でも記�
   for (const [i, ids] of fresh2.entries()) for (const id of ids) assert.ok(!r.items.some((it) => it.skills.some((s) => s.id === id)), `${i}:${id}`);
 });
 
-test("保存の版 5・6:出会ったスキルが往復で元に戻る(保存・セーブコード・署名つき TSURI5-k1-6-)", async () => {
-  assert.equal(SAVE_VERSION, 6);
+test("保存の版 5・6:出会ったスキルが往復で元に戻る(保存・セーブコード・署名つき TSURI5-k1-7-)", async () => {
+  assert.equal(SAVE_VERSION, 7);
   const p = initialProgress();
   p.skillsSeen = ["power", "penetration", "combo-pen"];
   assert.deepEqual(parseSave(encodeSaveCode(p)), p);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p)), { ok: true, progress: p });
   const k1 = { id: "k1", secret: "test-only-production-like-key" };
   const code = await signSaveCode(p, k1);
-  assert.match(code, /^TSURI5-k1-6-/);
+  assert.match(code, /^TSURI5-k1-7-/);
   assert.deepEqual((await readSaveCode(code, { keys: [k1] })).progress, p);
   // 署名なしの形(ブラウザの中の保存と同じ形)は、読み込みでは拒否する(②-5a から:D-324)。ブラウザの保存としては読める。
   const unsigned = await readSaveCode(encodeSaveCode(p), { keys: [k1] });
@@ -118,10 +118,12 @@ test("保存の版 5・6:出会ったスキルが往復で元に戻る(保存・
 
 test("保存の版 5:セーブコードの増えは 30 文字以内(全部のスキルに出会っても)", () => {
   const p = initialProgress();
-  const empty = encodeSave(p).length;
+  // 版 5 の 11 の欄だけで比べる(版 7 のグローブの欄は除く)。
+  const v5 = (/** @type {any} */ x) => encodeSave(x).split("~").slice(0, 11).join("~");
+  const empty = v5(p).length;
   p.skillsSeen = SKILL_ROWS.map((s) => s.id);
   const v4Length = encodeSave(initialProgress()).split("~").slice(0, 10).join("~").length;
-  assert.ok(encodeSave(p).length - v4Length <= 30, `${encodeSave(p).length - v4Length}`);
+  assert.ok(v5(p).length - v4Length <= 30, `${v5(p).length - v4Length}`);
   assert.ok(empty - v4Length <= 2, "出会ったスキルなしは「~0」の 2 文字");
 });
 
@@ -141,10 +143,10 @@ test("互換の正解データ(compat_save_v5.json):保存の版 5 の署名な�
     assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: c.progress }, c.name);
     assert.deepEqual(parseSave(c.code), c.progress, `${c.name}:ブラウザの保存としても読める`);
     // 書き出すと保存の版 6(本文は同じ:D-325)。
-    assert.equal(encodeSaveCode(c.progress), c.code.replace(/^TSURI5-/, "TSURI6-"), `${c.name}:書き出しは版 6`);
+    assert.equal(encodeSaveCode(c.progress), c.code.replace(/^TSURI5-(.*)-([0-9a-f]{8})$/, (_, body) => `TSURI7-${body}~0.1.~-${checksum(`${body}~0.1.~`)}`), `${c.name}:書き出しは版 7`);
     assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
     const again = await signSaveCode(c.progress, CURRENT_KEY);
-    assert.equal(again.replace("-dev-6-", "-dev-5-").slice(0, -23), c.signed.slice(0, -23), `${c.name}:署名つきの書き出しは版 6`);
+    assert.equal(again.replace("-dev-7-", "-dev-5-").slice(0, -23), `${c.signed.slice(0, -23)}~0.1.~`, `${c.name}:署名つきの書き出しは版 7`);
   }
 });
 

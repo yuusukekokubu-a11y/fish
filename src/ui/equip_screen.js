@@ -8,6 +8,7 @@
 // - カードか枠を押すと、下から詳細のシートが出る(D-314):名前の横に種類とグレード。いまの装備との差とスキルレベルの変化は
 //   変わるときだけ 1 行。「付ける/外す」を大きく、分解とロックを小さく。
 // - ロック中の装備は、カードと枠に鍵の印(🔒。色だけでなく形で分かる)。分解のボタンは押せない(D-246)。
+// - グローブ(特殊枠:D-332):6 枠の下に横長の枠を 1 つ。持ち物は「装備 / グローブ」の切り替えで別の一覧(glove_screen.js)。
 // 数と文字は gear_view.js が作る。操作は計算本体(gear.js)の関数を呼ぶ。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
@@ -16,6 +17,8 @@ import { formatCount } from "./format.js";
 import { defaultPrefs } from "./equip_prefs.js";
 import { bulkDismantleRows, bulkLockPreview, inventoryLabel, inventoryRows, slotRows, SORT_CHOICES } from "./gear_view.js";
 import { button, el } from "./list_view.js";
+import { gloveList, gloveSlot } from "./glove_screen.js";
+import { gloveSpace } from "./glove_view.js";
 import { confirmSheet, openSheet } from "./sheet.js";
 
 /** @typedef {import("./gear_view.js").GameLike} GameLike */
@@ -36,6 +39,8 @@ import { confirmSheet, openSheet } from "./sheet.js";
 
 // ctx.equipView がないとき(テストなど)の並べ替えと絞り込み(画面を作り直しても保つ)。
 let memoryPrefs = defaultPrefs();
+// 持ち物の一覧の切り替え(装備 / グローブ)。画面を作り直しても保つ(保存はしない)。
+let listMode = /** @type {"gear" | "glove"} */ ("gear");
 
 /** @param {ScreenContext} ctx */
 function getPrefs(ctx) {
@@ -324,6 +329,37 @@ export function mountEquipment(container, ctx) {
     grid.append(cell);
   }
   slots.append(grid);
+  // グローブの枠(特殊枠。6 枠とは見た目を分ける:D-332)。
+  slots.append(
+    gloveSlot(ctx, crates, () => {
+      listMode = "glove";
+      ctx.rerender();
+    }),
+  );
+
+  // 持ち物の切り替え(装備 / グローブ)。
+  const tabs = el("div", "bag-tabs");
+  tabs.setAttribute("role", "tablist");
+  for (const [mode, label] of /** @type {["gear" | "glove", string][]} */ ([
+    ["gear", "装備"],
+    ["glove", gloveSpace(game).label],
+  ])) {
+    const tab = button(label, `bag-tab${listMode === mode ? " active" : ""}`);
+    tab.dataset.tab = mode;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", String(listMode === mode));
+    tab.addEventListener("click", () => {
+      listMode = mode;
+      ctx.rerender();
+    });
+    tabs.append(tab);
+  }
+  if (listMode === "glove") {
+    const gloves = el("section", "screen-section");
+    gloves.append(tabs, gloveList(ctx, crates));
+    container.append(slots, gloves);
+    return;
+  }
 
   const bag = el("section", "screen-section");
   const head = el("div", "bag-head");
@@ -348,7 +384,7 @@ export function mountEquipment(container, ctx) {
       update({ lock: v === "all" ? null : /** @type {import("./gear_view.js").LockFilter} */ (v) }),
     ),
   );
-  bag.append(head, controls);
+  bag.append(tabs, head, controls);
 
   const list = el("div", "item-list");
   const rows = inventoryRows(game, crates, prefs.sort, prefs.kind, prefs.lock, prefs.rarity);

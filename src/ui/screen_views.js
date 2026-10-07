@@ -10,6 +10,7 @@ import { DEFAULT_CONTENT, FISH_KINDS, scaleName } from "../core/fish.js";
 import { rodName, scaleCount, stageRodNames } from "../core/rod.js";
 import { formatSkillEffect, SKILL_ROWS } from "../core/skills.js";
 import { formatCount } from "./format.js";
+import { gloveStatusRows } from "./glove_view.js";
 
 const KIND_NAMES = Object.freeze({
   [FISH_KINDS.WEAK]: "弱い魚",
@@ -248,6 +249,8 @@ export function statusView({ game }) {
         ],
       })),
     }))
+      // グローブ(装着中だけ:D-334)。
+      .concat([{ title: "グローブ", rows: game.progress?.gloves ? gloveStatusRows(game) : [] }])
       .concat([{ title: "条件つき", rows: conditionalRows(game) }])
       .filter((section) => section.rows.length > 0),
   };

@@ -10,8 +10,11 @@ import { currentArea, unlockedAreas } from "../core/areas.js";
 import { setUseBait } from "../core/bait.js";
 import { moveArea } from "../core/fishing.js";
 import { AUTO_SCRAP_ROWS, autoScrapSetting, EQUIP_KIND_ROWS, RARITY_ROWS, setAutoScrap } from "../core/gear.js";
+import { GLOVE_ABILITY_ROWS, GLOVE_RARITY_ROWS } from "../core/glove.js";
 import { SKILL_ROWS } from "../core/skills.js";
+import { coverText } from "./glove_view.js";
 import {
+  addDebugGlove,
   addDebugItem,
   applyPreset,
   DEBUG_PRESETS,
@@ -210,6 +213,38 @@ export function mountDebug(container, ctx) {
   for (const x of skillInputs) make.append(x.row);
   make.append(el("p", "debug-note", `レベルはグレードごとに 1〜(2 + グレード)。範囲の外は範囲の中に直します。`), equipLabel, lockLabel, create);
 
+  // グローブを作る(D-334)と、釣れるクレートの出現率 100%(?debug のときだけ。保存しない)。
+  const gloveBox = section("グローブを作る");
+  const ability = select(GLOVE_ABILITY_ROWS.map((a) => [a.id, a.name]));
+  ability.dataset.field = "gloveAbility";
+  const gloveRarity = select(GLOVE_RARITY_ROWS.map((r) => [r.id, `${r.name}(対応 +${r.extend})`]), "legend");
+  gloveRarity.dataset.field = "gloveRarity";
+  const gloveGrade = input(String(game.progress.rodStage), "number");
+  gloveGrade.dataset.field = "gloveGrade";
+  const gloveEquip = /** @type {HTMLInputElement} */ (el("input"));
+  gloveEquip.type = "checkbox";
+  gloveEquip.checked = true;
+  const gloveEquipLabel = el("label", "debug-check");
+  gloveEquipLabel.append(gloveEquip, el("span", "", "すぐ装着する"));
+  const makeGlove = button("グローブを作る", "primary-button debug-glove");
+  makeGlove.addEventListener("click", () => {
+    const r = addDebugGlove(game, { ability: ability.value, rarity: gloveRarity.value, grade: Number(gloveGrade.value), equip: gloveEquip.checked });
+    if (!r.ok) return say(r.error, true);
+    saved();
+    say(`グローブを作りました(G${r.glove.grade}・対応 ${coverText(game.content, r.glove)})`);
+  });
+  const crate100 = /** @type {HTMLInputElement} */ (el("input"));
+  crate100.type = "checkbox";
+  crate100.dataset.field = "crate100";
+  crate100.checked = game.crateChance === 1;
+  crate100.addEventListener("change", () => {
+    game.crateChance = crate100.checked ? 1 : null;
+    say(crate100.checked ? "釣れるクレートの出現率を 100% にしました(条件を満たす弱い魚の投だけ)" : "出現率を元に戻しました");
+  });
+  const crateLabel = el("label", "debug-check");
+  crateLabel.append(crate100, el("span", "", "釣れるクレートの出現率 100%"));
+  gloveBox.append(field("能力", ability), field("レア度", gloveRarity), field(`グレード(1〜${game.content.maxStage})`, gloveGrade), gloveEquipLabel, makeGlove, crateLabel);
+
   // プリセット。
   const presets = section("プリセット(レジェンド・最大で作って装着)");
   for (const p of DEBUG_PRESETS) {
@@ -259,5 +294,5 @@ export function mountDebug(container, ctx) {
   });
   reset.append(clear);
 
-  container.append(values, perfBox, areaBox, baitBox, make, presets, fight, url, reset);
+  container.append(values, perfBox, areaBox, baitBox, make, gloveBox, presets, fight, url, reset);
 }

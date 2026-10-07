@@ -19,10 +19,11 @@ import { startQuickFight } from "../../src/ui/debug_view.js";
 
 const GG = DEFAULT_CONFIG.gacha.gradeGrowth;
 
-/** 装備(id 1〜)を全部付けた、段階 g の進み具合。 */
-export function progressWith(g, items) {
+/** 装備(id 1〜)を全部付けた、段階 g の進み具合。gloves を渡すと、グローブの持ち物にする(D-334)。 */
+export function progressWith(g, items, gloves = null) {
   const own = items.map((it, i) => ({ ...it, id: i + 1 }));
   return {
+    ...(gloves ? { gloves } : {}),
     coins: 0,
     scales: {},
     rodStage: g,
@@ -42,20 +43,27 @@ export function averageItems(content, g) {
 
 /**
  * 1 回の戦い。印が命中範囲の真ん中に来るたびにタップする。{ caught, hits, damages } を返す。
+ * options.gloves:グローブの持ち物。options.missEvery:n なら n 回に 1 回、命中範囲のすぐ外(幅の 15% 外側)で押す(グローブの確かめ用)。
  * @param {object} content @param {number} g @param {object[]} items @param {string} fishId @param {number} seed
+ * @param {{ gloves?: object | null, missEvery?: number }} [options]
  */
-export function fightOnce(content, g, items, fishId, seed) {
-  const game = createGame(seed, { content, progress: progressWith(g, items) });
+export function fightOnce(content, g, items, fishId, seed, options = {}) {
+  const game = createGame(seed, { content, progress: progressWith(g, items, options.gloves ?? null) });
   const r = startQuickFight(game, fishId, "good");
   if (!r.ok) throw new Error(r.error);
   const damages = [];
   const raws = [];
   const effs = [];
   let lastTap = -Infinity;
+  let taps = 0;
   while (game.phase === PHASES.MINIGAME) {
     const s = fightSweepMs(game);
     const z = game.fight.zone;
-    const c = (z.start + z.end) / 2;
+    taps += 1;
+    // n 回に 1 回は、命中範囲のすぐ外を狙う(ゲージの外に出るなら反対側)。
+    const off = options.missEvery && taps % options.missEvery === 0;
+    const w = z.end - z.start;
+    const c = !off ? (z.start + z.end) / 2 : z.end + w * 0.15 <= 1 ? z.end + w * 0.15 : z.start - w * 0.15;
     const t = Math.max(game.phaseMs, lastTap + MIN_TAP_GAP_MS - 1e-6);
     const base = Math.floor(t / (2 * s)) * 2 * s;
     // 1 往復の中で真ん中を通る時刻(行き c × s、帰り (2 − c) × s)のうち、今より後の最初のもの。
@@ -77,8 +85,8 @@ export function fightOnce(content, g, items, fishId, seed) {
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 
 /** シードごとの戦いの結果(逃げられたら命中回数は Infinity)。 */
-export function measure(content, g, items, fishId, seeds) {
-  const runs = seeds.map((s) => fightOnce(content, g, items, fishId, s));
+export function measure(content, g, items, fishId, seeds, options = {}) {
+  const runs = seeds.map((s) => fightOnce(content, g, items, fishId, s, options));
   const hits = runs.map((r) => (r.caught ? r.hits : Infinity));
   return { median: median(hits), winRate: runs.filter((r) => r.caught).length / runs.length, runs };
 }
