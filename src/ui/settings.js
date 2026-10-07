@@ -1,13 +1,15 @@
 // 設定の画面の中身(D-130・D-152・D-285):セーブコード・タイミング補正・「データを消す」。
 // 動きは前の画面の隅にあったときと同じ(D-059・D-065・D-092)。
 // - セーブコード:書き出し・コピー・読み込み。読み込みは、コードが正しく、上書きの確認に「はい」と答えたときだけ保存を書き換える。
+//   書き出すのは署名つき(TSURI5:D-291)。署名の計算は非同期なので、書き出しと読み込みは結果を待ってから進む。
+//   署名なしの古い形式は、確認に「署名がありません(古い形式です)」の注意を足す(D-294)。
 // - データを消す:3 秒のうちに 2 回押したときだけ消す。
 
-import { decodeSaveCode, encodeSaveCode } from "../core/savecode.js";
+import { makeSaveCode } from "./save_sign.js";
 import { mountTiming } from "./timing_screen.js";
 
-/** 書き出しと読み込み(ctx.saveCode がなければ、港の表と本番の点検)。 */
-const DEFAULT_SAVE_CODE = { encode: (progress) => encodeSaveCode(progress), decode: (text) => decodeSaveCode(text) };
+/** 書き出しと読み込み(ctx.saveCode がなければ、港の表と本番の点検・本番の鍵)。どちらも Promise を返す。 */
+const DEFAULT_SAVE_CODE = makeSaveCode({ debug: false });
 
 // 「データを消す」を 2 回目に押せる時間。
 export const RESET_CONFIRM_MS = 3000;
@@ -22,6 +24,7 @@ function el(tag, attrs = {}, text = "") {
 /**
  * 設定の画面の中身を container に作る。
  * ctx:{ game, storage: { save(progress) → 保存できたら true, clear() }, reload(), saveCode?: { encode, decode } }。
+ * saveCode の encode(progress) は Promise<コード>、decode(text) は Promise<読んだ結果>。
  */
 export function mountSettings(container, ctx) {
   const { game, storage, reload } = ctx;
@@ -36,7 +39,8 @@ export function mountSettings(container, ctx) {
   const copy = el("button", { id: "code-copy", type: "button" }, "コピー");
   const importButton = el("button", { id: "code-import", type: "button" }, "読み込み");
   buttons.append(exportButton, copy, importButton);
-  code.append(text, status, buttons);
+  const codeNote = el("p", { class: "code-note" }, "書き出すコードは署名つき(TSURI5)です。1 文字でも書き換えると「署名が合いません」で読めません。");
+  code.append(text, status, buttons, codeNote);
 
   const danger = el("section", { class: "screen-section" });
   danger.append(el("h2", { class: "section-title" }, "データ"));
@@ -52,12 +56,35 @@ export function mountSettings(container, ctx) {
     status.classList.toggle("error", isError);
   };
 
-  exportButton.addEventListener("click", () => {
-    text.value = saveCode.encode(game.progress);
-    show("書き出しました");
-  });
+  // 署名の計算を待つ間に、もう一度押されても重ならないようにする。
+  let busy = false;
+  /** @param {() => Promise<void>} fn */
+  const once = async (fn) => {
+    if (busy) return;
+    busy = true;
+    try {
+      await fn();
+    } finally {
+      busy = false;
+    }
+  };
+  const exportCode = async () => {
+    try {
+      text.value = await saveCode.encode(game.progress);
+      return true;
+    } catch {
+      show("書き出せませんでした", true);
+      return false;
+    }
+  };
+
+  exportButton.addEventListener("click", () =>
+    once(async () => {
+      if (await exportCode()) show("書き出しました(署名つき)");
+    }),
+  );
   copy.addEventListener("click", async () => {
-    if (text.value === "") text.value = saveCode.encode(game.progress);
+    if (text.value === "" && !(await exportCode())) return;
     try {
       await navigator.clipboard.writeText(text.value);
       show("コピーしました");
@@ -68,22 +95,28 @@ export function mountSettings(container, ctx) {
       show("選んだ文字をコピーしてください");
     }
   });
-  importButton.addEventListener("click", () => {
-    const result = saveCode.decode(text.value);
-    if (!result.ok) {
-      show(result.message, true);
-      return;
-    }
-    if (!window.confirm("いまのデータを上書きしますか?")) {
-      show("やめました");
-      return;
-    }
-    if (!storage.save(result.progress)) {
-      show("保存できませんでした", true);
-      return;
-    }
-    reload();
-  });
+  importButton.addEventListener("click", () =>
+    once(async () => {
+      show("確かめています…");
+      const result = await saveCode.decode(text.value);
+      if (!result.ok) {
+        show(result.message, true);
+        return;
+      }
+      // 署名なしの古い形式は、注意を出してから確認する(D-294)。
+      if (result.warning) show(result.warning, true);
+      const question = result.warning ? `${result.warning}。\nいまのデータを上書きしますか?` : "いまのデータを上書きしますか?";
+      if (!window.confirm(question)) {
+        show(result.warning ? `${result.warning}。やめました` : "やめました");
+        return;
+      }
+      if (!storage.save(result.progress)) {
+        show("保存できませんでした", true);
+        return;
+      }
+      reload();
+    }),
+  );
 
   let armedUntil = 0;
   let timer = null;

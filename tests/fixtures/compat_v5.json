@@ -1,0 +1,289 @@
+{
+ "note": "互換の正解データ(D-291〜D-294)。署名つきのセーブコード TSURI5(本文は保存の版 4)。手元の仮の鍵(鍵の番号 dev。秘密ではない)で署名した。これからの版でも、このコードが読めて同じ結果になることをテストで守る。消さない・書き換えない。",
+ "version": 5,
+ "keyId": "dev",
+ "cases": [
+  {
+   "name": "初めの状態(港・釣り場の欄は空)",
+   "progress": {
+    "coins": 0,
+    "scales": {},
+    "rodStage": 1,
+    "rodStep": "none",
+    "seen": [],
+    "gear": {
+     "items": [],
+     "equipped": {},
+     "draws": 0,
+     "seed": null,
+     "nextId": 1
+    }
+   },
+   "code": "TSURI5-dev-4-0~1.0~~~0..1~~~~0.0.0~-gIcpfFVTY2Wurwciui4Mog"
+  },
+  {
+   "name": "磯の段階 2 にいる(いちばん新しい釣り場なので欄は空)・頭打ち型は Lv1・ロックつき・餌",
+   "progress": {
+    "coins": 98765,
+    "scales": {
+     "mejina": 4,
+     "nushi-buri": 1,
+     "ishidai": 2
+    },
+    "rodStage": 7,
+    "rodStep": "none",
+    "seen": [
+     "aji",
+     "bera",
+     "mejina",
+     "kasago"
+    ],
+    "gear": {
+     "items": [
+      {
+       "id": 1,
+       "kind": "reel",
+       "rarity": "legend",
+       "grade": 6,
+       "value": 13,
+       "skills": [
+        {
+         "id": "power",
+         "level": 3
+        },
+        {
+         "id": "agility",
+         "level": 1
+        },
+        {
+         "id": "mastery",
+         "level": 1
+        }
+       ]
+      },
+      {
+       "id": 2,
+       "kind": "line",
+       "rarity": "epic",
+       "grade": 7,
+       "value": 4500,
+       "skills": [
+        {
+         "id": "insight",
+         "level": 1
+        },
+        {
+         "id": "tenacity",
+         "level": 2
+        }
+       ],
+       "locked": true
+      }
+     ],
+     "equipped": {
+      "reel": 1,
+      "line": 2
+     },
+     "draws": 40,
+     "seed": 77,
+     "nextId": 3
+    },
+    "bait": 5,
+    "useBait": true,
+    "autoScrap": "rare"
+   },
+   "code": "TSURI5-dev-4-247h~7.0~mejina:4,nushi-buri:1,ishidai:2~aji,bera,mejina,kasago~14.25.3~1.1,0.2~1.7.6.dA3F1H1,1.2.7.3h0G1D2~01~5.1.2~-CAazUSjTdsaLDXsK8cUidw"
+  },
+  {
+   "name": "磯まで進み、港にいる(釣り場の欄に minato)",
+   "progress": {
+    "coins": 98765,
+    "scales": {
+     "mejina": 4,
+     "nushi-buri": 1,
+     "ishidai": 2
+    },
+    "rodStage": 7,
+    "rodStep": "none",
+    "seen": [
+     "aji",
+     "bera",
+     "mejina",
+     "kasago"
+    ],
+    "gear": {
+     "items": [
+      {
+       "id": 1,
+       "kind": "reel",
+       "rarity": "legend",
+       "grade": 6,
+       "value": 13,
+       "skills": [
+        {
+         "id": "power",
+         "level": 3
+        },
+        {
+         "id": "agility",
+         "level": 1
+        },
+        {
+         "id": "mastery",
+         "level": 1
+        }
+       ]
+      },
+      {
+       "id": 2,
+       "kind": "line",
+       "rarity": "epic",
+       "grade": 7,
+       "value": 4500,
+       "skills": [
+        {
+         "id": "insight",
+         "level": 1
+        },
+        {
+         "id": "tenacity",
+         "level": 2
+        }
+       ],
+       "locked": true
+      }
+     ],
+     "equipped": {
+      "reel": 1,
+      "line": 2
+     },
+     "draws": 40,
+     "seed": 77,
+     "nextId": 3
+    },
+    "area": "minato"
+   },
+   "code": "TSURI5-dev-4-247h~7.0~mejina:4,nushi-buri:1,ishidai:2~aji,bera,mejina,kasago~14.25.3~1.1,0.2~1.7.6.dA3F1H1,1.2.7.3h0G1D2~01~0.0.0~minato-uwOFzhq7q-y_qEtOXZsTtg"
+  },
+  {
+   "name": "磯の 5 段階目を進化した(進化済み・次の釣り場はまだない)",
+   "progress": {
+    "coins": 12345,
+    "scales": {
+     "nushi-kue": 1
+    },
+    "rodStage": 10,
+    "rodStep": "evolved",
+    "seen": [
+     "aji",
+     "kurodai",
+     "nushi-kurodai"
+    ],
+    "gear": {
+     "items": [
+      {
+       "id": 1,
+       "kind": "reel",
+       "rarity": "legend",
+       "grade": 1,
+       "value": 5,
+       "skills": [
+        {
+         "id": "power",
+         "level": 2
+        },
+        {
+         "id": "crit-rate",
+         "level": 1
+        },
+        {
+         "id": "core",
+         "level": 2
+        }
+       ],
+       "locked": true
+      },
+      {
+       "id": 4,
+       "kind": "line",
+       "rarity": "rare",
+       "grade": 2,
+       "value": 1500,
+       "skills": [
+        {
+         "id": "edge",
+         "level": 1
+        }
+       ]
+      },
+      {
+       "id": 5,
+       "kind": "lure",
+       "rarity": "epic",
+       "grade": 2,
+       "value": 15,
+       "skills": [
+        {
+         "id": "combo-power",
+         "level": 1
+        },
+        {
+         "id": "first-strike",
+         "level": 1
+        }
+       ]
+      },
+      {
+       "id": 9,
+       "kind": "lure",
+       "rarity": "normal",
+       "grade": 1,
+       "value": 5,
+       "skills": [],
+       "locked": true
+      }
+     ],
+     "equipped": {
+      "reel": 1,
+      "line": 4,
+      "lure": 5
+     },
+     "draws": 12,
+     "seed": 3141592653,
+     "nextId": 10
+    },
+    "bait": 12,
+    "useBait": true,
+    "autoScrap": "rare"
+   },
+   "code": "TSURI5-dev-4-9ix~a.3~nushi-kue:1~aji,kurodai,nushi-kurodai~c.1fyf8el.a~1.1,0.4,2.5~1.7.1.5A2B1Q2,3.1.2.15oR1,1.a.2.fJ1P1,4.8.1.5~1001~c.1.2~-tKxeoJOIMBRhAxejsk2dkw"
+  }
+ ],
+ "rejected": [
+  {
+   "name": "本文を 1 文字変えた",
+   "code": "TSURI5-dev-4-24Ah~7.0~mejina:4,nushi-buri:1,ishidai:2~aji,bera,mejina,kasago~14.25.3~1.1,0.2~1.7.6.dA3F1H1,1.2.7.3h0G1D2~01~5.1.2~-CAazUSjTdsaLDXsK8cUidw",
+   "error": "signature"
+  },
+  {
+   "name": "署名を 1 文字変えた",
+   "code": "TSURI5-dev-4-247h~7.0~mejina:4,nushi-buri:1,ishidai:2~aji,bera,mejina,kasago~14.25.3~1.1,0.2~1.7.6.dA3F1H1,1.2.7.3h0G1D2~01~5.1.2~-CAazUSjTdsaLDXsK8cUAdw",
+   "error": "signature"
+  },
+  {
+   "name": "知らない鍵の番号",
+   "code": "TSURI5-k9-4-247h~7.0~mejina:4,nushi-buri:1,ishidai:2~aji,bera,mejina,kasago~14.25.3~1.1,0.2~1.7.6.dA3F1H1,1.2.7.3h0G1D2~01~5.1.2~-CAazUSjTdsaLDXsK8cUidw",
+   "error": "unknownKey"
+  },
+  {
+   "name": "デバッグ用の鍵のコード(本番では拒否)",
+   "code": "TSURI5-debug-4-0~1.0~~~0..1~~~~0.0.0~-WqWJqEeoE97aSMwDtuRhwQ",
+   "error": "debugKey"
+  },
+  {
+   "name": "署名が足りない",
+   "code": "TSURI5-dev-4-247h~7.0~mejina:4,nushi-buri:1,ishidai:2~aji,bera,mejina,kasago~14.25.3~1.1,0.2~1.7.6.dA3F1H1,1.2.7.3h0G1D2~01~5.1.2~-CAazUSjTdsaLDXsK8cUid",
+   "error": "format"
+  }
+ ]
+}

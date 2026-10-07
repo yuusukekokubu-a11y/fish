@@ -25,10 +25,20 @@ export function clampTiming(v) {
   return Math.min(TIMING_MAX, Math.max(TIMING_MIN, stepped)) || 0;
 }
 
-/** 補正の見せ方(「+15 ms」「0 ms」「−20 ms」)。 @param {number} v */
-export function timingLabel(v) {
+/** 補正の数だけの見せ方(「+15 ms」「0 ms」「−20 ms」)。 @param {number} v */
+export function timingNumber(v) {
   const n = clampTiming(v);
   return n === 0 ? "0 ms" : `${n > 0 ? "+" : "−"}${Math.abs(n)} ms`;
+}
+
+/** + と − のボタンの文字(向きを文字でも書く)。 */
+export const TIMING_LATER = "遅らせる(+)";
+export const TIMING_EARLIER = "早める(−)";
+
+/** 補正の見せ方(「+15 ms(遅らせる)」「0 ms」「−20 ms(早める)」)。 @param {number} v */
+export function timingLabel(v) {
+  const n = clampTiming(v);
+  return n === 0 ? "0 ms" : `${timingNumber(n)}(${n > 0 ? "遅らせる" : "早める"})`;
 }
 
 /**
