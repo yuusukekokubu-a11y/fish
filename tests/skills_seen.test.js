@@ -101,19 +101,19 @@ test("出会ったスキル:10 連でも、自動分解された装備でも記�
   for (const [i, ids] of fresh2.entries()) for (const id of ids) assert.ok(!r.items.some((it) => it.skills.some((s) => s.id === id)), `${i}:${id}`);
 });
 
-test("保存の版 5:出会ったスキルが往復で元に戻る(保存・セーブコード・署名つき TSURI5-k1-5-)", async () => {
-  assert.equal(SAVE_VERSION, 5);
+test("保存の版 5・6:出会ったスキルが往復で元に戻る(保存・セーブコード・署名つき TSURI5-k1-6-)", async () => {
+  assert.equal(SAVE_VERSION, 6);
   const p = initialProgress();
   p.skillsSeen = ["power", "penetration", "combo-pen"];
   assert.deepEqual(parseSave(encodeSaveCode(p)), p);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p)), { ok: true, progress: p });
   const k1 = { id: "k1", secret: "test-only-production-like-key" };
   const code = await signSaveCode(p, k1);
-  assert.match(code, /^TSURI5-k1-5-/);
+  assert.match(code, /^TSURI5-k1-6-/);
   assert.deepEqual((await readSaveCode(code, { keys: [k1] })).progress, p);
-  // 署名なしの保存の版 5(ブラウザの中の保存と同じ形)も、注意つきで読める。
+  // 署名なしの形(ブラウザの中の保存と同じ形)は、読み込みでは拒否する(②-5a から:D-324)。ブラウザの保存としては読める。
   const unsigned = await readSaveCode(encodeSaveCode(p), { keys: [k1] });
-  assert.deepEqual([unsigned.ok, unsigned.ok && unsigned.warning], [true, "署名がありません(古い形式です)"]);
+  assert.deepEqual([unsigned.ok, unsigned.ok ? "" : unsigned.error], [false, "unsigned"]);
 });
 
 test("保存の版 5:セーブコードの増えは 30 文字以内(全部のスキルに出会っても)", () => {
@@ -139,9 +139,12 @@ test("互換の正解データ(compat_save_v5.json):保存の版 5 の署名な�
   assert.equal(fixture.version, 5);
   for (const c of fixture.cases) {
     assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: c.progress }, c.name);
-    assert.equal(encodeSaveCode(c.progress), c.code, `${c.name}:書き出しも同じ`);
+    assert.deepEqual(parseSave(c.code), c.progress, `${c.name}:ブラウザの保存としても読める`);
+    // 書き出すと保存の版 6(本文は同じ:D-325)。
+    assert.equal(encodeSaveCode(c.progress), c.code.replace(/^TSURI5-/, "TSURI6-"), `${c.name}:書き出しは版 6`);
     assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
-    assert.equal(await signSaveCode(c.progress, CURRENT_KEY), c.signed, `${c.name}:署名つきの書き出しも同じ`);
+    const again = await signSaveCode(c.progress, CURRENT_KEY);
+    assert.equal(again.replace("-dev-6-", "-dev-5-").slice(0, -23), c.signed.slice(0, -23), `${c.name}:署名つきの書き出しは版 6`);
   }
 });
 

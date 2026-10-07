@@ -47,7 +47,7 @@ test("装備の枠 7 つ:7 枠ぶんのレベルを足し、保存とセーブ�
     step: 10,
     display: { label: "制限時間", scale: 1000, unit: " 秒" },
   }));
-  const kinds = [...EQUIP_KIND_ROWS, ...extra];
+  const kinds = [...EQUIP_KIND_ROWS.slice(0, 3), ...extra];
   const content = makeContent(undefined, undefined, kinds);
   const items = kinds.map((k, i) => ({
     id: i + 1,

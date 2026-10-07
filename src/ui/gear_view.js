@@ -10,7 +10,9 @@ import {
   isEquipped,
   itemName,
   kindById,
+  kindEffect,
   formatEffect,
+  percentText,
   pullBlocker,
   rarityById,
   RARITY_ROWS,
@@ -96,6 +98,11 @@ export function crateCards(game, crates) {
  * @param {import("../core/gear.js").EquipKind} kind @param {number} min @param {number} max
  */
 export function formatRange(kind, min, max) {
+  // 拮抗型(おもり・浮き・おまもり)は、効果の割合で書く(例:印の速さ −10〜−24%:D-327)。
+  if (kind.curve) {
+    const sign = kind.display.sign ?? "+";
+    return `${kind.display.label} ${sign}${percentText(kindEffect(kind, min))}〜${sign}${percentText(kindEffect(kind, max))}%`;
+  }
   /** @param {number} v */
   const n = (v) => Math.round((v / kind.display.scale) * 1000) / 1000;
   return `${kind.display.label} +${n(min)}〜+${n(max)}${kind.display.unit}`;
@@ -150,9 +157,18 @@ export function inventoryWarning(game) {
   };
 }
 
-/** 差(+/−)の文。 @param {import("../core/gear.js").EquipKind} kind @param {number} diff */
-export function formatDiff(kind, diff) {
+/**
+ * 差(+/−)の文。拮抗型は、いま付けている値 from からの効果の割合の差で書き、印の速さのように「−」が良い種類は符号を逆にする(D-327)。
+ * @param {import("../core/gear.js").EquipKind} kind @param {number} diff @param {number} [from]
+ */
+export function formatDiff(kind, diff, from = 0) {
   if (diff === 0) return "±0";
+  if (kind.curve) {
+    const d = kindEffect(kind, from + diff) - kindEffect(kind, from);
+    // 印の速さのように数が「−」で書かれる種類も、そのままの向き(遅くなれば −、速くなれば +)で、何の差かを書く。
+    const plus = (d > 0) === ((kind.display.sign ?? "+") === "+");
+    return `${kind.display.label} ${plus ? "+" : "−"}${percentText(Math.abs(d))}%`;
+  }
   const n = Math.round((diff / kind.display.scale) * 1000) / 1000;
   return `${diff > 0 ? "+" : "−"}${Math.abs(n)}${kind.display.unit}`;
 }
@@ -183,7 +199,7 @@ export function itemView(game, item, crates) {
     // ロック中(分解できない:D-246)。
     locked: Boolean(item.locked),
     better: !equipped && diff > 0,
-    diff: kind ? formatDiff(kind, diff) : String(diff),
+    diff: kind ? formatDiff(kind, diff, equippedItem(progress.gear, item.kind)?.value ?? 0) : String(diff),
     diffSign: Math.sign(diff),
     refund: refundFor(item, crates),
     // スキルの欄(1 個に最大 3 行。名前とポイント:D-179)。

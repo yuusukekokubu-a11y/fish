@@ -44,6 +44,9 @@ export function normalizeCombat(stats, base, limits) {
     zoneWidthBonus: clamp(finiteOr(s.zoneWidthBonus, base.zoneWidthBonus ?? 0), 0, limits.maxZoneWidthBonus),
     penetration: clamp(finiteOr(s.penetration, base.penetration ?? 0), 0, limits.maxPenetration ?? Infinity),
     justMultiplier: clamp(finiteOr(s.justMultiplier, base.justMultiplier ?? 1), 1, limits.maxJustMultiplier ?? Infinity),
+    markerSlow: clamp(finiteOr(s.markerSlow, base.markerSlow ?? 0), 0, limits.maxMarkerSlow ?? 0.5),
+    hookWiden: clamp(finiteOr(s.hookWiden, base.hookWiden ?? 0), 0, Infinity),
+    coinBonus: clamp(finiteOr(s.coinBonus, base.coinBonus ?? 0), 0, limits.maxCoinBonus ?? Infinity),
     hook: normalizeHook(s.hook, base.hook, limits),
   };
 }
@@ -69,6 +72,21 @@ export function normalizeHook(hook, base, limits) {
   const normal = normalizeRing(h.normal, base.normal, limits, null);
   const strong = normalizeRing(h.strong, base.strong, limits, normal);
   return { normal, strong };
+}
+
+/**
+ * 浮きで、輪の成功帯とジャスト帯を広げる(D-320)。広げた分は、成功帯が輪の maxHookSuccessRatio、
+ * ジャスト帯が成功帯の maxHookJustRatio をこえない(スキルで既にこえている分は、狭めない)。広げる割合が 0 なら、そのまま。
+ * @param {{ ringMs: number, successMs: number, justMs: number }} ring @param {number} widen
+ * @param {{ maxHookSuccessRatio?: number, maxHookJustRatio?: number }} limits
+ */
+export function widenRing(ring, widen, limits) {
+  if (!(widen > 0)) return ring;
+  const successCap = Math.max(ring.successMs, ring.ringMs * (limits.maxHookSuccessRatio ?? 0.6));
+  const successMs = Math.min(ring.successMs * (1 + widen), successCap);
+  const justCap = Math.max(ring.justMs, successMs * (limits.maxHookJustRatio ?? 0.5));
+  const justMs = Math.min(ring.justMs * (1 + widen), justCap, successMs);
+  return { ringMs: ring.ringMs, successMs, justMs };
 }
 
 /** 輪の時間の区切り(「!」からのミリ秒)。 */

@@ -99,8 +99,11 @@ function openItemSheet(ctx, v, crates) {
       // 名前の横に、種類とグレードを小さく(D-314)。
       const title = el("h2", "sheet-title item-sheet-title");
       title.append(el("span", "", v.name), el("span", "item-meta", `・${v.kindName}・G${v.grade}`));
-      panel.append(title, rarityBadge(v));
-      if (v.equipped) panel.append(el("span", "item-tag", "装着中"));
+      // レア度と「装着中」の札は 1 行に並べる(D-318)。
+      const badges = el("div", "item-sheet-badges");
+      badges.append(rarityBadge(v));
+      if (v.equipped) badges.append(el("span", "item-tag", "装着中"));
+      panel.append(title, badges);
       const dl = el("dl", "sheet-list");
       for (const [k, val] of /** @type {[string, string][]} */ ([
         ["基本効果", v.effect],

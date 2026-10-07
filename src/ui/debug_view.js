@@ -12,7 +12,7 @@ import { DEFAULT_CONFIG } from "../core/config.js";
 import { DEFAULT_CONTENT } from "../core/fish.js";
 import { growthMaxLevel } from "../core/formula.js";
 import { currentHookTiming, FISH_KINDS, HOOK_GRADES, makeBossCast, PHASES, refreshCombat, tap } from "../core/fishing.js";
-import { effectRange, EQUIP_KIND_ROWS, kindById, RARITY_ROWS, rarityById } from "../core/gear.js";
+import { BASE_KIND_IDS, effectRange, EQUIP_KIND_ROWS, kindById, RARITY_ROWS, rarityById } from "../core/gear.js";
 import { COUNT_MAX, ROD_STEPS } from "../core/rod.js";
 import { parseSave } from "../core/savecode.js";
 import { SKILL_ROWS } from "../core/skills.js";
@@ -211,7 +211,7 @@ export function addDebugItem(game, spec) {
 }
 
 /**
- * プリセット(よく試す装備の組み合わせ:D-214)。skills のスキルを、糸・リール・ルアーの順に 3 個ずつ付け、
+ * プリセット(よく試す装備の組み合わせ:D-214)。skills のスキルを、糸・リール・ルアーの順に 3 個ずつ付け(ほかの枠には作らない:D-327)、
  * レジェンド・最後の段階のグレード・値は最大・レベルは最大で作って装着する。stage が "max" なら竿も最後の段階にする。
  * @typedef {{ id: string, name: string, skills: string[], stage?: "max", note: string }} DebugPreset
  */
@@ -238,7 +238,8 @@ export const DEBUG_PRESETS = Object.freeze([
 export function applyPreset(game, id) {
   const preset = DEBUG_PRESETS.find((p) => p.id === id);
   if (!preset) return { ok: false, error: "プリセットがありません" };
-  const kinds = game.content.equipKinds ?? EQUIP_KIND_ROWS;
+  // プリセットは、糸・リール・ルアーの 3 枠だけに作る(おもり・浮き・おまもりは作らない:D-327)。
+  const kinds = (game.content.equipKinds ?? EQUIP_KIND_ROWS).filter((/** @type {{ id: string }} */ k) => BASE_KIND_IDS.includes(k.id));
   const gear = game.progress.gear;
   if (game.config.gacha.inventoryMax - gear.items.length < kinds.length) {
     return { ok: false, error: `持ち物の空きが ${kinds.length} 個要ります` };

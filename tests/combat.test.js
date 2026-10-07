@@ -28,6 +28,9 @@ test("基本の表:ダメージ 10・確率 10%・倍率 1.3(D-255)・回復 10�
     zoneWidthBonus: 0,
     penetration: 0,
     justMultiplier: 3,
+    markerSlow: 0,
+    hookWiden: 0,
+    coinBonus: 0,
   });
   assert.deepEqual(norm(undefined), norm(BASE), "表がなければ基本の表");
 });
@@ -43,6 +46,9 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     zoneWidthBonus: 0,
     penetration: 0,
     justMultiplier: 3,
+    markerSlow: 0,
+    hookWiden: 0,
+    coinBonus: 0,
   });
   assert.deepEqual(norm({ damage: 0, critChance: -0.2, critMultiplier: 0.5, missHeal: 0, timeLimitBonusMs: 0 }), {
     damage: 1,
@@ -53,6 +59,9 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     zoneWidthBonus: 0,
     penetration: 0,
     justMultiplier: 3,
+    markerSlow: 0,
+    hookWiden: 0,
+    coinBonus: 0,
   });
   // ジャスト倍率は 1 倍以上、安全上限まで(D-256)。
   assert.equal(norm({ ...BASE, justMultiplier: 0.2 }).justMultiplier, 1);
@@ -174,6 +183,9 @@ test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より�
     zoneWidthBonus: 0,
     penetration: 0,
     justMultiplier: 3,
+    markerSlow: 0,
+    hookWiden: 0,
+    coinBonus: 0,
   });
   assert.equal(game.fight.timeLimitMs, LIMITS.minTimeLimitMs);
   const rng = createRng(3);

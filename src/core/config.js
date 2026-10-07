@@ -31,6 +31,9 @@ export const DEFAULT_CONFIG = Object.freeze({
     zoneWidthBonus: 0, // 命中範囲の幅を広げる割合(%。ルアー:D-181)
     penetration: 0, // 貫通(魚の防御から引く割合。1 で 100%:D-235)
     justMultiplier: 3, // ジャスト倍率:強い魚のジャストの初撃 = 1 命中の基本のダメージ × これ(D-256)
+    markerSlow: 0, // 印の動きを遅くする割合(おもり:D-320)。印の速さ ×(1 − これ)。基準の 50% より遅くしない
+    hookWiden: 0, // 合わせの成功帯とジャスト帯を広げる割合(浮き:D-320)
+    coinBonus: 0, // 獲得ウロコインを増やす割合(おまもり:D-320。豊漁と足し算)
     // 合わせの縮む輪(D-084・D-087)。「!」と同時に縮み始め、ringMs で通り過ぎる。
     // 成功帯は通り過ぎる直前の successMs、ジャスト帯は成功帯の真ん中の justMs。
     hook: Object.freeze({
@@ -64,6 +67,11 @@ export const DEFAULT_CONFIG = Object.freeze({
     minHookJustMs: 100,
     minHookEarlyMs: 300,
     maxJustMultiplier: 1000000, // ジャスト倍率の安全上限(計算が壊れない範囲だけ:D-256)
+    // おもり・浮き(D-320):印の速さは基準の 50% より遅くしない。成功帯は輪の 60%、ジャスト帯は成功帯の 50% まで。
+    maxMarkerSlow: 0.5,
+    maxHookSuccessRatio: 0.6,
+    maxHookJustRatio: 0.5,
+    maxCoinBonus: 1000000, // おまもりの安全上限(計算が壊れない範囲だけ)
   }),
   // スキル(D-167・D-195・D-197・D-207)。表は skills.js にある。
   skills: Object.freeze({
@@ -134,13 +142,14 @@ export const DEFAULT_CONFIG = Object.freeze({
     // ヌシの命中回数の目標(D-254)と、体力の基準の装備(育てた装備の目安。シミュレーションで合わせた)。
     bossHitsFirst: 5,
     bossHitsLast: 12,
-    bossReference: Object.freeze({ levelRatio: 0.25, penGap: 0.05, penGapDraws: 17, reelRatio: 0.4, scale: 1, growth: 0.1, positionScale: Object.freeze([0.8, 0.97, 0.98, 1.1, 1.09]) }),
+    bossReference: Object.freeze({ levelRatio: 0.45, penGap: 0.05, penGapDraws: 17, reelRatio: 0.4, scale: 1, growth: 0.1, positionScale: Object.freeze([0.7, 0.8, 0.98, 1.2, 1.38]) }),
     stagesPerGround: 5,
-    noPenTapsFactor: 1,
+    noPenTapsFactor: 1.3,
     noPenBonusDraws: 45,
   }),
-  // セーブコード(D-294):署名なしの古い形式(TSURI1〜4)を受け付けるか。この版は true(次の版以降に false)。
-  saveCode: Object.freeze({ acceptUnsigned: true }),
+  // セーブコード(D-324):署名なしの古い形式(TSURI1〜4)を、読み込みで受け付けるか。②-5a から false(拒否)。
+  // ブラウザの中の保存データの読み出し(parseSave)は、この設定に関係なく読む。
+  saveCode: Object.freeze({ acceptUnsigned: false }),
   // 餌(D-263):所持数の上限。
   bait: Object.freeze({ max: 99 }),
   // クレートガチャ(D-140・D-147・D-149・D-253)。

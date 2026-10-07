@@ -8,7 +8,7 @@ import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { checkContent, FISH_KINDS } from "../../src/core/fish.js";
 import { createGame, update } from "../../src/core/fishing.js";
 import { craftCount, fishCoins, fishDefense, fishHp, fishSweepMs, fishTimeLimitMs, fishZoneWidth, stagePosition } from "../../src/core/formula.js";
-import { effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
+import { BASE_KIND_IDS, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
 import { decodeSaveCode, encodeSaveCode, MAX_CODE_LENGTH } from "../../src/core/savecode.js";
 import { levelRange, maxLevel, SKILL_ROWS } from "../../src/core/skills.js";
 import { syntheticContent } from "../../src/core/synthetic.js";
@@ -75,10 +75,11 @@ test("段階 100・魚 300 種類の表:形に問題がなく、数字は安全�
   console.log(`安全な整数までの余裕:ヌシ(g=100)のウロコイン ${top} は上限の ${(top / SAFE).toExponential(1)} 倍`);
 });
 
-/** 段階 g の平均的な装備(レア・グレード g・値は真ん中・スキルなし)を糸・リール・ルアーに付けた進み具合。 */
+/** 段階 g の平均的な装備(レア・グレード g・値は真ん中・スキルなし)を糸・リール・ルアーに付けた進み具合(D-323)。 */
 function geared(g) {
   const rare = RARITY_ROWS[1];
-  const items = BIG.equipKinds.map((kind, i) => {
+  // 経済の基準は糸・リール・ルアーの 3 枠だけ(おもり・浮き・おまもりは入れない:D-323)。
+  const items = BIG.equipKinds.filter((kind) => BASE_KIND_IDS.includes(kind.id)).map((kind, i) => {
     const r = effectRange(kind, rare, g, GG);
     return { id: i + 1, kind: kind.id, rarity: rare.id, grade: g, value: Math.round((r.min + r.max) / 2 / kind.step) * kind.step, skills: [] };
   });

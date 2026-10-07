@@ -53,7 +53,9 @@ test("ロック中・装着中・▲(装着中より基本効果が高い。空�
 
 test("引いた装備だけを、引いた直後に分解し、ウロコインを足す。持ち物に元からあるものは分解しない", () => {
   const old = item(1, "reel", "normal", 0);
-  const game = gameWith([old, item(2, "reel", "epic", 1e9), item(3, "line", "epic", 1e9), item(4, "lure", "epic", 1e9)], { reel: 2, line: 3, lure: 4 }, 1e6);
+  const strong = ["reel", "line", "lure", "weight", "float", "charm"].map((kind, i) => item(i + 2, kind, "epic", 1e9));
+  const equipped = Object.fromEntries(strong.map((it) => [it.kind, it.id]));
+  const game = gameWith([old, ...strong], equipped, 1e6);
   const p = game.progress;
   setAutoScrap(p, "epic");
   const crates = makeCrates(game.content, game.config);
@@ -68,7 +70,7 @@ test("引いた装備だけを、引いた直後に分解し、ウロコイン�
   assert.equal(r.coins, expected.reduce((s, it) => s + refundFor(it, crates), 0));
   assert.equal(p.coins, coins + r.coins);
   assert.ok(p.gear.items.some((it) => it.id === 1), "元からある装備は残る");
-  assert.equal(p.gear.items.length, 4 + 10 - expected.length);
+  assert.equal(p.gear.items.length, 7 + 10 - expected.length);
 });
 
 test("10 連でも全部を同じ基準(引いた時点の装着)で判定する。オフなら何もしない", () => {

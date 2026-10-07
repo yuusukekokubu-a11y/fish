@@ -15,7 +15,7 @@ import { readText } from "./helpers.js";
 const DEV = CURRENT_KEY;
 // テスト用の作り物の本番の鍵(本物の鍵ではない)。
 const K1 = Object.freeze({ id: "k1", secret: "test-only-production-like-key" });
-const STRICT = Object.freeze({ ...DEFAULT_CONFIG, saveCode: Object.freeze({ acceptUnsigned: false }) });
+const LOOSE = Object.freeze({ ...DEFAULT_CONFIG, saveCode: Object.freeze({ acceptUnsigned: true }) });
 
 /** 持ち物 100 個(スキル 3 つ)・鱗 20 種類の進み具合(長さの確かめ用)。 */
 function bigProgress() {
@@ -32,9 +32,9 @@ function bigProgress() {
 test("書き出すと TSURI5-(鍵の番号)-(保存の版)-(本文)-(署名 22 文字)。読むと元に戻る(往復)", async () => {
   for (const c of JSON.parse(readText("tests/fixtures/compat_v4.json")).cases) {
     const code = await signSaveCode(c.progress, DEV);
-    assert.match(code, /^TSURI5-dev-5-[0-9A-Za-z.,:~-]+-[A-Za-z0-9_-]{22}$/);
+    assert.match(code, /^TSURI5-dev-6-[0-9A-Za-z.,:~-]+-[A-Za-z0-9_-]{22}$/);
     // 本文は、これまでの本文(TSURI4 の形)のまま。
-    assert.ok(code.includes(`-5-${encodeSaveCode(c.progress).slice(7, -9)}-`), c.name);
+    assert.ok(code.includes(`-6-${encodeSaveCode(c.progress).slice(7, -9)}-`), c.name);
     assert.deepEqual(await readSaveCode(code, { keys: [DEV] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
   }
 });
@@ -44,7 +44,7 @@ test("1 文字でも変えると読めない。本文と署名のどこを変え
   p.coins = 12345;
   const code = await signSaveCode(p, DEV);
   const before = structuredClone(p);
-  const bodyStart = "TSURI5-dev-5-".length;
+  const bodyStart = "TSURI5-dev-6-".length;
   const sigStart = code.length - SIGNATURE_LENGTH;
   const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:~-_";
   for (let i = 0; i < code.length; i++) {
@@ -101,22 +101,23 @@ test("デバッグ用のコード:本番では拒否、?debug のときは本番
   assert.equal((await readSaveCode(prodCode, { keys: prod.keys })).ok, true);
 });
 
-test("署名なしの古い形式(TSURI1〜4):acceptUnsigned が true なら注意つきで読み、false なら拒否する", async () => {
-  assert.equal(DEFAULT_CONFIG.saveCode.acceptUnsigned, true, "この版は受け付ける");
+test("署名なしの古い形式(TSURI1〜4):acceptUnsigned が true なら注意つきで読み、false(②-5a からの既定)なら拒否する", async () => {
+  assert.equal(DEFAULT_CONFIG.saveCode.acceptUnsigned, false, "②-5a から拒否する(D-324)");
   for (const version of [1, 2, 3, 4]) {
     for (const c of JSON.parse(readText(`tests/fixtures/compat_v${version}.json`)).cases) {
-      const ok = await readSaveCode(c.code, { keys: [DEV] });
+      const ok = await readSaveCode(c.code, { keys: [DEV], config: LOOSE });
       assert.equal(ok.ok, true, c.name);
       if (ok.ok) assert.deepEqual([ok.signed, ok.warning], [false, UNSIGNED_WARNING]);
-      const no = await readSaveCode(c.code, { keys: [DEV], config: STRICT });
-      assert.deepEqual([no.ok, no.ok ? "" : no.error], [false, "unsigned"], c.name);
+      const no = await readSaveCode(c.code, { keys: [DEV] });
+      assert.deepEqual([no.ok, no.ok ? "" : no.message], [false, "古い形式のコードは読めません(署名がありません)。署名つきのコードで書き出し直してください"], c.name);
     }
   }
   assert.equal(UNSIGNED_WARNING, "署名がありません(古い形式です)");
   // 壊れた古い形式は、これまでどおりの理由で拒否する(注意より先)。
   const body = "0~1.0~~~0..1~~~~0.0.0~";
   assert.equal((await readSaveCode(`TSURI4-${body}-00000000`, { keys: [DEV] })).error, "checksum");
-  assert.equal((await readSaveCode(`TSURI4-${body}-${checksum(body)}`, { keys: [DEV] })).ok, true);
+  assert.equal((await readSaveCode(`TSURI4-${body}-${checksum(body)}`, { keys: [DEV], config: LOOSE })).ok, true);
+  assert.equal((await readSaveCode(`TSURI4-${body}-${checksum(body)}`, { keys: [DEV] })).error, "unsigned");
   assert.equal((await readSaveCode("", { keys: [DEV] })).error, "empty");
   assert.equal((await readSaveCode("TSURI5-dev-4-abc", { keys: [DEV] })).error, "format");
 });
@@ -137,9 +138,9 @@ test("互換の正解データ(compat_v5.json):仮の鍵(dev)の署名つきの�
     // 中身は保存の版 4。版 5 の読み替えで、持ち物のスキルが出会ったスキルになる(D-300)。
     const expected = withSeen(c.progress);
     assert.deepEqual(await readSaveCode(c.code, { keys: [DEV] }), { ok: true, progress: expected, signed: true, keyId: "dev", warning: null }, c.name);
-    // 書き出すと保存の版 5(TSURI5-dev-5-)になり、読み直すと同じ。
+    // 書き出すと保存の版 6(TSURI5-dev-6-:D-325)になり、読み直すと同じ。
     const again = await signSaveCode(expected, DEV);
-    assert.match(again, /^TSURI5-dev-5-/);
+    assert.match(again, /^TSURI5-dev-6-/);
     assert.deepEqual((await readSaveCode(again, { keys: [DEV] })).progress, expected, c.name);
   }
   for (const c of fixture.rejected) {
