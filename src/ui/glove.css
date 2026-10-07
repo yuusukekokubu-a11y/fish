@@ -1,0 +1,77 @@
+/* グローブ(特殊枠:D-332〜D-334)。6 枠とは見た目を分ける(金色の点線の縁・横長)。 */
+.glove-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 2px dotted var(--rarity, #c9a227);
+  border-radius: 12px;
+  background: rgba(255, 215, 0, 0.08);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+.glove-slot.empty {
+  color: #a9bcc7;
+}
+.glove-slot-kind {
+  font-weight: bold;
+  color: #ffd54f;
+}
+.glove-slot-name {
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+.glove-full {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #ff8fa3;
+  color: #3d0010;
+  font-size: 14px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+/* 持ち物の切り替え(装備 / グローブ)。 */
+.bag-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.bag-tab {
+  min-height: 44px;
+  border: 1px solid #5d7380;
+  border-radius: 10px;
+  background: #0b3954;
+  color: #cfd8dc;
+  font: inherit;
+  font-size: 15px;
+}
+.bag-tab.active {
+  border-color: #ffd54f;
+  background: #154f6e;
+  color: #fff;
+  font-weight: bold;
+}
+.glove-card {
+  border-style: dotted;
+}
+.glove-cover {
+  font-size: 14px;
+  color: #a9d6e5;
+}
+.glove-swap {
+  margin: 8px 2px;
+  font-size: 15px;
+  color: #ffd166;
+}
+.fx-note {
+  margin-top: 4px;
+  font-size: 14px;
+  color: #a9d6e5;
+}

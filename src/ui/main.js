@@ -45,11 +45,15 @@ import { openSheet } from "./sheet.js";
 import { readUrlOptions } from "./url_params.js";
 import { createDrawer } from "./drawer.js";
 import { defenseBadge, fightBadges, gaugeBands } from "./fight_view.js";
+import { playPull } from "./gacha_fx.js";
+import { glovePullView, retryLabel } from "./glove_view.js";
 import { drawScene } from "./draw.js";
 import {
+  addGrazeEffects,
   addHitEffects,
   addHookEffects,
   addMissEffects,
+  addNoteEffects,
   addResultEffects,
   addRodEffects,
   createEffects,
@@ -134,11 +138,14 @@ function messageFor(game) {
     case PHASES.WAITING:
       return "待っています…";
     case PHASES.BITE:
+      if (game.cast.crate) return "クレート!";
       return game.cast.kind === FISH_KINDS.STRONG ? "強い魚だ!" : "掛かった!";
     case PHASES.MINIGAME:
       return game.cast.kind === FISH_KINDS.BOSS ? `${game.cast.fish.name}との勝負!` : "";
     case PHASES.RESULT: {
       const r = game.lastResult;
+      // 釣れるクレート(D-333):成功でグローブ、失敗で逃げられた。
+      if (r.crate) return r.outcome === OUTCOMES.CAUGHT ? "グローブを手に入れた!" : `${r.reason === REASONS.EARLY ? "早すぎ…" : "遅すぎ…"}クレートに逃げられた`;
       if (r.reason === REASONS.EARLY) return "早すぎ…";
       if (r.reason === REASONS.LATE) return "遅すぎ…";
       const name = fishById(r.fishId, game.content).name;
@@ -269,6 +276,7 @@ function main() {
     if (result?.action === "hook") addHookEffects(effects, result.grade, now, result.strike ?? null);
     else if (result?.action === "hit") addHitEffects(effects, result, now);
     else if (result?.action === "miss") addMissEffects(effects, result, now);
+    else if (result?.action === "graze") addGrazeEffects(effects, result, now);
   };
   session.onTap = showTapEffects;
   canvas.addEventListener("pointerdown", (event) => {
@@ -426,7 +434,13 @@ function main() {
   };
 
   let shownResults = 0;
+  let shownRetries = 0;
   let lastFrame = 0;
+  // 釣れるクレートの開封の演出(D-333)。出している間は釣りを止め、閉じたら戻す。
+  const openGlove = (glove) => {
+    setPaused(session, true);
+    playPull(app, glovePullView(game, glove), "釣れるクレート", () => setPaused(session, isPaused(nav)));
+  };
   let wasBusy = false;
   function frame(now) {
     // メニューを開いている間は時間を渡さない。閉じたら、その時点から続きを進める(D-134・D-284)。
@@ -436,9 +450,20 @@ function main() {
 
     // 新しい結果が出たら、演出を足し、保存を頼む(合わせと戦闘の間は、場面が終わってから保存する)。
     while (shownResults < game.results.length) {
-      addResultEffects(effects, game.results[shownResults], now, game.content);
+      const result = game.results[shownResults];
+      if (result.crate) {
+        if (result.glove) openGlove(result.glove);
+        else addResultEffects(effects, result, now, game.content);
+      } else {
+        addResultEffects(effects, result, now, game.content);
+      }
       shownResults += 1;
       saveDirty = true;
+    }
+    // 仕切り直しを使ったら、短く知らせる(D-334)。
+    if ((game.retryUsed ?? 0) !== shownRetries) {
+      shownRetries = game.retryUsed ?? 0;
+      addNoteEffects(effects, "仕切り直し!", now);
     }
     if (saveDirty && !isBusyPhase(game.phase)) flushSave();
 
@@ -456,13 +481,15 @@ function main() {
       colors: mixColors(colorFrom, colorTo, (now - colorStart) / COLOR_FADE_MS),
       phase: game.phase,
       progress: game.phase === PHASES.RESTING ? 0 : Math.min(1, viewMs / phaseDuration(game)),
-      fish: game.phase === PHASES.RESULT ? fishById(game.lastResult.fishId, game.content) : game.cast.fish,
+      fish: game.phase === PHASES.RESULT && game.lastResult.fishId ? fishById(game.lastResult.fishId, game.content) : game.cast.fish,
+      crate: Boolean(game.cast.crate),
+      retry: retryLabel(game),
       zone: game.fight?.zone ?? game.cast.zone,
       marker: game.phase === PHASES.MINIGAME ? markerPosition(viewMs, fightSweepMs(game)) : currentMarker(game),
       hp: game.fight?.hp ?? 0,
       maxHp: game.fight?.maxHp ?? 0,
       timeLeft: game.phase === PHASES.MINIGAME ? Math.max(0, 1 - viewMs / phaseDuration(game)) : 0,
-      hook: game.phase === PHASES.BITE ? { t: Math.min(viewMs, phaseDuration(game)), timing: currentHookTiming(game) } : null,
+      hook: game.phase === PHASES.BITE ? { t: Math.min(viewMs, phaseDuration(game)), timing: currentHookTiming(game), gold: Boolean(game.cast.crate) } : null,
       caught: game.lastResult?.outcome === OUTCOMES.CAUGHT,
       badges: game.phase === PHASES.MINIGAME ? fightBadges(game) : null,
       bands: game.phase === PHASES.MINIGAME ? gaugeBands(game) : null,

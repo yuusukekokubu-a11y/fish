@@ -1,14 +1,17 @@
 // @ts-check
-// 保存の形(版 6:D-223・D-232・D-247・D-267・D-280・D-300・D-325)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 7:D-223・D-232・D-247・D-267・D-280・D-300・D-325・D-335)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
-// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 11 の欄に分ける:
+// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 13 の欄に分ける:
 //   ウロコイン ~ 竿の段階.工程の番号 ~ 鱗(魚の id:数 を「,」で) ~ 釣れた魚(魚の id を「,」で)
 //   ~ 引いた回数.ガチャの種.次の個体の番号 ~ 装着(種類の番号.個体の番号 を「,」で) ~ 持ち物(装備を「,」で)
 //   ~ ロック(持ち物の順に、1 個 1 字で「1」ロック中・「0」ロックなし。版 2 で足した:D-247)
 //   ~ 餌の所持数.餌を使うスイッチ(0/1).自動分解の設定の番号(AUTO_SCRAP_ROWS の順。版 3 で足した:D-267)
 //   ~ いまいる釣り場の id(古い釣り場にいるときだけ。いちばん新しい釣り場なら空。版 4 で足した:D-280)
 //   ~ 出会ったスキル(スキルの表の順の印。表の i 番目に出会っていれば 2 の i 乗を足した数。版 5 で足した:D-300)
+//   ~ 釣れるクレートの判定の回数.グローブの次の個体の番号.装着中のグローブの番号(なければ空)(版 7 で足した:D-335)
+//   ~ グローブの持ち物(「,」で。1 個:前の個体の番号との差.能力とレア度の番号.グレード、ロック中は最後に「.1」)
+//     能力とレア度の番号 = 能力の番号 × レア度の数 + レア度の番号(glove.js の表の順)。
 // 装備 1 個:前の個体の番号との差.種類とレア度の番号.グレード.基本効果の値 のあとに、スキルを「英大文字 1 字(スキルの番号)+ レベル」で並べる。
 //   例:「1.b.5.2s」+「B7C7D7」。種類とレア度の番号 = 種類の番号 × レア度の数 + レア度の番号。
 // - 魚は id で書く(D-228)。鱗は持っているもの(1 以上)だけを書く。
@@ -22,13 +25,14 @@
 import { DEFAULT_CONFIG } from "./config.js";
 import { DEFAULT_CONTENT } from "./fish.js";
 import { AUTO_SCRAP_ROWS, effectRange, emptyGear, RARITY_ROWS } from "./gear.js";
+import { abilityAllows, emptyGloves, GLOVE_ABILITY_ROWS, GLOVE_RARITY_ROWS } from "./glove.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 import { itemLevelRange } from "./skills.js";
 
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -36,7 +40,7 @@ export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_
 /** スキルの番号を書く文字(26 個まで)。 */
 const SKILL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SEED_MAX = 4294967295;
-const FIELDS = 11;
+const FIELDS = 13;
 
 /**
  * 進み具合。
@@ -52,6 +56,7 @@ const FIELDS = 11;
  * @property {string} [autoScrap] 自動分解の設定(オフでないときだけ持つ:D-266)
  * @property {string} [area] いまいる釣り場の id(古い釣り場にいるときだけ持つ:D-280)
  * @property {string[]} [skillsSeen] 出会ったスキルの id(スキルの表の順。1 つ以上のときだけ持つ:D-300)
+ * @property {import("./glove.js").GloveBag} [gloves] グローブの持ち物(既定の形でないときだけ持つ:D-335)
  */
 
 /**
@@ -114,6 +119,8 @@ export const UPGRADES = Object.freeze({
   // 装着と持ち物は種類の表の番号で書くので、本文の形は同じ(新しい枠は空)。版で区切るのは、版 5 までの読み手が
   // 新しい種類の番号を読めないため(版がちがう、として断れるように)。
   5: (body) => (body.split("~").length === 11 ? body : null),
+  // 版 6 → 7(D-335):グローブの欄を 2 つ足す(判定 0 回・次の番号 1・装着なし・持ち物なし)。
+  6: (body) => (body.split("~").length === 11 ? `${body}~0.1.~` : null),
 });
 
 /**
@@ -196,7 +203,58 @@ export function encodeSave(progress, content = DEFAULT_CONTENT) {
     `${num(progress.bait ?? 0)}.${progress.useBait ? 1 : 0}.${num(Math.max(0, AUTO_SCRAP_ROWS.findIndex((r) => r.id === (progress.autoScrap ?? "off"))))}`,
     progress.area ?? "",
     num(seenMask(progress.skillsSeen ?? [], skills)),
+    ...encodeGloves(progress.gloves ?? emptyGloves()),
   ].join("~");
+}
+
+/** グローブの 2 つの欄(D-335)。 @param {import("./glove.js").GloveBag} bag */
+function encodeGloves(bag) {
+  const items = [...bag.items].sort((a, b) => a.id - b.id);
+  let prev = 0;
+  const text = items
+    .map((g) => {
+      const ar = GLOVE_ABILITY_ROWS.findIndex((a) => a.id === g.ability) * GLOVE_RARITY_ROWS.length + GLOVE_RARITY_ROWS.findIndex((r) => r.id === g.rarity);
+      const out = `${num(g.id - prev)}.${num(ar)}.${num(g.grade)}${g.locked ? ".1" : ""}`;
+      prev = g.id;
+      return out;
+    })
+    .join(",");
+  return [`${num(bag.rolls)}.${num(bag.nextId)}.${bag.equipped === null ? "" : num(bag.equipped)}`, text];
+}
+
+/**
+ * グローブの 2 つの欄を読む。壊れた・表にない能力・レア度と能力の組み合わせ違反・グレードの範囲外・装着の番号が持ち物にない・
+ * 上限をこえる、は null。
+ * @param {string} head @param {string} itemText @param {SaveContent} content @param {typeof DEFAULT_CONFIG} config
+ * @returns {import("./glove.js").GloveBag | null}
+ */
+function decodeGloves(head, itemText, content, config) {
+  const h = head.split(".");
+  if (h.length !== 3) return null;
+  const rolls = readNum(h[0]);
+  const nextId = readNum(h[1]);
+  const equipped = h[2] === "" ? null : readNum(h[2]);
+  if (rolls === null || nextId === null || nextId < 1 || (h[2] !== "" && equipped === null)) return null;
+  /** @type {import("./glove.js").Glove[]} */
+  const items = [];
+  let prev = 0;
+  for (const text of list(itemText)) {
+    const m = text.match(/^([0-9a-z]+)\.([0-9a-z]+)\.([0-9a-z]+)(\.1)?$/);
+    if (!m) return null;
+    const [delta, ar, grade] = [m[1], m[2], m[3]].map(readNum);
+    if (delta === null || ar === null || grade === null || delta < 1) return null;
+    const ability = GLOVE_ABILITY_ROWS[Math.floor(ar / GLOVE_RARITY_ROWS.length)];
+    const rarity = GLOVE_RARITY_ROWS[ar % GLOVE_RARITY_ROWS.length];
+    if (!ability || !rarity || !abilityAllows(ability, rarity.id) || grade < 1 || grade > content.maxStage) return null;
+    /** @type {import("./glove.js").Glove} */
+    const glove = { id: prev + delta, ability: ability.id, rarity: rarity.id, grade };
+    if (m[4]) glove.locked = true;
+    items.push(glove);
+    prev = glove.id;
+  }
+  if (items.length > config.glove.max || prev >= nextId) return null;
+  if (equipped !== null && !items.some((g) => g.id === equipped)) return null;
+  return { items, equipped, nextId, rolls };
 }
 
 /**
@@ -240,7 +298,7 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (typeof body !== "string") return fail;
   const parts = body.split("~");
   if (parts.length !== FIELDS) return fail;
-  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText, areaText, skillSeenText] = parts;
+  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText, areaText, skillSeenText, gloveHead, gloveItems] = parts;
 
   const coins = readNum(coinText);
   if (coins === null) return fail;
@@ -332,5 +390,10 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (mask === null || mask >= 2 ** skills.length) return fail;
   const skillsSeen = skills.filter((_, i) => Math.floor(mask / 2 ** i) % 2 === 1).map((s) => s.id);
   if (skillsSeen.length > 0) progress.skillsSeen = skillsSeen;
+
+  // グローブ(D-335):既定の形(持ち物なし・装着なし・番号 1・判定 0 回)のときは持たない。
+  const gloves = decodeGloves(gloveHead, gloveItems, content, config);
+  if (!gloves) return fail;
+  if (gloves.items.length > 0 || gloves.equipped !== null || gloves.nextId !== 1 || gloves.rolls !== 0) progress.gloves = gloves;
   return { ok: true, progress };
 }

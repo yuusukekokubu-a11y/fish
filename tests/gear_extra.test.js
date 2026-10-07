@@ -12,7 +12,7 @@ import { DEFAULT_CONTENT, FISH_KINDS } from "../src/core/fish.js";
 import { createGame, currentHookTiming, fightSweepMs, refreshCombat } from "../src/core/fishing.js";
 import { BASE_KIND_IDS, drawItem, effectRange, EQUIP_KIND_ROWS, formatEffect, kindById, kindEffect, makeCrates, RARITY_ROWS } from "../src/core/gear.js";
 import { SAVE_VERSION } from "../src/core/save.js";
-import { decodeSaveCode, encodeSaveCode, parseSave } from "../src/core/savecode.js";
+import { checksum, decodeSaveCode, encodeSaveCode, parseSave } from "../src/core/savecode.js";
 import { readSaveCode, signSaveCode } from "../src/core/signed_code.js";
 import { startQuickFight } from "../src/ui/debug_view.js";
 import { CURRENT_KEY } from "../src/ui/save_sign.js";
@@ -130,7 +130,7 @@ test("ガチャの種類:6 つから同じ確率(10 万回で各 1/6 ± 1%)。1 
 });
 
 test("保存の版 6(D-325):版 5 の本文はそのまま読め、新しい枠は空。6 枠を全部付けても、セーブコードの増えは 20 文字以内", async () => {
-  assert.equal(SAVE_VERSION, 6);
+  assert.equal(SAVE_VERSION, 7);
   const v5 = JSON.parse(readText("tests/fixtures/compat_save_v5.json"));
   for (const c of v5.cases) {
     const r = decodeSaveCode(c.code);
@@ -152,7 +152,7 @@ test("保存の版 6(D-325):版 5 の本文はそのまま読め、新しい枠�
   assert.ok(encodeSaveCode(six).length - encodeSaveCode(three).length <= 20, `${encodeSaveCode(six).length - encodeSaveCode(three).length}`);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(six)), { ok: true, progress: six });
   const signed = await signSaveCode(six, CURRENT_KEY);
-  assert.match(signed, /^TSURI5-dev-6-/);
+  assert.match(signed, /^TSURI5-dev-7-/);
   assert.deepEqual((await readSaveCode(signed, { keys: [CURRENT_KEY] })).progress, six);
 });
 
@@ -162,9 +162,11 @@ test("互換の正解データ(compat_save_v6.json):保存の版 6 の署名な�
   for (const c of fixture.cases) {
     assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: c.progress }, c.name);
     assert.deepEqual(parseSave(c.code), c.progress, `${c.name}:ブラウザの保存としても読める`);
-    assert.equal(encodeSaveCode(c.progress), c.code, `${c.name}:書き出しも同じ`);
+    // 書き出すと保存の版 7(グローブの欄が空で足される:D-335)。
+    const body = c.code.slice("TSURI6-".length, -9);
+    assert.equal(encodeSaveCode(c.progress), `TSURI7-${body}~0.1.~-${checksum(`${body}~0.1.~`)}`, `${c.name}:書き出しは版 7`);
     assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
-    assert.equal(await signSaveCode(c.progress, CURRENT_KEY), c.signed, `${c.name}:署名つきの書き出しも同じ`);
+    assert.match(await signSaveCode(c.progress, CURRENT_KEY), /^TSURI5-dev-7-/, `${c.name}:署名つきの書き出しは版 7`);
     // 署名なしのコードは、読み込みでは拒否する(D-324)。
     const unsigned = await readSaveCode(c.code, { keys: [CURRENT_KEY] });
     assert.deepEqual([unsigned.ok, unsigned.ok ? "" : unsigned.error], [false, "unsigned"]);

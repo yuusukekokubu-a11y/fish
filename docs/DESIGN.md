@@ -34,6 +34,9 @@
 | `src/core/fish.js` | 魚の表(`FISH_ROWS`:id・名前・区分・段階・見た目だけ)。数値は式(`formula.js`)から作って中で使う形(`FISH_LIST`)にし、段階の表(`STAGE_LIST`)は魚の表から作る(`stagesFromFish`)。表の点検(`checkContent`)、抽選の重み(D-046・D-111・D-136・D-225)。魚と段階を足すときは、ここに行を足すだけ(下の「段階や魚を足す手順」)。 |
 | `src/core/formula.js` | 通し番号 g から魚と段階の数値を決める式(報酬・鱗・防御・体力・制限時間・印の速さ・命中範囲の幅・製作と進化の数・装備のグレードの倍率・成長型の最大レベル)と、会心率・倍率・貫通の合計の逓減(`softCurve`)。式の数は `config.js` の `formula`(D-225・D-226・D-230)。 |
 | `src/core/synthetic.js` | 限界の確かめ用の大きな表(段階 n まで、段階ごとに 3 匹)。テストと `?debug&stages=n` だけで使う(D-233)。 |
+| `src/core/glove.js` | グローブ(D-332〜D-335)。能力の表(`GLOVE_ABILITY_ROWS`)とレア度の表(`GLOVE_RARITY_ROWS`。行は並べ替えない)、抽選(`drawGlove`)、釣れるクレートの判定(`rollCrate`)と開封(`openCrate`)、付ける・外す・分解・ロック、対応段階(`coverLimit`)。 |
+| `src/core/glove_play.js` | 釣りの中のグローブのフック(D-333・D-334)。釣れるクレートの条件(`rollGloveCrate`)、いまの魚に効く能力の値(`gloveEffect`)、対応外(`gloveOutOfRange`)、仕切り直しのストック、かすりの帯。 |
+| `src/core/fight_stats.js` | 命中 1 回の数値(`triggeredStats`・`zoneBand`。fishing.js を 800 行以内にするため分けた:D-337)。 |
 | `src/core/gear.js` | 装備・クレート・ガチャ(D-147〜D-149・D-181・D-253)。レア度の表(`RARITY_ROWS`)と装備の種類の表(`EQUIP_KIND_ROWS`)、クレートの一覧と価格の数式(`makeCrates`)、抽選(`drawItem`・`pullCrate`)、装着と分解、ロック(`setLocked`。ロック中は分解しない:D-246)、自動分解(表 `AUTO_SCRAP_ROWS`・`autoScrapTargets`・`autoScrap`:D-266)、装備を反映した戦闘の数値の表(`applyGear`)。JSDoc で型を書いている(D-144)。 |
 | `src/core/areas.js` | 釣り場(D-272〜D-276・D-282)。釣り場の表(`AREA_ROWS`:id・名前・最初の通し番号・段階の数・空と海の色)、表にない段階の釣り場を自動で作る(`makeAreas`)、通し番号の釣り場と位置(`areaOfStage`・`areaPosition`)、いまいる釣り場と移る(`currentArea`・`setArea`・`normalizeArea`)、魚の段階の範囲(`poolRange`)、表の点検(`checkAreas`)。 |
 | `src/core/bait.js` | 餌(D-263〜D-265・D-271)。所持数とスイッチ(`setBait`・`setUseBait`・`willUseBait`)、いまの段階の価格(`currentBaitPrice`。式は `formula.js` の `baitPrice`)、買う(`buyBait`・`baitBlocker`・`maxBuyable`)、払い戻し(`refundBait`)、餌で出る魚(`baitFish`)。餌の投の置き換えは `fishing.js`(投げ終わりの `applyBait` と `makeBaitCast`)。 |
@@ -42,19 +45,19 @@
 | `src/core/minigame.js` | ミニゲームの印の動きと判定。 |
 | `src/core/fishing.js` | 釣りの 1 サイクルの場面の進み方(合わせ・体力制・休み)と、報酬。 |
 | `src/core/rod.js` | 竿の工程(製作・ヌシ撃破・進化)、竿の名前、次に要る鱗、数の上限(D-114・D-116)。 |
-| `src/core/save.js` | 保存の形式(版 6)の本文の書き出し(`encodeSave`)と点検つきの読み込み(`decodeSave`)、古い版の本文の読み替え(`UPGRADES`・`upgradeSave`)(D-223・D-232・D-247)。ブラウザへの読み書きは UI が行う。 |
+| `src/core/save.js` | 保存の形式(版 7)の本文の書き出し(`encodeSave`)と点検つきの読み込み(`decodeSave`)、古い版の本文の読み替え(`UPGRADES`・`upgradeSave`)(D-223・D-232・D-247)。ブラウザへの読み書きは UI が行う。 |
 | `src/core/savecode.js` | 署名なしのセーブコード `TSURI5-本文-印` の書き出しと読み込み(`TSURI1`〜`TSURI4` も読み替えて読む)、本文の読み込み(`decodeBody`)、ブラウザの保存の読み込み(`parseSave`)(D-065・D-232・D-247)。ブラウザの保存はこの形。 |
 | `src/core/skills_seen.js` | 出会ったスキル(D-300・D-301)。引いた装備のスキルを `skillsSeen` に記録し、装備ごとの初めてのスキル(NEW)を返す(`noteSkillsSeen`)。結果には使わない。 |
 | `src/core/signed_code.js` | 署名つきのセーブコード `TSURI5-鍵の番号-保存の版-本文-署名` の書き出し(`signSaveCode`)と読み込み(`readSaveCode`。署名なしの古い形式も注意つきで)(D-291〜D-297)。鍵は受け取るだけ。 |
 | `src/save_key.js` | 署名の鍵。リポジトリでは仮の鍵(dev。秘密ではない)。公開の処理が公開用のファイルにだけ本番の鍵(k1)を書き込む(D-292)。計算本体からは読まない。 |
 | `src/ui/save_sign.js` | どの鍵で書き出し、どの鍵を読むか(ふだんはいまの鍵、?debug ではデバッグ用の鍵で書き、両方を読む)と、設定の画面に渡す書き出し・読み込み(D-293)。 |
 | `scripts/stamp_key.mjs` | 公開のときに、Secrets の鍵を公開用の `save_key.js` に書き込む。鍵がない・短い・仮の鍵・リポジトリにある、なら失敗する(D-292・D-297)。 |
-| `src/ui/share.js` | セーブコードの共有(D-315)。ブラウザの共有の仕組みが使えるか(`canShareText`)と、文字の共有(`shareText`。やめたら `cancelled`)。navigator は引数で受け取る(テストで置き換えられる)。 |
 | `src/ui/` | 画面の表示と操作。`main.js` が時間を進めてタップとボタンを受け取り、保存を扱う。`session.js` は時間とタップを計算本体に渡す窓口で、メニューを開いている間は止める(D-134)。`screens.js` が画面の表と切り替えの状態、`drawer.js` が目次、`screen_shell.js` が全画面の枠と履歴、`list_view.js` が一覧の描き方、`sheet.js` が下から出るシート、`screen_views.js` が素材とステータスの中身、`equip_screen.js` と `crate_screen.js` が装備とクレートの画面、`skill_screen.js` がスキルの画面(数と文字と、グループの表 `SKILL_GROUPS` は `skill_view.js`:D-217・D-221)、`settings.js` が設定の画面、`equip_prefs.js` が装備の画面の並べ替えと絞り込みの保存場所、`shop_screen.js` が店の画面(餌と自動分解の文字は `bait_view.js`)、`area_screen.js` が釣り場の画面(釣り場の文字・グループ・色は `area_view.js`)(D-152・D-161・D-162・D-263・D-266)。見た目は `index.html` と `screens.css`(餌と自動分解の部分は `bait.css`)。URL の指定を読むのは `url_params.js` だけ(表 `URL_PARAMS` は SPEC 5.11 の一覧と同じ。テストが確かめる:D-215)。保存場所の読み書きと古い版のデータの案内は `save_store.js`(本番 `tsuri:save`:D-223・D-232)。URL に `?debug` を付けると、デバッグ専用の保存場所(`tsuri:debug-save`)を使い、目次の最後にデバッグ画面(`debug_screen.js`、中身の計算は `debug_view.js`、見た目は `debug.css`)と「DEBUG」の印を出し、ブラウザの自動操作の確認用に `window.fishDebug` などを出す(D-214・D-219〜D-222)。`?debug&crit=100`・`?debug&seed=1` で、クリティカルの確率(%)とシードを、`?debug&stages=100` で確かめ用の大きな表を選べる(`?debug` がないときは無視)。`draw.js` が絵、`effects.js` が手応えの演出を描く。`format.js` は大きな数を「1.2万」のように短くする(D-116)。`gear_view.js` はクレートと装備の画面の数と文字(画面に触らない)、`fight_view.js` は戦闘の画面の連撃と条件の表示、`gacha_fx.js` は引く演出(D-162)。新しいファイルは JSDoc で型を書いている(D-158)。 |
-| `tests/fixtures/` | テストで比べる記録。変えてはいけない。`fish_order.json` は全段階 × シード 3 つの「待ち時間・魚・最初の命中範囲」の並び、`hookring_plays.json` は縮む輪の合わせで決まった遊び方をした結果(D-090。作り方は `tests/hookring_play.js`)。どちらも ②-4c 土台で港の魚と式の数値に入れ替えたときに作り直した(D-234)。`compat_v1.json`〜`compat_v4.json` は互換の正解データ(保存の版 1〜4。消さない・書き換えない:D-223・D-247・D-267・D-280)。`compat_v5.json` は署名つきのセーブコードの正解データ(仮の鍵 dev で署名。中は保存の版 4:D-297)。`compat_save_v5.json` は保存の版 5 の正解データ(署名なしと署名つきの両方:D-307)。`compat_save_v6.json` は保存の版 6(おもり・浮き・おまもりつき)の正解データ(D-325・D-327)。 |
+| `tests/fixtures/` | テストで比べる記録。変えてはいけない。`fish_order.json` は全段階 × シード 3 つの「待ち時間・魚・最初の命中範囲」の並び、`hookring_plays.json` は縮む輪の合わせで決まった遊び方をした結果(D-090。作り方は `tests/hookring_play.js`)。どちらも ②-4c 土台で港の魚と式の数値に入れ替えたときに作り直した(D-234)。`compat_v1.json`〜`compat_v4.json` は互換の正解データ(保存の版 1〜4。消さない・書き換えない:D-223・D-247・D-267・D-280)。`compat_v5.json` は署名つきのセーブコードの正解データ(仮の鍵 dev で署名。中は保存の版 4:D-297)。`compat_save_v5.json` は保存の版 5 の正解データ(署名なしと署名つきの両方:D-307)。`compat_save_v6.json` は保存の版 6(おもり・浮き・おまもりつき)の正解データ(D-325・D-327)。`compat_save_v7.json` は保存の版 7(グローブつき)の正解データ(D-335・D-337)。 |
 | `tests/*.test.js` | 速いテスト。`npm test` で並列に回る。 |
 | `tests/slow/*.test.js` | 重いテスト(D-026)。`npm run test:slow` で回る。 |
 | `tests/skills_seen.test.js` | 発動中だけのスキル画面、出会ったスキルと NEW、保存の版 5、装備画面の並べ替え・絞り込みと保存場所のテスト。 |
+| `tests/glove.test.js` | グローブの抽選・釣れるクレート(条件・乱数・成功と失敗)・持ち物・対応段階・能力 5 個・保存の版 7 と `compat_save_v7.json` のテスト(D-332〜D-337)。重いテストは `tests/slow/glove.test.js`(出現の間隔・放置の稼ぎ・ヌシの命中回数)。 |
 | `tests/gear_extra.test.js` | おもり・浮き・おまもり(拮抗型の効果・印の速さ・合わせの帯・ウロコイン)、ガチャの 6 種類の等確率(10 万回)、保存の版 6 と `compat_save_v6.json` のテスト(D-320〜D-327)。 |
 | `tests/signed_code.test.js`・`tests/stamp_key.test.js` | 署名つきのセーブコード(往復・1 文字の変更・長さ・鍵の番号・デバッグ用・署名なし・正解データ)と、鍵の書き込みと置き場(リポジトリに本番の鍵がない・鍵がないと失敗)のテスト。 |
 | `tests/input_timing.test.js` | 押した時刻で判定するテスト(ハンドラが遅れても同じ判定、タイミング補正の +・−・0)。 |
@@ -132,7 +135,7 @@
 ### 保存とセーブコード(D-065・D-223・D-232・D-247・D-267・D-280・D-300・D-307)
 
 - ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データ・FISH2〜FISH7・読み替えの仕組みと古い版のテストは削除した)。
-- 装備のロック(D-246・D-247)で版 2、餌と自動分解(D-267)で版 3、釣り場(D-280)で版 4、出会ったスキル(D-300)で版 5、装着の枠 6 つ(D-325。本文の形は同じ。版 5 までの読み手が新しい種類の番号を読めないので区切った)で版 6 にした。今の版は 6。
+- 装備のロック(D-246・D-247)で版 2、餌と自動分解(D-267)で版 3、釣り場(D-280)で版 4、出会ったスキル(D-300)で版 5、装着の枠 6 つ(D-325。本文の形は同じ。版 5 までの読み手が新しい種類の番号を読めないので区切った)で版 6、グローブ(D-335)で版 7 にした。今の版は 7。
 - 保存の中身は、セーブコードと同じ 1 行の文字列 `TSURI4-本文-印`(`save.js`・`savecode.js`)。ブラウザの保存場所は `tsuri:save`(デバッグは `tsuri:debug-save`)。
 - 本文は 11 の欄を「~」で区切る(版 1 は 1〜7 の 7 つ、版 2 は 8 つ、版 3 は 9 つ、版 4 は 10)。数は 36 進数(英小文字と数字)。
   1. ウロコイン
@@ -270,6 +273,14 @@
 - おまもり:`coinBonus`。`refreshCombat` が、0 より大きいときだけ `game.rates.coins`(豊漁の倍率)に足す。
 - どれも 0 なら、前と同じ数で計算する(乱数の引き方も変えない)。
 
+### グローブと釣れるクレートの作り(D-332〜D-337)
+
+- 持ち物は `progress.gloves`(`{ items, equipped, nextId, rolls }`)。既定の形(持ち物なし・判定 0 回)のときは持たない(古い版の正解データと同じ形のまま読めるように)。
+- 乱数:釣れるクレートの判定は、ガチャの種(保存してある)に別の数を混ぜ、判定の回数 `rolls` と合わせて種を作る(`crateRng`)。投ごとに 1 回、条件を満たさなくても引く(`rollGloveCrate`。投げ終わりに、餌のあと)。手に入ったときは、同じ回の乱数の続きでレア度 → 能力を決める(`openCrate`)。魚・ミニゲーム・クリティカル・ガチャの系統には触らない。
+- 置き換え:魚の抽選はそのまま(同じ数を引いた結果)で、投に `crate` の印を付けるだけ。合わせの成功で巻き上げのあと `finishCrate` がグローブを足す。
+- 能力のフック(`fishing.js`):自動合わせは場面の終わりの時刻(`phaseEnd`)を成功帯の始まりにして、そこで `hookSuccess`。仕切り直しは早すぎ・遅すぎのところで `useRetry`。保険・かすり・連撃の維持は `fightTap` のミスの分かれ道。どれも `gloveEffect(game, 能力)` が null(付けていない・対応外)なら、前と同じ道を通る。
+- 能力を足す(②-5c):`GLOVE_ABILITY_ROWS` の最後に 1 行足し、効く場所に `gloveEffect` のフックを 1 か所足す。
+
 ### 餌と自動分解の作り(D-263〜D-267・D-271)
 
 - 餌の投:`fishing.js` の投げ終わり(投げる → 待つに移るとき)に `applyBait` を呼ぶ。スイッチが入っていて餌があれば、その投(魚の系統で引き終えたもの)を `makeBaitCast` で現在の段階の強い魚に置き換え、餌を 1 個減らす。待ち時間はそのまま。ミニゲームの種は、シードに別の数を混ぜ、投げた回数から作る(ヌシ戦の作り方と同じ。魚の系統は引かない)。`tests/bait.test.js` が、餌を使っても魚の並び(`drawCast` で引いたもの)が変わらないことを確かめる。
@@ -376,12 +387,6 @@
 - 型チェックは別のジョブで、`npm ci`(`package-lock.json` の版どおりに入れる)のあと `npm run typecheck`(`tsc -p tsconfig.json`)を回す(D-150)。
 
 ## 検討中の論点
-
-### クラウド保存(D-310・D-312)
-
-- 状況:Google 経由で調査した(`docs/CLOUD_SAVE.md`)。推奨は、Google ドライブのアプリ専用の置き場(`drive.appdata`)に、署名つきセーブコードを JSON の 1 ファイルで置く形(サーバーなし。Google Identity Services のトークンの方式。テストの状態のまま)。
-- 案:A(ドライブのアプリ専用の置き場)/B(Firebase)/C(共有メニュー・クリップボード)。
-- 決める時期:オーナーが調査の報告を読み、Google Cloud の作業(手順書)を済ませてから、実装の依頼で。
 
 ### 合わせと戦闘の数値
 

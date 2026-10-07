@@ -102,10 +102,29 @@ export const STRIKE_SIZE = 44;
 /** 防御で減ったダメージの数字の色(灰色がかった青)。 */
 export const DEFENDED_COLOR = "#9fb7d9";
 
-/** ミニゲームでミスしたときの演出。回復した数を別の色で出す。 */
+/**
+ * ミニゲームでミスしたときの演出。回復した数を別の色で出す。
+ * グローブ(D-334):保険で無効にしたミスは「保険」だけ。連撃の維持で段数が残ったら「維持 ×n」。
+ */
 export function addMissEffects(effects, miss, now) {
+  if (miss.insured) {
+    effects.floats.push({ text: "保険", start: now, ms: 650, y: 0.5, size: 22, color: "#8be9fd" });
+    return;
+  }
   effects.flash = { color: "230,57,70", start: now, ms: 200, strength: 0.2 };
   effects.floats.push({ text: `+${miss.heal}`, start: now, ms: 650, y: 0.58, size: 24, color: "#ff8fa3" });
+  if (miss.comboKept >= 2) effects.floats.push({ text: `維持 ×${miss.comboKept}`, start: now, ms: 650, y: 0.5, size: 20, color: "#ffd166" });
+}
+
+/** かすり(グローブ:D-334)。小さな「かすり」と、ダメージの数字(防御で減ったら灰色がかった青)。 */
+export function addGrazeEffects(effects, graze, now) {
+  effects.floats.push({ text: "かすり", start: now, ms: 600, y: 0.5, size: 20, color: "#a9d6e5" });
+  effects.floats.push({ text: `-${graze.damage}`, start: now, ms: 600, y: 0.58, size: 20, color: graze.defended ? DEFENDED_COLOR : "#a9d6e5" });
+}
+
+/** 短い知らせの文字(仕切り直し・自動合わせなど)。 @param {string} text */
+export function addNoteEffects(effects, text, now) {
+  effects.floats.push({ text, start: now, ms: 800, y: 0.3, size: 22, color: "#8be9fd" });
 }
 
 /** 竿を製作・進化したときの演出を足す(text は帯に出す文)。 */

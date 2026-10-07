@@ -5,6 +5,7 @@
 
 import { effectiveDefense } from "../core/combat.js";
 import { softCurve } from "../core/formula.js";
+import { gloveEffect, gloveOutOfRange } from "../core/glove_play.js";
 
 /** 条件の短い名前(スキルの表の when と同じ名前)。 */
 export const TRIGGER_LABELS = Object.freeze({
@@ -31,7 +32,7 @@ export function gaugeBands(game) {
 
 /**
  * 戦闘中の表示。combo は「連撃 ×3」の文(2 段以上のときだけ)、labels は次の命中で効く条件の名前。
- * @param {{ fight: any, triggers?: Record<string, any>, config: { skills: { comboMax: number, lowHpRatio: number } } } | null} game
+ * @param {any} game
  * @returns {{ combo: string | null, labels: string[] }}
  */
 export function fightBadges(game) {
@@ -47,6 +48,10 @@ export function fightBadges(game) {
   if (boosts.some((b) => b.id === "momentum")) labels.push(TRIGGER_LABELS.afterCrit);
   if (t.fullHp && fight.hp >= fight.maxHp && fight.hits === 0) labels.push(TRIGGER_LABELS.fullHp);
   if (t.lowHp && fight.hp <= fight.maxHp * lowHpRatio) labels.push(TRIGGER_LABELS.lowHp);
+  // グローブ(D-334):保険の残りの回数。対応段階の外なら「グローブ 対応外」。
+  const insurance = gloveEffect(game, "insurance");
+  if (insurance && fight.insured < insurance) labels.push(`保険 ${insurance - fight.insured}`);
+  if (gloveOutOfRange(game)) labels.push("グローブ 対応外");
   return { combo: n >= 2 ? `連撃 ×${n}` : null, labels };
 }
 

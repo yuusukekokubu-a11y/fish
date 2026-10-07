@@ -181,15 +181,34 @@ function drawHookRing(ctx, bobber, hook) {
   const r = (ms) => ringRadius(ms, timing.ringMs);
   fillBand(ctx, bobber, r(timing.successStart), r(timing.ringMs), "rgba(82,183,136,0.45)");
   fillBand(ctx, bobber, r(timing.justStart), r(timing.justEnd), "rgba(255,209,102,0.85)");
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 4;
+  // 釣れるクレートの輪は金色で太く、「クレート!」(D-333)。
+  ctx.strokeStyle = hook.gold ? "#ffd700" : "#ffffff";
+  ctx.lineWidth = hook.gold ? 7 : 4;
   ctx.beginPath();
   ctx.arc(bobber.x, bobber.y, r(t), 0, Math.PI * 2);
   ctx.stroke();
   ctx.fillStyle = "#ffd166";
-  ctx.font = "bold 44px system-ui, sans-serif";
   ctx.textAlign = "center";
+  if (hook.gold) {
+    ctx.font = "bold 30px system-ui, sans-serif";
+    ctx.fillText("クレート!", bobber.x, bobber.y - RING_MAX - 8);
+    return;
+  }
+  ctx.font = "bold 44px system-ui, sans-serif";
   ctx.fillText("!", bobber.x, bobber.y - RING_MAX - 8);
+}
+
+/** 釣れるクレートの箱(巻き上げと結果で、魚の代わりに描く)。 */
+function drawCrate(ctx, x, y, size) {
+  ctx.fillStyle = "#8d5a2b";
+  ctx.fillRect(x - size, y - size * 0.7, size * 2, size * 1.4);
+  ctx.strokeStyle = "#ffd700";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x - size, y - size * 0.7, size * 2, size * 1.4);
+  ctx.beginPath();
+  ctx.moveTo(x - size, y - size * 0.2);
+  ctx.lineTo(x + size, y - size * 0.2);
+  ctx.stroke();
 }
 
 /**
@@ -247,10 +266,24 @@ export function drawScene(ctx, w, h, view, timeMs) {
     ctx.fill();
   }
 
+  // 仕切り直しのストック(グローブ:D-334)。左上に小さく。
+  if (view.retry && (view.phase === PHASES.CASTING || view.phase === PHASES.WAITING || view.phase === PHASES.BITE)) {
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillRect(8, 8, 128, 26);
+    ctx.fillStyle = "#8be9fd";
+    ctx.font = "bold 15px system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(view.retry, 14, 27);
+  }
+
   // 魚の色と大きさは、設定表(src/core/fish.js)の値を使う。
   const fishColor = view.fish.color;
   const fishSize = view.fish.size;
-  if (view.phase === PHASES.REELING) {
+  if (view.crate && (view.phase === PHASES.REELING || (view.phase === PHASES.RESULT && view.caught))) {
+    // 釣れるクレート:魚の代わりに箱(D-333)。
+    const p = view.phase === PHASES.REELING ? { x: bobber.x, y: bobber.y + 20 } : { x: w * 0.5, y: h * 0.55 };
+    drawCrate(ctx, p.x, p.y, view.phase === PHASES.REELING ? 16 : 30);
+  } else if (view.phase === PHASES.REELING) {
     drawFish(ctx, bobber.x, bobber.y + fishSize, fishSize, fishColor);
   } else if (view.phase === PHASES.BITE) {
     drawHookRing(ctx, bobber, view.hook);
