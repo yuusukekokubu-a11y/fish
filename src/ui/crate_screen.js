@@ -1,10 +1,11 @@
 // @ts-check
 // クレートの画面(全画面:D-139・D-152・D-162)。
 // - 上に持ち物の空き(「あと 12 個」)。クレートを釣り場ごとのグループ(新しい釣り場が上。いちばん新しい釣り場だけ開く:D-272)に、
-//   段階の新しい順で、名前・価格(1 回/10 連)・引くボタン。
-// - 「くわしく」で、排出率・装備の種類・基本効果の範囲が開く。
+//   段階の新しい順で、名前・価格(1 回/10 連)・引くボタン(D-314)。
+// - 名前の横の「排出率」で、排出率・装備の種類・基本効果の範囲を、下から出るシートで見せる(D-314)。
 // - 引く演出は gacha_fx.js(今のまま)。結果の下に「装備を見る」を置き、装備の画面に移れる。
-// - 引くボタンの上に自動分解の設定(オフ・ノーマルまで・レアまで・エピックまで:D-266)。引いた直後に分解して保存する。
+// - 引くボタンの上に自動分解の設定を 1 行のプルダウン(オフ・ノーマルまで・レアまで・エピックまで:D-266・D-314)。
+//   説明は「?」を押したときだけ出す。引いた直後に分解して保存する。
 // 結果は演出の前に確定し、保存してから見せる(D-148)。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
@@ -17,6 +18,7 @@ import { autoScrapChoices, autoScrapText } from "./bait_view.js";
 import { playPull } from "./gacha_fx.js";
 import { crateCards, inventorySpaceLabel, inventoryWarning, PULL_MESSAGES, pullResultView } from "./gear_view.js";
 import { button, el } from "./list_view.js";
+import { openSheet } from "./sheet.js";
 
 /** @typedef {import("./equip_screen.js").ScreenContext} ScreenContext */
 
@@ -77,26 +79,35 @@ export function mountCrates(container, ctx) {
     container.append(box);
   }
 
-  /** クレート 1 枚。 @param {ReturnType<typeof crateCards>[number]} card */
+  /** 排出率のシート(D-314):排出率とレア度ごとのスキルの数、装備の種類と基本効果の範囲。 @param {ReturnType<typeof crateCards>[number]} card */
+  function openRates(card) {
+    openSheet(
+      ctx.app,
+      (panel, close) => {
+        panel.dataset.crate = card.crate.id;
+        panel.append(el("h2", "sheet-title", card.name));
+        const rates = detailList(card.rates.map((r) => [`${r.stars} ${r.name}`, `${r.rate}・${r.skillsText}`]));
+        rates.querySelectorAll("dt").forEach((dt, i) => /** @type {HTMLElement} */ (dt).style.setProperty("color", card.rates[i].color));
+        panel.append(el("h3", "detail-title", "排出率"), rates);
+        panel.append(el("h3", "detail-title", "装備の種類と基本効果の範囲"), detailList(card.kinds.map((k) => [k.name, k.range])));
+        const closeButton = button("閉じる", "secondary-button sheet-close");
+        closeButton.addEventListener("click", close);
+        panel.append(closeButton);
+      },
+      "rates-sheet",
+    );
+  }
+
+  /** クレート 1 枚(名前・価格・引くボタン)。 @param {ReturnType<typeof crateCards>[number]} card */
   function crateCard(card) {
     const box = el("section", "crate-card");
     box.dataset.crate = card.crate.id;
     const head = el("div", "crate-head");
     head.append(el("h2", "crate-name", card.name));
-    const more = button("くわしく", "chip crate-more");
+    const more = button("排出率", "chip crate-more");
+    more.addEventListener("click", () => openRates(card));
     head.append(more);
     const price = el("p", "crate-price", `1 回 ${card.price.one} ・ 10 連 ${card.price.ten}`);
-    const detail = el("div", "crate-detail");
-    detail.hidden = true;
-    const rates = detailList(card.rates.map((r) => [`${r.stars} ${r.name}`, `${r.rate}・${r.skillsText}`]));
-    rates.querySelectorAll("dt").forEach((dt, i) => /** @type {HTMLElement} */ (dt).style.setProperty("color", card.rates[i].color));
-    detail.append(el("h3", "detail-title", "排出率"), rates);
-    detail.append(el("h3", "detail-title", "装備の種類と基本効果の範囲"), detailList(card.kinds.map((k) => [k.name, k.range])));
-    more.setAttribute("aria-expanded", "false");
-    more.addEventListener("click", () => {
-      detail.hidden = !detail.hidden;
-      more.setAttribute("aria-expanded", String(!detail.hidden));
-    });
 
     const buttons = el("div", "crate-buttons");
     for (const [count, label, blocker] of /** @type {[number, string, string | null][]} */ ([
@@ -131,32 +142,46 @@ export function mountCrates(container, ctx) {
     }
     box.append(head, price, buttons);
     if (warning.tenNote) box.append(el("p", "pull-note", warning.tenNote));
-    box.append(detail);
     return box;
   }
 }
 
+/** 自動分解の説明(「?」を押したときだけ出す:D-314)。 */
+export const AUTO_SCRAP_HELP = "引いた直後に、選んだレア度以下の装備を、自動で分解します。レジェンド・ロック中・装着中・▲の付く装備は対象外です。";
+
 /**
- * 自動分解の設定(D-266)。4 つのボタンから 1 つを選ぶ。選んだら保存する。
+ * 自動分解の設定(D-266・D-314)。1 行のプルダウンで 4 つから選ぶ。選んだら保存する。説明は「?」で開く。
  * @param {ScreenContext & { storage: { save: (progress: any) => boolean } }} ctx
  */
 function autoScrapBox(ctx) {
   const box = el("section", "auto-scrap");
-  box.append(el("h2", "auto-scrap-title", "自動分解(引いた直後)"));
-  const row = el("div", "auto-scrap-choices");
-  row.setAttribute("role", "group");
-  row.setAttribute("aria-label", "自動分解");
+  const row = el("div", "auto-scrap-row");
+  const select = /** @type {HTMLSelectElement} */ (document.createElement("select"));
+  select.className = "equip-select auto-scrap-select";
+  select.name = "auto-scrap";
+  select.setAttribute("aria-label", "自動分解(引いた直後)");
   for (const c of autoScrapChoices(ctx.game)) {
-    const b = button(c.label, "chip auto-scrap-choice");
-    b.dataset.scrap = c.id;
-    b.setAttribute("aria-pressed", String(c.selected));
-    b.addEventListener("click", () => {
-      setAutoScrap(ctx.game.progress, c.id);
-      ctx.storage.save(ctx.game.progress);
-      ctx.rerender();
-    });
-    row.append(b);
+    const o = document.createElement("option");
+    o.value = c.id;
+    o.textContent = `自動分解:${c.label}`;
+    if (c.selected) o.selected = true;
+    select.append(o);
   }
-  box.append(row, el("p", "auto-scrap-note", "レジェンド・ロック中・装着中・▲は分解しません"));
+  select.addEventListener("change", () => {
+    setAutoScrap(ctx.game.progress, select.value);
+    ctx.storage.save(ctx.game.progress);
+    ctx.rerender();
+  });
+  const help = button("?", "chip auto-scrap-help");
+  help.setAttribute("aria-label", "自動分解の説明");
+  help.setAttribute("aria-expanded", "false");
+  const note = el("p", "auto-scrap-note", AUTO_SCRAP_HELP);
+  note.hidden = true;
+  help.addEventListener("click", () => {
+    note.hidden = !note.hidden;
+    help.setAttribute("aria-expanded", String(!note.hidden));
+  });
+  row.append(select, help);
+  box.append(row, note);
   return box;
 }
