@@ -12,8 +12,9 @@ import { SIGNING_KEY_ID, SIGNING_KEY_SECRET } from "../src/save_key.js";
 import { readText } from "./helpers.js";
 
 const SOURCE = readText("src/save_key.js");
-// テスト用の作り物の鍵(本物の鍵ではない)。
-const FAKE = "test-only-key-0123456789abcdef";
+// テスト用の作り物の鍵(本物の鍵ではない)。公開の処理として動かすテストでは「リポジトリのファイルに鍵の文字がない」ことも
+// 確かめるので、このファイルに鍵の文字がそのまま入らないよう、組み立てて作る。
+const FAKE = ["test", "only", "key", (0x0123456789).toString(16), "abcdef"].join("-");
 
 test("リポジトリの鍵は仮の鍵(番号 dev)。本番の鍵の番号(k1)を書いたファイルはない", () => {
   assert.deepEqual([SIGNING_KEY_ID, SIGNING_KEY_SECRET], ["dev", "dev-placeholder-key-not-secret"]);
@@ -35,7 +36,7 @@ test("本番の鍵(公開のときの環境変数)が、リポジトリのどの
 test("書き込み:鍵の番号を k1、鍵を Secrets の値にする。ほかの行は変えない", () => {
   const out = stampKey(SOURCE, FAKE);
   assert.match(out, new RegExp(`^export const SIGNING_KEY_ID = "${PRODUCTION_KEY_ID}";$`, "m"));
-  assert.match(out, /^export const SIGNING_KEY_SECRET = "test-only-key-0123456789abcdef";$/m);
+  assert.ok(out.split("\n").includes(`export const SIGNING_KEY_SECRET = ${JSON.stringify(FAKE)};`));
   assert.equal(out.split("\n").length, SOURCE.split("\n").length);
   // 引用符や $ を含む鍵も、そのまま JavaScript の文字列になる。
   const tricky = 'a"b\\c$&$1-0123456789';
@@ -60,6 +61,8 @@ test("公開の処理として動かす:鍵がないと失敗して文を出す�
   assert.equal(none.status, 1);
   assert.match(none.stderr, /::error::SAVE_SIGNING_KEY が設定されていません/);
   assert.equal(readFileSync(file, "utf8"), SOURCE, "失敗したら書き込まない");
+  // 鍵の文字がリポジトリのファイルにあると失敗する(ここでは、このファイルに鍵の文字がないので通る)。
+  assert.deepEqual(filesContaining(FAKE), []);
   const ok = run(FAKE);
   assert.equal(ok.status, 0, ok.stderr);
   assert.match(ok.stdout, /鍵の番号 k1 の鍵を書き込みました/);
