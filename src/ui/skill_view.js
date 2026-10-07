@@ -121,7 +121,22 @@ export function skillRows(game) {
 }
 
 /**
- * スキルの画面のグループの表(D-217・D-221)。表の順に並べ、スキルは match が最初に当たったグループに入る。
+ * 発動中(Lv1 以上)のスキルの行(D-299)。レベルの高い順、同じならスキルの表の順。未発動のスキルは入れない。
+ * @param {SkillGame} game
+ */
+export function activeSkillRows(game) {
+  return skillRows(game)
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => r.level >= 1)
+    .sort((a, b) => b.r.level - a.r.level || a.i - b.i)
+    .map(({ r }) => r);
+}
+
+/** 発動中のスキルがないときの文(D-299)。 */
+export const NO_SKILLS = "スキルなし";
+
+/**
+ * スキルの画面のグループの表(D-221。?debug の「全スキルを見る」で使う:D-299)。表の順に並べ、スキルは match が最初に当たったグループに入る。
  * グループは表の行から決まるので、スキルの表に行を足すと、種類に合うグループに自動で入る。
  * @typedef {{ id: string, title: string, order: number, match: (skill: SkillRow) => boolean }} SkillGroup
  */

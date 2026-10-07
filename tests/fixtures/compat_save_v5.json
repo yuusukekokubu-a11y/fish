@@ -1,0 +1,171 @@
+{
+ "note": "互換の正解データ(D-300・D-307)。保存の版 5(出会ったスキルの欄つき)。code は署名なし(TSURI5-本文-印。ブラウザの中の保存と同じ形)、signed は仮の鍵(dev。秘密ではない)で署名したセーブコード(TSURI5-dev-5-…)。署名の正解データ compat_v5.json とは別のもの。これからの版でも、このコードが読めて同じ結果になることをテストで守る。消さない・書き換えない。",
+ "version": 5,
+ "cases": [
+  {
+   "name": "初めの状態(出会ったスキルなし。欄は 0)",
+   "progress": {
+    "coins": 0,
+    "scales": {},
+    "rodStage": 1,
+    "rodStep": "none",
+    "seen": [],
+    "gear": {
+     "items": [],
+     "equipped": {},
+     "draws": 0,
+     "seed": null,
+     "nextId": 1
+    }
+   },
+   "code": "TSURI5-0~1.0~~~0..1~~~~0.0.0~~0-d54072c5",
+   "signed": "TSURI5-dev-5-0~1.0~~~0..1~~~~0.0.0~~0-M9jGMQ92CuafaQLn8TED_w"
+  },
+  {
+   "name": "持ち物のスキルと、自動分解で消えた装備のスキル(貫通・連撃・貫)にも出会っている",
+   "progress": {
+    "coins": 98765,
+    "scales": {
+     "mejina": 4,
+     "nushi-buri": 1,
+     "ishidai": 2
+    },
+    "rodStage": 7,
+    "rodStep": "none",
+    "seen": [
+     "aji",
+     "bera",
+     "mejina",
+     "kasago"
+    ],
+    "gear": {
+     "items": [
+      {
+       "id": 1,
+       "kind": "reel",
+       "rarity": "legend",
+       "grade": 6,
+       "value": 13,
+       "skills": [
+        {
+         "id": "power",
+         "level": 3
+        },
+        {
+         "id": "agility",
+         "level": 1
+        },
+        {
+         "id": "mastery",
+         "level": 1
+        }
+       ]
+      },
+      {
+       "id": 2,
+       "kind": "line",
+       "rarity": "epic",
+       "grade": 7,
+       "value": 4500,
+       "skills": [
+        {
+         "id": "insight",
+         "level": 1
+        },
+        {
+         "id": "tenacity",
+         "level": 2
+        }
+       ],
+       "locked": true
+      }
+     ],
+     "equipped": {
+      "reel": 1,
+      "line": 2
+     },
+     "draws": 40,
+     "seed": 77,
+     "nextId": 3
+    },
+    "bait": 5,
+    "useBait": true,
+    "autoScrap": "rare",
+    "skillsSeen": [
+     "power",
+     "tenacity",
+     "agility",
+     "insight",
+     "mastery",
+     "penetration",
+     "combo-pen"
+    ]
+   },
+   "code": "TSURI5-247h~7.0~mejina:4,nushi-buri:1,ishidai:2~aji,bera,mejina,kasago~14.25.3~1.1,0.2~1.7.6.dA3F1H1,1.2.7.3h0G1D2~01~5.1.2~~guzt-6af3df8c",
+   "signed": "TSURI5-dev-5-247h~7.0~mejina:4,nushi-buri:1,ishidai:2~aji,bera,mejina,kasago~14.25.3~1.1,0.2~1.7.6.dA3F1H1,1.2.7.3h0G1D2~01~5.1.2~~guzt-lWOrLJIqO3RzBhMDD5zRJw"
+  },
+  {
+   "name": "全部のスキルに出会っている(持ち物は空)",
+   "progress": {
+    "coins": 0,
+    "scales": {},
+    "rodStage": 1,
+    "rodStep": "none",
+    "seen": [],
+    "gear": {
+     "items": [],
+     "equipped": {},
+     "draws": 0,
+     "seed": null,
+     "nextId": 1
+    },
+    "skillsSeen": [
+     "power",
+     "crit-rate",
+     "crit-power",
+     "tenacity",
+     "fortune",
+     "agility",
+     "insight",
+     "mastery",
+     "recovery",
+     "combo-power",
+     "combo-crit",
+     "first-hit",
+     "just-boost",
+     "finisher",
+     "momentum",
+     "first-strike",
+     "core",
+     "edge",
+     "penetration",
+     "combo-pen"
+    ]
+   },
+   "code": "TSURI5-0~1.0~~~0..1~~~~0.0.0~~mh33-7e2618a0",
+   "signed": "TSURI5-dev-5-0~1.0~~~0..1~~~~0.0.0~~mh33-kOIUdYGa8R5zoczbZPtVEQ"
+  }
+ ],
+ "rejected": [
+  {
+   "name": "出会ったスキルの印が、表の数より大きい(存在しないスキル)",
+   "code": "TSURI5-0~1.0~~~0..1~~~~0.0.0~~mh34-852623a5",
+   "error": "content"
+  },
+  {
+   "name": "出会ったスキルの印が数でない",
+   "code": "TSURI5-0~1.0~~~0..1~~~~0.0.0~~A-c4405802",
+   "error": "content"
+  },
+  {
+   "name": "出会ったスキルの印が先頭の 0 つき(書き方の重複)",
+   "code": "TSURI5-0~1.0~~~0..1~~~~0.0.0~~01-a874f61c",
+   "error": "content"
+  },
+  {
+   "name": "出会ったスキルの欄がない(版 5 なのに 10 の欄)",
+   "code": "TSURI5-0~1.0~~~0..1~~~~0.0.0~-a0056f73",
+   "error": "content"
+  }
+ ]
+}

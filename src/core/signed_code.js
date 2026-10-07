@@ -32,11 +32,14 @@ export const SIGNATURE_LENGTH = 22;
 export const DEBUG_KEY_ID = "debug";
 const KEY_ID = /^[a-z][a-z0-9]{0,7}$/;
 const SIGNED = /^TSURI5-([a-z][a-z0-9]{0,7})-(\d{1,3})-(.+)-([A-Za-z0-9_-]{22})$/;
+// 署名つきの形の先頭(鍵の番号のあとに「-」)。署名なしの保存の版 5 のコード(TSURI5-本文-印)は、本文がウロコインの数と「~」で
+// 始まるので、ここには当たらない(D-307)。
+const SIGNED_HEAD = /^TSURI5-[a-z][a-z0-9]{0,7}-/;
 
 /** 読み込みに失敗したときの短い文(署名に関わるもの。ほかは savecode.js の SAVE_CODE_ERRORS)。 */
 export const SIGNED_CODE_ERRORS = Object.freeze({
   ...SAVE_CODE_ERRORS,
-  signature: "署名が合いません",
+  signature: "署名が合いません。コピーし直してください",
   unknownKey: "知らない鍵のコードです",
   debugKey: "デバッグ用のコードは、本番では読めません",
   unsigned: "署名がないコードは読めません(古い形式です)",
@@ -101,7 +104,7 @@ export async function readSaveCode(text, { keys, content = DEFAULT_CONTENT, conf
   if (typeof text !== "string") return fail("empty");
   const code = text.replace(/\s+/g, "");
   if (code === "") return fail("empty");
-  if (!code.startsWith(`${SIGNED_PREFIX}-`)) {
+  if (!SIGNED_HEAD.test(code)) {
     const r = decodeSaveCode(code, content, config);
     if (!r.ok) return r;
     if (!(config.saveCode?.acceptUnsigned ?? true)) return fail("unsigned");

@@ -118,7 +118,10 @@ test("画面:防御の表示(貫通があれば実効防御、100% 以上は目�
   const base = { config: DEFAULT_CONFIG, fight: { combo: 0 }, triggers: {} };
   assert.deepEqual(defenseBadge({ ...base, cast: { minigame: { defense: 0.8 } }, combat: { penetration: 0 } }), { text: "防御 80%", high: false, effective: 0.8 });
   assert.deepEqual(defenseBadge({ ...base, cast: { minigame: { defense: 0.8 } }, combat: { penetration: 0.5 } }), { text: "防御 80% → 30%", high: false, effective: 0.3 });
-  assert.equal(defenseBadge({ ...base, cast: { minigame: { defense: 1.05 } }, combat: { penetration: 0 } }).high, true);
+  // 実効防御 100% 以上:「ダメージ 1」を出す。スキルの名前(貫通)は出さない(D-302)。
+  assert.deepEqual(defenseBadge({ ...base, cast: { minigame: { defense: 1.05 } }, combat: { penetration: 0 } }), { text: "防御 105%・ダメージ 1", high: true, effective: 1.05 });
+  assert.equal(defenseBadge({ ...base, cast: { minigame: { defense: 1.5 } }, combat: { penetration: 0.3 } }).text, "防御 150% → 120%・ダメージ 1");
+  for (const pen of [0, 0.3, 0.5]) assert.doesNotMatch(defenseBadge({ ...base, cast: { minigame: { defense: 1.2 } }, combat: { penetration: pen } }).text, /貫通|連撃/);
   // 次のレベルでの増分。会心率 Lv5→6 は +15%、Lv7→8 から逓減(増え方が少し緩やか)。
   assert.equal(nextLevelText(byId("crit-rate"), 5, 7), "Lv5→6:会心率 +15%");
   assert.equal(nextLevelText(byId("crit-rate"), 7, 9), "Lv7→8:会心率 +13.12%(増え方が少し緩やかです)");

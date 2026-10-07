@@ -16,6 +16,7 @@ import { effectRange, EQUIP_KIND_ROWS, kindById, RARITY_ROWS, rarityById } from 
 import { COUNT_MAX, ROD_STEPS } from "../core/rod.js";
 import { parseSave } from "../core/savecode.js";
 import { SKILL_ROWS } from "../core/skills.js";
+import { noteSkillsSeen } from "../core/skills_seen.js";
 
 /** @typedef {import("../core/gear.js").Item} Item */
 
@@ -202,6 +203,8 @@ export function addDebugItem(game, spec) {
   if (spec.lock) item.locked = true;
   gear.nextId += 1;
   gear.items.push(item);
+  // デバッグで作った装備のスキルも「出会った」にする(デバッグの保存にだけ入る:D-300)。
+  noteSkillsSeen(game.progress, [item], game.content.skills ?? SKILL_ROWS);
   if (spec.equip) gear.equipped[item.kind] = item.id;
   refreshCombat(game);
   return { ok: true, item };

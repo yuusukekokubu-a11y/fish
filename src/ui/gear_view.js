@@ -200,27 +200,50 @@ function rarityOrder(id) {
 /** ロックの絞り込み(null はすべて:D-246)。 @typedef {"locked" | "unlocked" | null} LockFilter */
 
 /**
- * 絞り込みに合う装備(種類とロック)。
- * @param {GameLike} game @param {string | null} [kind] @param {LockFilter} [lock]
+ * 絞り込みに合う装備(種類・ロック・レア度。null はすべて)。
+ * @param {GameLike} game @param {string | null} [kind] @param {LockFilter} [lock] @param {string | null} [rarity]
  */
-export function filteredItems(game, kind = null, lock = null) {
+export function filteredItems(game, kind = null, lock = null, rarity = null) {
   return game.progress.gear.items.filter(
-    (it) => (kind === null || it.kind === kind) && (lock === null || (lock === "locked") === Boolean(it.locked)),
+    (it) =>
+      (kind === null || it.kind === kind) &&
+      (lock === null || (lock === "locked") === Boolean(it.locked)) &&
+      (rarity === null || it.rarity === rarity),
   );
 }
 
 /**
- * 持ち物の一覧。sort は "rarity"(レア度の高い順、同じなら効果の大きい順)か "new"(新しい順)。
- * kind を渡すと、その種類だけに絞り込む(null ならすべて)。lock で、ロック中・ロックなしに絞り込む。
- * @param {GameLike} game @param {Crate[]} crates @param {"rarity" | "new"} sort @param {string | null} [kind] @param {LockFilter} [lock]
+ * 装備の画面の並べ替え(D-304)。プルダウンの選択肢の表(並べる順)。
+ * - rarity:レア度の高い順(同じならグレード・基本効果の大きい順)。
+ * - new:新しい順。
+ * - kind:種類の表の順(同じ種類なら基本効果の高い順。基本効果は種類ごとに単位がちがうので、種類の中で比べる)。
+ * - locked:ロック中を上に(その中はレア度順)。
+ * @type {readonly { id: SortId, label: string }[]}
  */
-export function inventoryRows(game, crates, sort, kind = null, lock = null) {
-  const items = filteredItems(game, kind, lock);
-  if (sort === "rarity") {
-    items.sort((a, b) => rarityOrder(b.rarity) - rarityOrder(a.rarity) || b.grade - a.grade || b.value - a.value || b.id - a.id);
-  } else {
-    items.sort((a, b) => b.id - a.id);
-  }
+export const SORT_CHOICES = Object.freeze([
+  { id: "rarity", label: "レア度順" },
+  { id: "new", label: "新しい順" },
+  { id: "kind", label: "種類順" },
+  { id: "locked", label: "ロック中を上に" },
+]);
+
+/** @typedef {"rarity" | "new" | "kind" | "locked"} SortId */
+
+/**
+ * 持ち物の一覧。sort は SORT_CHOICES の id。
+ * kind を渡すと、その種類だけに絞り込む(null ならすべて)。lock で、ロック中・ロックなしに、rarity で、レア度に絞り込む。
+ * @param {GameLike} game @param {Crate[]} crates @param {SortId} sort @param {string | null} [kind] @param {LockFilter} [lock]
+ * @param {string | null} [rarity]
+ */
+export function inventoryRows(game, crates, sort, kind = null, lock = null, rarity = null) {
+  const items = filteredItems(game, kind, lock, rarity);
+  /** @param {Item} a @param {Item} b */
+  const byRarity = (a, b) => rarityOrder(b.rarity) - rarityOrder(a.rarity) || b.grade - a.grade || b.value - a.value || b.id - a.id;
+  const kindIndex = (/** @type {Item} */ it) => game.content.equipKinds.findIndex((k) => k.id === it.kind);
+  if (sort === "rarity") items.sort(byRarity);
+  else if (sort === "kind") items.sort((a, b) => kindIndex(a) - kindIndex(b) || b.value - a.value || byRarity(a, b));
+  else if (sort === "locked") items.sort((a, b) => Number(Boolean(b.locked)) - Number(Boolean(a.locked)) || byRarity(a, b));
+  else items.sort((a, b) => b.id - a.id);
   return items.map((it) => itemView(game, it, crates));
 }
 
@@ -235,9 +258,10 @@ export function slotRows(game, crates) {
 /**
  * まとめてロック・解除の見込み(D-246)。絞り込み中の装備のうち、変わるものの数と、その id。
  * @param {GameLike} game @param {string | null} kind @param {LockFilter} lock @param {boolean} locked 付けるなら true
+ * @param {string | null} [rarity]
  */
-export function bulkLockPreview(game, kind, lock, locked) {
-  const shown = filteredItems(game, kind, lock);
+export function bulkLockPreview(game, kind, lock, locked, rarity = null) {
+  const shown = filteredItems(game, kind, lock, rarity);
   const ids = shown.filter((it) => Boolean(it.locked) !== locked).map((it) => it.id);
   return { shown: shown.length, count: ids.length, ids };
 }
@@ -266,10 +290,15 @@ export function bulkDismantlePreview(game, crates, rarityId) {
 
 /**
  * 引いた結果の一覧の見せ方。一番良いレア度(best)を強調する。▲ は引く前の装着と比べる。
- * @param {GameLike} game @param {Item[]} items @param {Crate[]} crates
+ * fresh は、装備ごと(items の順)の、初めて出会ったスキルの id(NEW を付ける:D-301。skills_seen.js の noteSkillsSeen の返り値)。
+ * @param {GameLike} game @param {Item[]} items @param {Crate[]} crates @param {readonly string[][]} [fresh]
  */
-export function pullResultView(game, items, crates) {
-  const views = items.map((it) => itemView(game, it, crates));
+export function pullResultView(game, items, crates, fresh = []) {
+  const views = items.map((it, i) => {
+    const v = itemView(game, it, crates);
+    const own = fresh[i] ?? [];
+    return { ...v, skills: v.skills.map((s) => ({ ...s, isNew: own.includes(s.id) })) };
+  });
   const best = views.reduce((b, v) => (rarityOrder(v.rarityId) > rarityOrder(b.rarityId) ? v : b), views[0]);
   return { items: views, best: best ? best.rarityId : "normal" };
 }

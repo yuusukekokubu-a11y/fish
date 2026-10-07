@@ -11,6 +11,7 @@
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { autoScrap, makeCrates, pullCrate, setAutoScrap } from "../core/gear.js";
 import { SKILL_ROWS } from "../core/skills.js";
+import { noteSkillsSeen } from "../core/skills_seen.js";
 import { groupByArea } from "./area_view.js";
 import { autoScrapChoices, autoScrapText } from "./bait_view.js";
 import { playPull } from "./gacha_fx.js";
@@ -114,8 +115,10 @@ export function mountCrates(container, ctx) {
           message.classList.add("error");
           return;
         }
+        // 出会ったスキルは、結果が確定したとき(自動分解より前)に記録する。初めてのスキルに NEW(D-300・D-301)。
+        const fresh = noteSkillsSeen(/** @type {{ skillsSeen?: string[] }} */ (game.progress), result.items, skillDraw.skills);
         // 見せ方(▲ など)は分解の前に作る。引いた直後に自動分解して、まとめて保存する(D-266)。
-        const view = pullResultView(game, result.items, crates);
+        const view = pullResultView(game, result.items, crates, fresh);
         const scrap = autoScrap(game.progress, result.items, crates, Number.MAX_SAFE_INTEGER);
         ctx.storage.save(game.progress);
         const scrapped = new Set(scrap.items.map((it) => it.id));

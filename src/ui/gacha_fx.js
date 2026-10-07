@@ -34,7 +34,17 @@ function card(v, big) {
   top.append(el("span", "fx-rarity", `${v.stars} ${v.rarity}`));
   if (v.better) top.append(el("span", "fx-better", "▲"));
   c.append(top, el("div", "fx-name", v.name), el("div", "fx-effect", v.effect));
-  if (v.skills.length > 0) c.append(el("div", "fx-skills", v.skills.map((x) => x.text).join("・")));
+  // スキル(「・」で区切る)。初めて出会ったスキルのそばに小さく NEW(D-301)。
+  if (v.skills.length > 0) {
+    const box = el("div", "fx-skills");
+    v.skills.forEach((x, i) => {
+      if (i > 0) box.append("・");
+      const name = el("span", "fx-skill", x.text);
+      box.append(name);
+      if (/** @type {{ isNew?: boolean }} */ (x).isNew) box.append(el("span", "fx-new", "NEW"));
+    });
+    c.append(box);
+  }
   return c;
 }
 
