@@ -250,16 +250,16 @@ function main() {
     saveDirty = true;
     if (!isBusyPhase(game.phase)) flushSave();
   };
-  const flushSave = () => {
-    playLog.flush();
+  const flushSave = (force = false) => {
+    playLog.flush(force);
     if (!saveDirty) return;
     saveDirty = false;
     saveProgress(game.progress);
   };
   // ページを離れる・隠れるときは、場面によらず、すぐ保存する。
-  window.addEventListener("pagehide", flushSave);
+  window.addEventListener("pagehide", () => flushSave(true));
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flushSave();
+    if (document.visibilityState === "hidden") flushSave(true);
   });
   el.seed.textContent = `seed ${game.seed}`;
   el.version.textContent = versionLabel();
@@ -463,9 +463,13 @@ function main() {
     playPull(app, glovePullView(game, glove), "釣れるクレート", () => setPaused(session, isPaused(nav)));
   };
   let wasBusy = false;
+  /** 上の欄に出している釣り場(移ったらすぐ書き換える:D-358)。 @type {string | null} */
+  let shownAreaId = null;
   function frame(now) {
     // メニューを開いている間は時間を渡さない。閉じたら、その時点から続きを進める(D-134・D-284)。
-    advanceTo(session, now);
+    const clockBefore = session.clockMs;
+    // 遊んだ時間(D-356):釣りと戦闘が進んだ分だけ(止めている間・裏に回っている間は進まない。1 回の上限は maxStepMs)。
+    if (advanceTo(session, now) && clockBefore !== null) playLog.addTime(Math.min(session.maxStepMs, now - clockBefore));
     if (lastFrame) frameGaps.push(now - lastFrame);
     lastFrame = now;
 
@@ -487,7 +491,10 @@ function main() {
       shownRetries = game.retryUsed ?? 0;
       addNoteEffects(effects, "仕切り直し!", now);
     }
+    // ガチャを引いた回数(D-356)。引くのは全画面の中なので、書くのは合わせと戦闘の間でないとき。
+    playLog.observe(game);
     if (saveDirty && !isBusyPhase(game.phase)) flushSave();
+    else if (playLog.dirty() && !isBusyPhase(game.phase)) playLog.flush();
 
     const target = sceneColors(game);
     if (target.sky !== colorTo.sky) {
@@ -529,7 +536,10 @@ function main() {
     // 竿・釣り場・餌・竿のボタンの欄は、合わせと戦闘の間は変わらないので、書き換えない(D-284)。
     // 場面に入った・出たときだけ 1 回書き換える(挑むボタンを押せない見た目にするなど)。
     const busy = isBusyPhase(game.phase);
-    if (!busy || busy !== wasBusy) {
+    // 釣り場を移ったときは、場面の間でも 1 回だけ書き換える(移るのは目次や全画面で止めている間:D-358)。
+    const areaId = currentArea(game.progress, game.content).id;
+    if (!busy || busy !== wasBusy || areaId !== shownAreaId) {
+      shownAreaId = areaId;
       setText(el.need, needLabel(game));
       setText(el.areaName, currentArea(game.progress, game.content).name);
       setText(el.rodName, `${rodName(game.progress, game.content)}(${stageLabel(game.content, game.progress.rodStage)})`);

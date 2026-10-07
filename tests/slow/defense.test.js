@@ -31,7 +31,7 @@ function grownHits(g, fishId, options = {}) {
 
 const HIT_GS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 20, 25, 30, 40, 50, 60, 75, 100];
 
-test("ヌシの命中回数(育てた装備・貫通を含む):s=1 は 4〜6 回、s=5 は 10〜15 回、その間は少しずつ伸びる", () => {
+test("ヌシの命中回数(育てた装備・貫通を含む):s=1 は 4〜7 回、s=5 は 10〜15 回、その間は少しずつ伸びる", () => {
   const lines = ["| g | s | 目標 | 体力 | 防御 | 育てた装備(ガチャの種 15 個:D-262)| 中央値 |"];
   /** @type {Record<number, number[]>} */
   const byS = { 1: [], 2: [], 3: [], 4: [], 5: [] };
@@ -44,7 +44,7 @@ test("ヌシの命中回数(育てた装備・貫通を含む):s=1 は 4〜6 回
     byS[s].push(r.median);
     lines.push(`| ${g} | ${s} | ${bossHitTarget(g)} | ${m.hp} | ${Math.round(m.defense * 1000) / 10}% | ${r.per.join("・")} | ${r.median} |`);
     // s=5 は 15 回まで(g=5 は D-260。ガチャの種を 15 個にして、ほかの g も 15 回が出るため:D-269)。
-    const [lo, hi] = s === 1 ? [4, 6] : s === 5 ? [10, 15] : [4, 14];
+    const [lo, hi] = s === 1 ? [4, 7] : s === 5 ? [10, 15] : [4, 14];
     if (!(r.median >= lo && r.median <= hi)) problems.push(`g=${g} s=${s}:${r.median} 回`);
   }
   const means = [1, 2, 3, 4, 5].map((s) => byS[s].reduce((a, b) => a + b, 0) / byS[s].length);
@@ -55,7 +55,7 @@ test("ヌシの命中回数(育てた装備・貫通を含む):s=1 は 4〜6 回
 });
 
 // 線は 6% 未満(ガチャの種を 15 個にして、g=10 が 5.7% になったため:D-269)。
-test("磯の実データ(g=6〜10、ヌシ・メジナ〜ヌシ・クエ):s=1 は 4〜6 回、s=5 は 10〜15 回。s=5 は貫通なしで勝率 6% 未満。ガチャの運のぶれも出す(D-276)", () => {
+test("磯の実データ(g=6〜10、ヌシ・メジナ〜ヌシ・クエ):s=1 は 4〜7 回、s=5 は 10〜15 回。s=5 は貫通なしで勝率 6% 未満。ガチャの運のぶれも出す(D-276)", () => {
   const ISO = DEFAULT_CONTENT;
   const bosses = ["nushi-mejina", "nushi-ishidai", "nushi-budai", "nushi-ishigakidai", "nushi-kue"];
   const lines = ["| g | 位置 s | ヌシ | 体力 | 防御 | 育てた装備(ガチャの種 15 個)| 中央値 | 最小〜最大 |"];
@@ -67,7 +67,7 @@ test("磯の実データ(g=6〜10、ヌシ・メジナ〜ヌシ・クエ):s=1 �
     const fish = ISO.byId.get(id);
     const finite = per.filter(Number.isFinite);
     lines.push(`| ${g} | ${s} | ${fish.name} | ${fish.minigame.hp} | ${Math.round(fish.minigame.defense * 1000) / 10}% | ${per.join("・")} | ${m} | ${Math.min(...finite)}〜${Math.max(...finite)}(倒せない種 ${per.length - finite.length}) |`);
-    if (s === 1) assert.ok(m >= 4 && m <= 6, `${fish.name}:${m} 回`);
+    if (s === 1) assert.ok(m >= 4 && m <= 7, `${fish.name}:${m} 回`);
     if (s === 5) assert.ok(m >= 10 && m <= 15, `${fish.name}:${m} 回`);
   });
   // 5 体目(ヌシ・クエ)は貫通なしで倒せない。
@@ -83,11 +83,11 @@ test("磯の実データ(g=6〜10、ヌシ・メジナ〜ヌシ・クエ):s=1 �
   assert.ok(wins / total < 0.06);
 });
 
-/** 目安の外で、報告して相談中のヌシ(D-350):ヌシ・ヒラマサ(g=16・s=1)は 7 回(目安 4〜6 回)。 */
-const KNOWN_OUTSIDE = Object.freeze({ "nushi-hiramasa": 7 });
+/** 目安の外で、報告して相談中のヌシ(D-350)。s=1 の目安を 4〜7 回に広げたので、いまはない(D-351)。 */
+const KNOWN_OUTSIDE = Object.freeze({});
 
 // 川・沖の本物の表(D-347):磯と同じ条件。報告に、命中回数と戦闘の時間の表を出す。
-test("川・沖の実データ(g=11〜20):s=1 は 4〜6 回、s=5 は 10〜15 回。s=5 は貫通なしで勝率 6% 未満。命中回数と時間の表", () => {
+test("川・沖の実データ(g=11〜20):s=1 は 4〜7 回、s=5 は 10〜15 回。s=5 は貫通なしで勝率 6% 未満。命中回数と時間の表", () => {
   const C = DEFAULT_CONTENT;
   /** @type {string[]} */
   const problems = [];
@@ -102,7 +102,7 @@ test("川・沖の実データ(g=11〜20):s=1 は 4〜6 回、s=5 は 10〜15 �
     const fish = C.byId.get(id);
     const finite = per.filter(Number.isFinite);
     lines.push(`| ${g} | ${g <= 15 ? "川" : "沖"} | ${s} | ${fish.name} | ${fish.minigame.hp} | ${Math.round(fish.minigame.defense * 1000) / 10}% | ${m} | ${Math.min(...finite)}〜${Math.max(...finite)}(倒せない種 ${per.length - finite.length}) | ${(ms / 1000).toFixed(1)} |`);
-    const [lo, hi] = s === 1 ? [4, 6] : s === 5 ? [10, 15] : [4, 14];
+    const [lo, hi] = s === 1 ? [4, 7] : s === 5 ? [10, 15] : [4, 14];
     // 目安の外で、報告して相談中のもの(数値は勝手に変えない:D-350)。測った値が変わったら気づけるよう、値で固定する。
     if (KNOWN_OUTSIDE[id] !== undefined) assert.equal(m, KNOWN_OUTSIDE[id], `${fish.name}(相談中の外れ)`);
     else if (!(m >= lo && m <= hi)) problems.push(`${fish.name}(g=${g} s=${s}):${m} 回`);
@@ -117,6 +117,33 @@ test("川・沖の実データ(g=11〜20):s=1 は 4〜6 回、s=5 は 10〜15 �
     }
     lines.push(`${C.byId.get(id).name}:貫通なしの育てた装備の勝率 ${((wins / total) * 100).toFixed(1)}%(${wins} / ${total})`);
     assert.ok(wins / total < 0.06, lines.at(-1));
+  }
+  console.log(lines.join("\n"));
+  assert.deepEqual(problems, []);
+});
+
+// ノーマルとレアだけ(D-353・D-355):各枠で T(g) の候補から、ノーマルとレアの最良を選ぶ。目標は g=3 以降のヌシに勝つ確率 5% 未満。
+// 測ると、s=1〜4 のヌシにはほぼ勝ててしまう(命中回数が増えるだけで、制限時間のうちに届く)。数値は変えず、報告して相談中(D-358)。
+// ここでは表を出し、s=5(貫通が要るヌシ)の g=10〜50 が 5% 未満であることだけを確かめる。
+test("ノーマルとレアだけの育てた装備:ヌシの勝率と命中回数の表(s=5 の g=10〜50 は 5% 未満)", () => {
+  const lines = ["| g | s | ヌシの体力 | 防御 | 勝ち / 戦い | 勝率 | 命中回数(中央値) | 育てた装備の命中回数 |", "| --- | --- | --- | --- | --- | --- | --- | --- |"];
+  /** @type {string[]} */
+  const problems = [];
+  for (const g of [3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 20, 50, 100]) {
+    let wins = 0;
+    let total = 0;
+    const per = [];
+    for (const gs of GACHA_SEEDS) {
+      const items = grownItems(CONTENT, g, boss(g), gs * 1000 + g, { rarities: ["normal", "rare"] });
+      const r = measure(CONTENT, g, items, boss(g), FIGHT_SEEDS);
+      wins += r.runs.filter((x) => x.caught).length;
+      total += r.runs.length;
+      per.push(r.median);
+    }
+    const m = CONTENT.byId.get(boss(g)).minigame;
+    const full = median(GACHA_SEEDS.slice(0, 5).map((gs) => measure(CONTENT, g, grownItems(CONTENT, g, boss(g), gs * 1000 + g), boss(g), FIGHT_SEEDS).median));
+    lines.push(`| ${g} | ${stagePosition(g)} | ${m.hp} | ${Math.round(m.defense * 1000) / 10}% | ${wins} / ${total} | ${((wins / total) * 100).toFixed(1)}% | ${median(per)} | ${full} |`);
+    if (stagePosition(g) === 5 && g >= 10 && g <= 50 && wins / total >= 0.05) problems.push(`g=${g}:${((wins / total) * 100).toFixed(1)}%`);
   }
   console.log(lines.join("\n"));
   assert.deepEqual(problems, []);

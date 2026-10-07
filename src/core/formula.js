@@ -57,6 +57,7 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {number} stagesPerGround 釣り場 1 つの段階の数(位置 s を数える:5。釣り場の表の段階の数と同じ:D-276)
  * @property {number} noPenTapsFactor 5 体目のヌシの体力の下限 = 押せる回数 × これ
  * @property {number} noPenBonusDraws 押せる回数を数えるときに足す、糸と粘りの最大の割合 = min(1, N(g) ÷ これ)(育てた装備の目安:D-260)
+ * @property {number} [earlyBossHpMax] 序盤(防御を持つ前の g)のヌシの体力の上限(装備なしでも倒せるように:D-358)
  */
 
 /** @param {FormulaConfig} [f] */
@@ -127,7 +128,9 @@ export function fishHp(kind, g, f) {
     const s = stagePosition(g, c);
     const hp = round2(bossHitTarget(g, c) * perHit * c.bossReference.positionScale[s - 1]);
     // 5 体目:貫通なし(1 命中 1 ダメージ)では、制限時間の中で押せる回数より多い体力にする(D-254 の貫通必須)。
-    return s === c.stagesPerGround ? Math.max(hp, noPenetrationFloor(g, c)) : hp;
+    if (s === c.stagesPerGround) return Math.max(hp, noPenetrationFloor(g, c));
+    // 序盤(防御を持つ前の g)は、装備なしでも倒せるよう上限を置く(D-358)。
+    return stageNumber(g) < c.defenseStartStage ? Math.min(hp, c.earlyBossHpMax ?? hp) : hp;
   }
   // 強い魚:平均的な装備で時間の目標を保つよう、防御で減るぶん体力を下げる(防御なしなら 10 + 10g:D-254)。
   return Math.max(1, Math.round(base * (1 - fishDefense("strong", g, c))));

@@ -125,8 +125,9 @@ export const DEFAULT_CONFIG = Object.freeze({
     critChanceCurve: Object.freeze({ knee: 1.15, soft: 0.5 }),
     critMultiplierCurve: Object.freeze({ knee: 1.65, soft: 0.25 }),
     justMultiplierCurve: Object.freeze({ knee: 5.1, soft: 1 }),
-    // 基準の回数 N(g) = 10 × g^0.5(N(1) = 10・N(100) = 100):育てた装備は、各枠で g のクレートを N(g) 個引いた中の最良(D-254)。
-    referenceDrawsFirst: 10,
+    // 育てた装備の 1 種類あたりの候補の数 N(g) = 30 × g^0.5(N(1) = 30・N(100) = 300)。引く回数の合計 T(g) = 6 × N(g)
+    // (T(1) = 180・T(100) = 1800。装備の種類 6 つに等しく分ける:D-355。前は N(g) = 10 × g^0.5 で合計 3N(g):D-254・D-327)。
+    referenceDrawsFirst: 30,
     referenceDrawsExponent: 0.5,
     // 餌の価格 = 強い魚 1 匹のウロコイン × 0.8(期待報酬の 7〜9 割:D-265)。
     baitPriceRatio: 0.8,
@@ -142,8 +143,10 @@ export const DEFAULT_CONFIG = Object.freeze({
     // ヌシの命中回数の目標(D-254)と、体力の基準の装備(育てた装備の目安。シミュレーションで合わせた)。
     bossHitsFirst: 5,
     bossHitsLast: 12,
-    bossReference: Object.freeze({ levelRatio: 0.45, penGap: 0.05, penGapDraws: 17, reelRatio: 0.4, scale: 1, growth: 0.1, positionScale: Object.freeze([0.7, 0.8, 0.98, 1.2, 1.38]) }),
+    bossReference: Object.freeze({ levelRatio: 0.45, penGap: 0.05, penGapDraws: 17, reelRatio: 0.4, scale: 1, growth: 0.14, positionScale: Object.freeze([1.0, 1.3, 1.55, 1.75, 2.4]) }),
     stagesPerGround: 5,
+    // 序盤(防御のない g=1〜2)のヌシの体力の上限。装備なしでも(少し外しても)倒せるように(D-358)。
+    earlyBossHpMax: 120,
     noPenTapsFactor: 1.3,
     noPenBonusDraws: 45,
   }),
@@ -156,11 +159,12 @@ export const DEFAULT_CONFIG = Object.freeze({
   glove: Object.freeze({ max: 20, crateChance: 0.005, retryEvery: 10, tailwindCapMs: 3000, minNormalBand: 0.2 }),
   // クレートガチャ(D-140・D-147・D-149・D-253)。
   gacha: Object.freeze({
-    targetSeconds: 60, // クレート 1 回分が貯まる目標の時間(D-253:120 → 60)
+    targetSeconds: 15, // クレート 1 回分が貯まる目標の時間(シミュレーション上。D-253:120 → 60、D-355:60 → 15)
     justRate: 0.7, // 価格の稼ぎを見積もるときの、ジャストの割合(「上手」:D-259)
     secondsPerCast: 8.6, // 1 回投げて結果が出るまでの平均の時間(上手に遊んだときの測定:Issue 14)
     gradeGrowth: 0.35, // グレードが 1 上がるごとに、基本効果の範囲が増える割合
-    inventoryMax: 100, // 持ち物の上限
+    inventoryMax: 300, // 持ち物の上限(D-355:100 → 300)
+    spaceWarnRatio: 0.1, // 満タン警告のしきい値 = 上限 × この割合(300 個なら残り 30 個:D-355)
     pullMax: 10, // 1 回に引ける最大(10 連)
   }),
 });

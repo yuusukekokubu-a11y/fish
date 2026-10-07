@@ -72,8 +72,10 @@ const OLD = {
   craft: [3, 4, 4, 5, 6],
 };
 const OLD_PRICE = [20, 46, 110, 260, 630];
+/** 目標の時間 60 秒のときの価格(D-253)。D-355 で 15 秒にしたので、いまはおよそ 4 分の 1。 */
+const PRICE_60 = [12, 28, 67, 160, 370];
 
-test("g=1〜5 の値は、②-4b4 のときの値から ±15% 以内(体力・報酬・製作の数・装備)。価格はおよそ半分", () => {
+test("g=1〜5 の値は、②-4b4 のときの値から ±15% 以内(体力・報酬・製作の数・装備)。価格は 60 秒のときのおよそ 4 分の 1", () => {
   const prices = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG).map((c) => c.price).slice(0, 5);
   const now = {
     weakCoins: [1, 2, 3, 4, 5].map((g) => fishCoins("weak", g)),
@@ -83,11 +85,12 @@ test("g=1〜5 の値は、②-4b4 のときの値から ±15% 以内(体力・�
     strongTime: [1, 2, 3, 4, 5].map((g) => fishMinigame("strong", g).timeLimitMs),
     craft: [1, 2, 3, 4, 5].map((g) => craftCount(g)),
   };
-  // 価格は、およそ半分(目標の時間 60 秒。弱い魚のジャストの分だけ、ちょうど半分より少し高い:D-253・D-258)。
+  // 価格は、目標の時間 60 秒のときの、およそ 4 分の 1(15 秒:D-355。上から 2 けたに丸めるので少しずれる)。
   prices.forEach((p, i) => {
-    const ratio = p / OLD_PRICE[i];
-    assert.ok(ratio >= 0.45 && ratio <= 0.65, `価格 g=${i + 1}:${OLD_PRICE[i]} → ${p}(${ratio.toFixed(2)} 倍)`);
+    const ratio = p / PRICE_60[i];
+    assert.ok(ratio >= 0.2 && ratio <= 0.3, `価格 g=${i + 1}:${PRICE_60[i]} → ${p}(${ratio.toFixed(2)} 倍)`);
   });
+  assert.ok(OLD_PRICE.every((p, i) => prices[i] < p / 4), "②-4b4 のときの 4 分の 1 より安い");
   for (const [k, olds] of Object.entries(OLD)) {
     olds.forEach((old, i) => {
       const diff = Math.abs(now[k][i] - old) / old;

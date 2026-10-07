@@ -7,6 +7,8 @@ import { test } from "node:test";
 import { createGame, currentMarker, PHASES, tap, update } from "../src/core/fishing.js";
 import { isHit } from "../src/core/minigame.js";
 import {
+  addPlayTime,
+  addPulls,
   addToPlayLog,
   emptyPlayLog,
   fightEntry,
@@ -116,6 +118,7 @@ function sampleLog() {
     v: 1,
     fights: [e("strong", 1, true, 8, 0, 2), e("boss", 5, false, 10, 2, 8), e("strong", 1, false, 2, 0, 2), e("boss", 5, true, 12, 0, 0), e("boss", 2, true, 6, 0, 2)],
     hooks: { just: 3, good: 5, fail: 2 },
+    totals: { pulls: 40, playMs: 740000, coins: 123456, scales: 30 },
   };
 }
 
@@ -150,6 +153,8 @@ test("コピーの文章:数字だけの短い表。セーブコードや個人�
   assert.equal(lines[1], "戦闘 5 勝ち 3 勝率 60.0%");
   assert.equal(lines[2], "命中 38 かすり 2 ミス 14 保険 0 ミス率 25.9%");
   assert.equal(lines[3], "合わせ 10 ジャスト 30.0% 成功 50.0% 失敗 20.0%");
+  assert.equal(lines[4], "遊んだ時間 12.3 分 ガチャ 40 回 平均の間隔 18.5 秒");
+  assert.equal(lines[5], "ウロコイン 123456 1 分あたり 10010 鱗 30");
   assert.ok(lines.includes("強い 1 2 1 28.6%"));
   assert.ok(lines.includes("ヌシ 5 2 1 25.0%"));
   assert.ok(lines.includes("10 ヌシ 2 勝 6 0 2 0 6 8.0 25.0% -"), "直近の 1 行目(新しい戦闘)");
@@ -216,4 +221,66 @@ test("保存場所:本番とデバッグで別のキー(ゲームの保存とも
   r2.add(game, game.lastResult);
   assert.equal(r2.flush(), false);
   r2.reset();
+});
+
+test("通算(形の版 2):ガチャを引いた回数・遊んだ時間・稼いだウロコインと鱗。版 1 の記録も読める(通算は 0 から)", () => {
+  const log = emptyPlayLog();
+  assert.equal(log.v, 2);
+  assert.deepEqual(log.totals, { pulls: 0, playMs: 0, coins: 0, scales: 0 });
+  // ガチャ:1 回引き・10 連は 1 個ずつ。11 以上・0 以下の飛び(読み込みなど)は数えない。
+  assert.equal(addPulls(log, 1), true);
+  assert.equal(addPulls(log, 10), true);
+  assert.equal(addPulls(log, 11), false);
+  assert.equal(addPulls(log, -5), false);
+  assert.equal(log.totals.pulls, 11);
+  // 遊んだ時間。
+  addPlayTime(log, 16.7);
+  addPlayTime(log, -3);
+  addPlayTime(log, NaN);
+  assert.equal(log.totals.playMs, 17);
+  // 稼いだウロコインと鱗は、釣った魚の報酬だけ(逃げた魚は 0)。
+  const game = playFight("buri");
+  const r = game.lastResult;
+  addToPlayLog(log, game, r);
+  addToPlayLog(log, game, { kind: "weak", fishId: "aji", outcome: "caught", hook: "good", reward: { coins: 5, scales: 0 } });
+  addToPlayLog(log, game, { kind: "weak", fishId: "aji", outcome: "escaped", reason: "late", hook: null, reward: { coins: 0, scales: 0 } });
+  assert.deepEqual([log.totals.coins, log.totals.scales], [r.reward.coins + 5, r.reward.scales]);
+  // 集計:平均の間隔(秒)と、1 分あたりのウロコイン。時間 0・回数 0 なら「-」。
+  const sum = summarizePlayLog({ ...emptyPlayLog(), totals: { pulls: 4, playMs: 120000, coins: 600, scales: 2 } });
+  assert.deepEqual([sum.pullGapSec, sum.coinsPerMin], [30, 300]);
+  const none = summarizePlayLog(emptyPlayLog());
+  assert.deepEqual([none.pullGapSec, none.coinsPerMin], [null, null]);
+  // 版 1(通算の欄がない)は、戦闘と合わせを残して、通算を 0 から。形のちがう欄も 0。
+  const old = parsePlayLog(JSON.stringify({ v: 1, fights: [], hooks: { just: 1, good: 2, fail: 3 } }));
+  assert.deepEqual([old.v, old.hooks, old.totals], [2, { just: 1, good: 2, fail: 3 }, { pulls: 0, playMs: 0, coins: 0, scales: 0 }]);
+  assert.deepEqual(parsePlayLog(JSON.stringify({ v: 2, fights: [], hooks: {}, totals: { pulls: "x", playMs: -1, coins: 5, scales: 1.5 } })).totals, { pulls: 0, playMs: 0, coins: 5, scales: 0 });
+  assert.deepEqual(parsePlayLog(JSON.stringify({ v: 3, fights: [] })), emptyPlayLog(), "まだない版は空から");
+  // 往復。
+  assert.deepEqual(parsePlayLog(stringifyPlayLog(log)), log);
+  // 画面の行。
+  const rows = playLogRows({ ...emptyPlayLog(), totals: { pulls: 4, playMs: 120000, coins: 600, scales: 2 } });
+  assert.deepEqual(rows.totals.slice(-4), [["遊んだ時間", "2.0 分"], ["ガチャ", "4 回(平均の間隔 30.0 秒)"], ["ウロコイン", "600(1 分あたり 300)"], ["鱗", "2"]]);
+});
+
+test("記録の器:ガチャを引いた回数は、引いた回数の通算の増え方から数える。遊んだ時間だけでは書かず、ページを離れるときに書く", () => {
+  const store = fakeStore();
+  const rec = createPlayLogRecorder(store, PLAY_LOG_KEY);
+  const game = createGame(1, { progress: progressAt(1, ROD_STEPS.NONE, { coins: 1000 }) });
+  rec.observe(game); // 最初は数え始めの位置だけ。
+  game.progress.gear.draws += 10;
+  rec.observe(game);
+  game.progress.gear.draws += 1;
+  rec.observe(game);
+  game.progress.gear.draws += 500; // 読み込みなどで飛んだ分は数えない。
+  rec.observe(game);
+  assert.equal(rec.log().totals.pulls, 11);
+  assert.equal(rec.dirty(), true);
+  assert.equal(rec.flush(), true);
+  // 遊んだ時間だけ:ふつうは書かない。ページを離れるとき(force)は書く。
+  rec.addTime(1000);
+  assert.equal(rec.dirty(), false);
+  assert.equal(rec.flush(), false);
+  assert.equal(rec.flush(true), true);
+  assert.equal(createPlayLogRecorder(store, PLAY_LOG_KEY).log().totals.playMs, 1000);
+  assert.equal(rec.flush(true), false, "書いたあとは、増えるまで書かない");
 });

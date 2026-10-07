@@ -262,18 +262,18 @@ test("壊れた・範囲外・存在しない魚や工程・重複・装着の�
   // 表の最後でない段階の「進化済み」は、次の段階の未製作として読む(表に段階が足されたとき:D-350)。
   const evolved = decodeSaveCode(withField(1, "2.3"));
   assert.deepEqual(evolved.ok ? [evolved.progress.rodStage, evolved.progress.rodStep] : null, [3, "none"]);
-  // 持ち物が 100 個をこえる(装着なし、次の番号は 200)。
+  // 持ち物が上限(300 個:D-355)をこえる(装着なし、次の番号は 400)。
   const parts = encodeSave(sample()).split("~");
-  parts[4] = "5.3f.5k";
+  parts[4] = "5.3f.b4";
   parts[5] = "";
-  parts[6] = Array.from({ length: 101 }, () => "1.8.1.5").join(",");
-  parts[7] = "0".repeat(101);
+  parts[6] = Array.from({ length: 301 }, () => "1.8.1.5").join(",");
+  parts[7] = "0".repeat(301);
   parts[8] = "0.0.0";
   parts[9] = "";
   assert.equal(decodeSaveCode(codeOf(parts.join("~"))).error, "content");
-  parts[6] = Array.from({ length: 100 }, () => "1.8.1.5").join(",");
-  parts[7] = "1".repeat(100);
-  assert.equal(decodeSaveCode(codeOf(parts.join("~"))).ok, true, "100 個までは読める");
+  parts[6] = Array.from({ length: 300 }, () => "1.8.1.5").join(",");
+  parts[7] = "1".repeat(300);
+  assert.equal(decodeSaveCode(codeOf(parts.join("~"))).ok, true, "300 個までは読める");
 });
 
 test("壊れた保存データは、エラーにせず初めの状態にする(いまのデータは書き換えない)", () => {

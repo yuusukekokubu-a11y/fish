@@ -3,27 +3,34 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createGame } from "../src/core/fishing.js";
 import { emptyGear, makeCrates, pullCrate } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
 import { SKILL_ROWS } from "../src/core/skills.js";
-import { inventoryWarning } from "../src/ui/gear_view.js";
+import { inventoryWarning, spaceWarnAt } from "../src/ui/gear_view.js";
 import { SCREENS } from "../src/ui/screens.js";
 import { SKILL_GROUPS, skillGroups } from "../src/ui/skill_view.js";
 import { progressAt } from "./helpers.js";
 
+/** 持ち物の上限(300)と、黄色の警告のしきい値(上限の 10% = 30:D-355)。 */
+const MAX = DEFAULT_CONFIG.gacha.inventoryMax;
+const WARN = 30;
+
 const filler = (n) => Array.from({ length: n }, (_, i) => ({ id: i + 1, kind: "line", rarity: "normal", grade: 1, value: 500, skills: [] }));
 
 function gameWithSpace(space, coins = 100000) {
-  const items = filler(100 - space);
+  const items = filler(MAX - space);
   const gear = { ...emptyGear(), seed: 1, items, nextId: items.length + 1 };
   return createGame(1, { progress: progressAt(1, ROD_STEPS.NONE, { coins, gear }) });
 }
 
-test("空き 11/10/9/1/0 の警告:黄・10 連を押せない・赤と装備へ。目次の「!」も同じ", () => {
+test("上限 300・空き 31/30/10/9/1/0 の警告:黄(30 以下)・10 連を押せない・赤と装備へ。目次の「!」も同じ", () => {
+  assert.deepEqual([MAX, spaceWarnAt(DEFAULT_CONFIG.gacha)], [300, WARN]);
   const badge = SCREENS.find((s) => s.id === "equipment").badge;
   const cases = [
-    [11, null, false, false],
+    [WARN + 1, null, false, false],
+    [WARN, "warn", false, false],
     [10, "warn", false, false],
     [9, "warn", true, false],
     [1, "warn", true, false],
@@ -42,8 +49,8 @@ test("空き 11/10/9/1/0 の警告:黄・10 連を押せない・赤と装備へ
   }
 });
 
-test("引けないときは、装備は増えず、ウロコインも減らない(空き 9 の 10 連・空き 0 の 1 回)。空き 9 の 1 回は引ける", () => {
-  for (const [space, count, ok] of [[9, 10, false], [0, 1, false], [9, 1, true], [10, 10, true]]) {
+test("引けないときは、装備は増えず、ウロコインも減らない(空き 9 の 10 連・空き 0 の 1 回=300 個で止まる)。空き 9 の 1 回・空き 1 の 1 回は引ける(300 個ちょうどになる)", () => {
+  for (const [space, count, ok] of [[9, 10, false], [0, 1, false], [9, 1, true], [10, 10, true], [1, 1, true]]) {
     const game = gameWithSpace(space);
     const crate = makeCrates(game.content, game.config)[0];
     const coins = game.progress.coins;

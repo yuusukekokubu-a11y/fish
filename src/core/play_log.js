@@ -13,7 +13,11 @@ import { equippedGlove } from "./glove.js";
 import { gloveBag } from "./glove_play.js";
 
 /** 記録の形の版(形を変えたら上げる。版がちがう記録は、空から始める)。 */
-export const PLAY_LOG_VERSION = 1;
+export const PLAY_LOG_VERSION = 2;
+/** 読める古い形の版(足りない欄は 0 から:D-356)。 */
+const READABLE_VERSIONS = Object.freeze([1, 2]);
+/** 1 回に数える、ガチャを引いた回数の上限(10 連。読み込みなどで回数が飛んだときは数えない)。 */
+const MAX_PULLS_AT_ONCE = 10;
 /** 戦闘の記録を残す数(新しいほうから)。 */
 export const PLAY_LOG_MAX = 200;
 /** 一覧に出す直近の戦闘の数。 */
@@ -43,11 +47,21 @@ export const PLAY_LOG_RECENT = 20;
  * @property {number} v 形の版
  * @property {FightEntry[]} fights 戦闘の記録(古い順。最大 PLAY_LOG_MAX 件)
  * @property {{ just: number, good: number, fail: number }} hooks 合わせの結果の通算
+ * @property {PlayTotals} totals 通算(形の版 2 で足した:D-356)
+ */
+
+/**
+ * 通算(D-356)。
+ * @typedef {object} PlayTotals
+ * @property {number} pulls ガチャを引いた回数(1 回引き・10 連とも 1 個ずつ。10 連は 10)
+ * @property {number} playMs 遊んだ時間(釣りと戦闘が進んでいる時間。メニュー・全画面・画面が隠れている時間は除く)
+ * @property {number} coins 稼いだウロコイン(釣った魚の報酬。分解で戻る分は除く)
+ * @property {number} scales 稼いだ鱗
  */
 
 /** 空の記録。 @returns {PlayLog} */
 export function emptyPlayLog() {
-  return { v: PLAY_LOG_VERSION, fights: [], hooks: { just: 0, good: 0, fail: 0 } };
+  return { v: PLAY_LOG_VERSION, fights: [], hooks: { just: 0, good: 0, fail: 0 }, totals: { pulls: 0, playMs: 0, coins: 0, scales: 0 } };
 }
 
 /** 0 以上の整数か。 @param {unknown} n */
@@ -84,12 +98,16 @@ export function parsePlayLog(text) {
   if (typeof text !== "string" || text === "") return emptyPlayLog();
   try {
     const data = JSON.parse(text);
-    if (!data || data.v !== PLAY_LOG_VERSION || !Array.isArray(data.fights)) return emptyPlayLog();
+    if (!data || !READABLE_VERSIONS.includes(data.v) || !Array.isArray(data.fights)) return emptyPlayLog();
     const h = data.hooks ?? {};
+    // 版 1 には通算の欄がない。足りない欄・形のちがう欄は 0 から(D-356)。
+    const t = data.totals ?? {};
+    const n = (/** @type {unknown} */ x) => (count(x) ? /** @type {number} */ (x) : 0);
     return {
       v: PLAY_LOG_VERSION,
       fights: data.fights.filter(isEntry).slice(-PLAY_LOG_MAX),
-      hooks: { just: count(h.just) ? h.just : 0, good: count(h.good) ? h.good : 0, fail: count(h.fail) ? h.fail : 0 },
+      hooks: { just: n(h.just), good: n(h.good), fail: n(h.fail) },
+      totals: { pulls: n(t.pulls), playMs: n(t.playMs), coins: n(t.coins), scales: n(t.scales) },
     };
   } catch {
     return emptyPlayLog();
@@ -149,6 +167,13 @@ export function hookKind(result) {
  */
 export function addToPlayLog(log, game, result) {
   let changed = false;
+  // 稼いだウロコインと鱗(釣った魚の報酬だけ:D-356)。安全な整数の範囲で止める。
+  const reward = result?.reward;
+  if (reward && (reward.coins > 0 || reward.scales > 0)) {
+    log.totals.coins = Math.min(Number.MAX_SAFE_INTEGER, log.totals.coins + (reward.coins ?? 0));
+    log.totals.scales = Math.min(Number.MAX_SAFE_INTEGER, log.totals.scales + (reward.scales ?? 0));
+    changed = true;
+  }
   const hook = hookKind(result);
   if (hook) {
     log.hooks[hook] += 1;
@@ -161,6 +186,25 @@ export function addToPlayLog(log, game, result) {
     changed = true;
   }
   return changed;
+}
+
+/**
+ * ガチャを引いた回数を足す(引いた回数の通算の増え方から)。1〜10 のときだけ数える(読み込みなどで飛んだ分は数えない)。足したら true。
+ * @param {PlayLog} log @param {number} delta
+ */
+export function addPulls(log, delta) {
+  if (!Number.isSafeInteger(delta) || delta < 1 || delta > MAX_PULLS_AT_ONCE) return false;
+  log.totals.pulls += delta;
+  return true;
+}
+
+/**
+ * 遊んだ時間を足す(ミリ秒。釣りと戦闘が進んだ分だけ。画面の役目で呼ぶ)。
+ * @param {PlayLog} log @param {number} ms
+ */
+export function addPlayTime(log, ms) {
+  if (!(ms > 0) || !Number.isFinite(ms)) return;
+  log.totals.playMs = Math.min(Number.MAX_SAFE_INTEGER, Math.round(log.totals.playMs + ms));
 }
 
 /** 割合(分母 0 なら null)。 @param {number} a @param {number} b */
@@ -196,7 +240,15 @@ export function summarizePlayLog(log) {
     .sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind) || a.s - b.s)
     .map((r) => ({ kind: r.kind, s: r.s, fights: r.fights, wins: r.wins, missRate: rate(r.misses, r.hits + r.grazes + r.misses) }));
   const hookTotal = log.hooks.just + log.hooks.good + log.hooks.fail;
+  const t = log.totals;
   return {
+    // 通算(D-356):平均のガチャの間隔(遊んだ時間 ÷ 引いた回数。秒)、ウロコインを稼いだ速さ(1 分あたり)。
+    pulls: t.pulls,
+    playSec: t.playMs / 1000,
+    coins: t.coins,
+    scales: t.scales,
+    pullGapSec: t.pulls > 0 ? t.playMs / 1000 / t.pulls : null,
+    coinsPerMin: t.playMs > 0 ? t.coins / (t.playMs / 60000) : null,
     fights: log.fights.length,
     wins,
     winRate: rate(wins, log.fights.length),
@@ -221,6 +273,21 @@ export function percentText(r) {
   return r === null ? "-" : `${(Math.round(r * 1000) / 10).toFixed(1)}%`;
 }
 
+/** 分の文字(「12.5 分」)。 @param {number} sec */
+export function minutesText(sec) {
+  return `${(Math.round((sec / 60) * 10) / 10).toFixed(1)} 分`;
+}
+
+/** 秒の文字(「18.5 秒」。null は「-」)。 @param {number | null} sec */
+export function secondsText(sec) {
+  return sec === null ? "-" : `${(Math.round(sec * 10) / 10).toFixed(1)} 秒`;
+}
+
+/** 速さの文字(整数に丸める。null は「-」)。 @param {number | null} v */
+export function rateText(v) {
+  return v === null ? "-" : String(Math.round(v));
+}
+
 /** 区分の短い名前。 @param {string} kind */
 export function kindLabel(kind) {
   return kind === FISH_KINDS.BOSS ? "ヌシ" : "強い";
@@ -237,6 +304,8 @@ export function playLogText(sum, title, version) {
     `戦闘 ${sum.fights} 勝ち ${sum.wins} 勝率 ${percentText(sum.winRate)}`,
     `命中 ${sum.hits} かすり ${sum.grazes} ミス ${sum.misses} 保険 ${sum.insured} ミス率 ${percentText(sum.missRate)}`,
     `合わせ ${sum.hooks.total} ジャスト ${percentText(sum.hooks.just)} 成功 ${percentText(sum.hooks.good)} 失敗 ${percentText(sum.hooks.fail)}`,
+    `遊んだ時間 ${minutesText(sum.playSec)} ガチャ ${sum.pulls} 回 平均の間隔 ${secondsText(sum.pullGapSec)}`,
+    `ウロコイン ${sum.coins} 1 分あたり ${rateText(sum.coinsPerMin)} 鱗 ${sum.scales}`,
     "",
     "区分 s 挑戦 勝ち ミス率",
     ...sum.table.map((r) => `${kindLabel(r.kind)} ${r.s} ${r.fights} ${r.wins} ${percentText(r.missRate)}`),

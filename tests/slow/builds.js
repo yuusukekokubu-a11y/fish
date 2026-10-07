@@ -1,6 +1,6 @@
 // 重いテストで共通に使う、装備の組み立てと戦闘のシミュレーション(テストではない:D-254・D-260)。
 // - 平均的な装備:レア・グレード g・値は真ん中・スキルなし(②-4c 土台の時間の測定と同じ)。
-// - 育てた装備:段階 g のクレートを 3 × N(g) 個引いた中から(枠が 6 つでも引く数は同じ:D-327)、6 枠の組み合わせで、
+// - 育てた装備:段階 g のクレートを T(g) = 6 × N(g) 個引いた中から(D-355)、6 枠の組み合わせで、
 //   命中回数が最も少ないもの(D-254・D-322)。
 // - 最強の装備:レジェンド・グレード g・値は最大。スキル枠 18(3 個 × 6 枠)を、命中回数が最も少ない組み合わせで埋めたもの。
 // 戦闘は「上手」:印が命中範囲の真ん中に来るたびに必ずタップする(真ん中 = 芯。縁は狙わない)。
@@ -119,7 +119,7 @@ function dominates(a, b) {
  * 選び方:(1) 糸・リール・ルアーの全部の組み合わせを 1 シードで比べ、良い 10 通りを 3 シードで比べ直す。
  * (2) おもり・浮き・おまもりを、この順に 1 枠ずつ、3 シードで一番良い候補に決める(何も付けないより悪ければ付けない)。
  * (3) 6 枠を順に、ほかを決めたまま 3 シードで一番良い候補に替える(1 周)。
- * noPen なら、貫通と連撃・貫を持つ装備は使わない。missEvery なら、その遊び方(n 回に 1 回すぐ外)で比べて選ぶ。
+ * noPen なら、貫通と連撃・貫を持つ装備は使わない。rarities なら、そのレア度の装備だけを使う。missEvery なら、その遊び方(n 回に 1 回すぐ外)で比べて選ぶ。
  */
 export function grownItems(content, g, fishId, seed, options = {}) {
   const noPen = options.noPen ?? false;
@@ -128,14 +128,17 @@ export function grownItems(content, g, fishId, seed, options = {}) {
   const crate = makeCrates(content, DEFAULT_CONFIG)[g - 1];
   const per = options.per ?? referenceDraws(g);
   const byKind = new Map(content.equipKinds.map((k) => [k.id, []]));
-  const total = per * BASE_KIND_IDS.length;
+  // 引く回数の合計 T(g) = N(g) × 装備の種類の数(6)。種類ごとの候補は、引いた順に分ける(D-355)。
+  const total = per * content.equipKinds.length;
   for (let i = 0; i < total; i++) {
     const it = drawItem(seed, i, crate, content.equipKinds, GG);
     byKind.get(it.kind).push(it);
   }
   const isPen = (it) => it.skills.some((s) => s.id === "penetration" || s.id === "combo-pen");
+  // rarities:使ってよいレア度(ノーマルとレアだけの育てた装備:D-355)。
+  const rarityOk = (it) => !options.rarities || options.rarities.includes(it.rarity);
   const candidates = content.equipKinds.map((kind) => {
-    const own = byKind.get(kind.id).filter((it) => !(noPen && isPen(it)));
+    const own = byKind.get(kind.id).filter((it) => !(noPen && isPen(it)) && rarityOk(it));
     return own.filter((it, i) => !own.some((o, j) => j !== i && dominates(o, it) && (!dominates(it, o) || j < i)));
   });
   const baseIdx = BASE_KIND_IDS.map((id) => content.equipKinds.findIndex((k) => k.id === id));

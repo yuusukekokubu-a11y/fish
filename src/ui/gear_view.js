@@ -119,16 +119,21 @@ export function inventorySpaceLabel(game) {
   return left === 0 ? "持ち物がいっぱいです" : `持ち物 あと ${left} 個`;
 }
 
-/** 空きがこの数以下になったら、黄色の警告を出す(D-216)。 */
-export const SPACE_WARN_AT = 10;
+/**
+ * 空きがこの数以下になったら、黄色の警告を出す(D-216)。上限 × spaceWarnRatio(300 個なら 30 個:D-355)。
+ * @param {{ inventoryMax: number, spaceWarnRatio?: number }} gacha
+ */
+export function spaceWarnAt(gacha) {
+  return Math.ceil(gacha.inventoryMax * (gacha.spaceWarnRatio ?? 0.1));
+}
 
 /**
  * 持ち物の空きの警告(D-216)。
- * - level:空き 11 以上は null、1〜10 は "warn"(黄)、0 は "full"(赤)。
+ * - level:空きが警告のしきい値(spaceWarnAt。300 個なら 30)より多ければ null、1〜しきい値は "warn"(黄)、0 は "full"(赤)。
  * - tenBlocked:10 連に要る空きが足りない(10 連のボタンを押せなくする)。oneBlocked:1 回も引けない。
  * - locked・lockedText:ロック中の数と、「ロック中 12 個は、分解できません」(警告があり、ロック中が 1 個以上のとき:D-246)。
  *   全部ロック中で満タンのときは、ロックを外すように案内する。
- * @param {{ config: { gacha: { inventoryMax: number, pullMax: number } }, progress: { gear: { items: { locked?: boolean }[] } } }} game
+ * @param {{ config: { gacha: { inventoryMax: number, pullMax: number, spaceWarnRatio?: number } }, progress: { gear: { items: { locked?: boolean }[] } } }} game
  */
 export function inventoryWarning(game) {
   const { inventoryMax, pullMax } = game.config.gacha;
@@ -136,7 +141,7 @@ export function inventoryWarning(game) {
   const left = Math.max(0, inventoryMax - items.length);
   const locked = items.filter((it) => it.locked).length;
   /** @type {"warn" | "full" | null} */
-  const level = left === 0 ? "full" : left <= SPACE_WARN_AT ? "warn" : null;
+  const level = left === 0 ? "full" : left <= spaceWarnAt(game.config.gacha) ? "warn" : null;
   const allLocked = items.length > 0 && locked === items.length;
   return {
     left,

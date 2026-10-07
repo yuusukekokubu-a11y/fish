@@ -28,11 +28,11 @@ function gameWith(stage, coins, items = [], equipped = {}) {
 }
 
 test("クレートの画面:解放済みだけを段階の新しい順に。価格は 1 回と 10 連、足りないと引けない理由", () => {
-  const game = gameWith(3, 50);
+  const game = gameWith(3, 10);
   const crates = makeCrates(game.content, game.config);
   const cards = crateCards(game, crates);
   assert.deepEqual(cards.map((c) => c.name), ["ヒラメのクレート", "スズキのクレート", "クロダイのクレート"]);
-  assert.deepEqual(cards[0].price, { one: "67", ten: "670" });
+  assert.deepEqual(cards[0].price, { one: "17", ten: "170" });
   assert.deepEqual(cards[0].blockers, { one: "coins", ten: "coins" });
   assert.deepEqual(cards[2].blockers, { one: null, ten: "coins" });
   assert.deepEqual(cards[0].rates.map((r) => r.rate), ["70%", "22%", "6.5%", "1.5%"]);
@@ -69,7 +69,7 @@ test("装備の画面:6 枠、持ち物の並べ替え、差と ▲、まとめ�
   assert.deepEqual([equipped.equipped, equipped.better, equipped.diff], [true, false, "±0"]);
   assert.deepEqual([worse.better, worse.diff, worse.diffSign], [false, "−1", -1]);
   assert.deepEqual(bulkDismantlePreview(game, crates, "normal"), { count: 1, coins: worse.refund, locked: 0 });
-  assert.equal(inventoryLabel(game), "持ち物 4 / 100");
+  assert.equal(inventoryLabel(game), "持ち物 4 / 300");
 });
 
 test("引いた結果:一番良いレア度を強調し、▲ は引く前の装着と比べる", () => {
@@ -93,7 +93,7 @@ test("持ち物の空き(「あと n 個」)と、種類での絞り込み、ま
   const items = [item(1, "reel", "normal", 1, 2), item(2, "line", "normal", 1, 500), item(3, "line", "rare", 1, 1000)];
   const game = gameWith(1, 0, items);
   const crates = makeCrates(game.content, game.config);
-  assert.equal(inventorySpaceLabel(game), "持ち物 あと 97 個");
+  assert.equal(inventorySpaceLabel(game), "持ち物 あと 297 個");
   assert.deepEqual(inventoryRows(game, crates, "new", "line").map((v) => v.id), [3, 2]);
   assert.deepEqual(inventoryRows(game, crates, "new", null).map((v) => v.id), [3, 2, 1]);
   equipItem(game.progress.gear, 1);
@@ -104,7 +104,7 @@ test("持ち物の空き(「あと n 個」)と、種類での絞り込み、ま
     ["epic", "★★★", 0],
     ["legend", "★★★★", 0],
   ]);
-  const full = gameWith(1, 0, Array.from({ length: 100 }, (_, i) => item(i + 1, "reel", "normal", 1, 1)));
+  const full = gameWith(1, 0, Array.from({ length: 300 }, (_, i) => item(i + 1, "reel", "normal", 1, 1)));
   assert.equal(inventorySpaceLabel(full), "持ち物がいっぱいです");
 });
 
