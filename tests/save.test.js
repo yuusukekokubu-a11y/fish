@@ -12,7 +12,7 @@ import { levelRange, SKILL_ROWS } from "../src/core/skills.js";
 import { syntheticContent } from "../src/core/synthetic.js";
 import { decodeSave, encodeSave, initialProgress, SAVE_VERSION, STEP_ORDER, UPGRADES, upgradeSave } from "../src/core/save.js";
 import { checksum, decodeSaveCode, encodeSaveCode, parseSave, SAVE_CODE_ERRORS } from "../src/core/savecode.js";
-import { readText } from "./helpers.js";
+import { asCurrentTable, readText } from "./helpers.js";
 
 /** いろいろな値を持つ、正しい進み具合。 */
 function sample() {
@@ -136,7 +136,7 @@ test("版 3(TSURI3)を版 4 に読み替える:釣り場は竿の段階の釣り
   assert.deepEqual(r.progress.gear.items[0].skills, [{ id: "power", level: 2 }, { id: "agility", level: 1 }, { id: "recovery", level: 1 }]);
   assert.equal("area" in r.progress, false, "いちばん新しい釣り場(磯)");
   // 表に次の段階がない「進化済み」は、そのまま(最後の段階)。
-  assert.equal(UPGRADES[3]("1~a.3~~~0..1~~~~0.0.0", DEFAULT_CONTENT), "1~a.3~~~0..1~~~~0.0.0~");
+  assert.equal(UPGRADES[3]("1~k.3~~~0..1~~~~0.0.0", DEFAULT_CONTENT), "1~k.3~~~0..1~~~~0.0.0~");
   // 版 1 なのに 8 つの欄(ロックの欄つき)は拒否。
   assert.equal(decodeSaveCode(`TSURI1-${V1_BODY}~000-${checksum(`${V1_BODY}~000`)}`).error, "content");
 });
@@ -206,15 +206,14 @@ test("壊れた・範囲外・存在しない魚や工程・重複・装着の�
     ウロコインの先頭が0: withField(0, "01"),
     ウロコインが記号: withField(0, "-1"),
     段階0: withField(1, "0.0"),
-    段階が表をこえる: withField(1, "b.0"),
+    段階が表をこえる: withField(1, `${(DEFAULT_CONTENT.maxStage + 1).toString(36)}.0`),
     存在しない工程: withField(1, "2.4"),
-    進化済みは最後の段階だけ: withField(1, "2.3"),
     竿の欄の形: withField(1, "2"),
     存在しない魚の鱗: withField(2, "maguro:1"),
     鱗が0: withField(2, "kurodai:0"),
     鱗が重複: withField(2, "kurodai:1,kurodai:2"),
     鱗の形: withField(2, "kurodai"),
-    存在しない魚を釣った: withField(3, "katsuo"),
+    存在しない魚を釣った: withField(3, "maguro"),
     釣れた魚が重複: withField(3, "aji,aji"),
     ガチャの欄の形: withField(4, "5.3f"),
     ガチャの種が大きすぎ: withField(4, `5.${(2 ** 32).toString(36)}.6`),
@@ -242,7 +241,7 @@ test("壊れた・範囲外・存在しない魚や工程・重複・装着の�
     版4なのに餌の欄がない: codeOf(V2_BODY),
     版4なのに釣り場の欄がない: codeOf(V3_BODY),
     版4で欄が多い: codeOf(`${V3_BODY}~~`),
-    存在しない釣り場: withField(9, "kawa"),
+    存在しない釣り場: withField(9, "gaiyo"),
     釣り場の形: withField(9, "Minato"),
     未解放の釣り場: withField(9, "iso"),
     頭打ち型のレベルが1でない: withField(6, "1.7.1.5F2"),
@@ -260,6 +259,9 @@ test("壊れた・範囲外・存在しない魚や工程・重複・装着の�
     assert.equal(r.ok, false, name);
     assert.equal(r.error, "content", name);
   }
+  // 表の最後でない段階の「進化済み」は、次の段階の未製作として読む(表に段階が足されたとき:D-350)。
+  const evolved = decodeSaveCode(withField(1, "2.3"));
+  assert.deepEqual(evolved.ok ? [evolved.progress.rodStage, evolved.progress.rodStep] : null, [3, "none"]);
   // 持ち物が 100 個をこえる(装着なし、次の番号は 200)。
   const parts = encodeSave(sample()).split("~");
   parts[4] = "5.3f.5k";
@@ -353,7 +355,7 @@ test("互換の正解データ(compat_v1〜v4.json。版 5 の読み替えで、
     assert.equal(fixture.version, version);
     for (const c of fixture.cases) {
       const r = decodeSaveCode(c.code);
-      const expected = version < 4 ? asVersion4(c.progress) : addSeen(structuredClone(c.progress));
+      const expected = asCurrentTable(version < 4 ? asVersion4(c.progress) : addSeen(structuredClone(c.progress)));
       assert.deepEqual(r, { ok: true, progress: expected }, c.name);
       // 書き出すのは今の版。今の版の正解データは書き出しも同じ。古い版は、書き出して読み直すと同じ。
       const code = encodeSaveCode(expected);

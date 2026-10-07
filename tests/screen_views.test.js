@@ -17,12 +17,12 @@ test("素材の画面:鱗を釣り場ごとのグループに段階の順で並�
   const game = createGame(1, { progress: progressAt(2, ROD_STEPS.NONE, { scales: { kurodai: 2, "nushi-kurodai": 1 }, seen: ["aji", "kurodai", "nushi-kurodai"] }) });
   const view = materialsView({ game });
   // いちばん新しい釣り場(港)だけ開く。未解放の釣り場は名前を隠す。
-  assert.deepEqual(view.sections.map((s) => [s.title, s.collapsible, s.open]), [["港", true, true], ["???", true, false]]);
+  assert.deepEqual(view.sections.map((s) => [s.title, s.collapsible, s.open]), [["港", true, true], ["???", true, false], ["???", true, false], ["???", true, false]]);
   const rows = rowsOf(view);
-  assert.equal(rows.length, 20, "強い魚とヌシの鱗(弱い魚は鱗を落とさない)");
+  assert.equal(rows.length, 40, "強い魚とヌシの鱗(弱い魚は鱗を落とさない。4 つの釣り場)");
   // 磯にいると磯が開き、港は折りたたむ。
   const iso = createGame(1, { progress: progressAt(7, ROD_STEPS.NONE, { area: "minato" }) });
-  assert.deepEqual(materialsView({ game: iso }).sections.map((s) => [s.title, s.open]), [["港", false], ["磯", true]]);
+  assert.deepEqual(materialsView({ game: iso }).sections.map((s) => [s.title, s.open]), [["港", false], ["磯", true], ["???", false], ["???", false]]);
   assert.deepEqual(rows.slice(0, 3).map((r) => [r.label, r.value]), [
     ["クロダイの鱗", "2"],
     ["ヌシ・クロダイの鱗", "1"],

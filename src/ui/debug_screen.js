@@ -25,6 +25,7 @@ import {
   startQuickFight,
 } from "./debug_view.js";
 import { button, el } from "./list_view.js";
+import { fillPlayLogSection } from "./play_log_view.js";
 import { readUrlOptions, withUrlOptions } from "./url_params.js";
 
 /**
@@ -38,6 +39,7 @@ import { readUrlOptions, withUrlOptions } from "./url_params.js";
  * @property {() => void} backToMain
  * @property {(hook: { grade: string, strike?: any }) => void} [showHook] 合わせの演出を出す(ジャストの初撃も)
  * @property {{ visible: () => boolean, setVisible: (on: boolean) => void }} [perf] 確かめ用の表示(D-286)
+ * @property {{ main: () => any, debug: () => any, resetDebug: () => void, version: string }} [playLog] 遊びの記録(D-348)
  */
 
 /** @param {string} title */
@@ -294,5 +296,23 @@ export function mountDebug(container, ctx) {
   });
   reset.append(clear);
 
-  container.append(values, perfBox, areaBox, baitBox, make, gloveBox, presets, fight, url, reset);
+  // 遊びの記録(D-348):本番の遊び(読むだけ)とデバッグの遊び。リセットはデバッグの記録だけ(確認つき)。
+  const logBox = section("遊びの記録");
+  const playLog = ctx.playLog;
+  if (playLog) {
+    fillPlayLogSection(logBox, {
+      main: playLog.main(),
+      debug: playLog.debug(),
+      version: playLog.version,
+      say,
+      resetDebug: () => {
+        if (!window.confirm("デバッグの遊びの記録を消します。本番の記録は消えません。よいですか?")) return;
+        playLog.resetDebug();
+        ctx.rerender();
+        say("デバッグの遊びの記録を消しました");
+      },
+    });
+  }
+
+  container.append(values, logBox, perfBox, areaBox, baitBox, make, gloveBox, presets, fight, url, reset);
 }

@@ -34,16 +34,23 @@ test("各段階に、弱い魚・強い魚・ヌシが 1 種類ずつあり、�
   assert.equal(DEFAULT_CONTENT.maxStage, STAGE_LIST.length);
 });
 
-test("港と磯の魚の名前(D-277)。マグロとカツオはいない", () => {
-  const names = (kind, area) => FISH_LIST.filter((f) => f.kind === kind && (area === "港" ? f.stage <= 5 : f.stage >= 6)).map((f) => f.name);
+test("港・磯・川・沖の魚の名前(D-277・D-347)。マグロはいない(外洋の最後に置く)", () => {
+  const RANGE = { 港: [1, 5], 磯: [6, 10], 川: [11, 15], 沖: [16, 20] };
+  const names = (kind, area) => FISH_LIST.filter((f) => f.kind === kind && f.stage >= RANGE[area][0] && f.stage <= RANGE[area][1]).map((f) => f.name);
   assert.deepEqual(names(FISH_KINDS.WEAK, "港"), ["アジ", "イワシ", "サバ", "キス", "カワハギ"]);
   assert.deepEqual(names(FISH_KINDS.STRONG, "港"), ["クロダイ", "スズキ", "ヒラメ", "ワラサ", "ブリ"]);
   assert.deepEqual(names(FISH_KINDS.BOSS, "港"), ["ヌシ・クロダイ", "ヌシ・スズキ", "ヌシ・ヒラメ", "ヌシ・ワラサ", "ヌシ・ブリ"]);
   assert.deepEqual(names(FISH_KINDS.WEAK, "磯"), ["ベラ", "カサゴ", "メバル", "アイナメ", "ソイ"]);
   assert.deepEqual(names(FISH_KINDS.STRONG, "磯"), ["メジナ", "イシダイ", "ブダイ", "イシガキダイ", "クエ"]);
   assert.deepEqual(names(FISH_KINDS.BOSS, "磯"), ["ヌシ・メジナ", "ヌシ・イシダイ", "ヌシ・ブダイ", "ヌシ・イシガキダイ", "ヌシ・クエ"]);
-  assert.ok(!FISH_LIST.some((f) => /マグロ|カツオ/.test(f.name) || /maguro|katsuo/.test(f.id)));
-  assert.deepEqual(FISH_LIST.map((f) => f.stage), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].flatMap((g) => [g, g, g]));
+  assert.deepEqual(names(FISH_KINDS.WEAK, "川"), ["オイカワ", "フナ", "ウグイ", "ニゴイ", "ドジョウ"]);
+  assert.deepEqual(names(FISH_KINDS.STRONG, "川"), ["ヤマメ", "アユ", "ナマズ", "ニジマス", "イトウ"]);
+  assert.deepEqual(names(FISH_KINDS.BOSS, "川"), ["ヌシ・ヤマメ", "ヌシ・アユ", "ヌシ・ナマズ", "ヌシ・ニジマス", "ヌシ・イトウ"]);
+  assert.deepEqual(names(FISH_KINDS.WEAK, "沖"), ["ムロアジ", "イサキ", "サワラ", "ソウダガツオ", "ムツ"]);
+  assert.deepEqual(names(FISH_KINDS.STRONG, "沖"), ["ヒラマサ", "カンパチ", "シイラ", "カツオ", "キハダ"]);
+  assert.deepEqual(names(FISH_KINDS.BOSS, "沖"), ["ヌシ・ヒラマサ", "ヌシ・カンパチ", "ヌシ・シイラ", "ヌシ・カツオ", "ヌシ・キハダ"]);
+  assert.ok(!FISH_LIST.some((f) => /マグロ/.test(f.name) || /maguro/.test(f.id)));
+  assert.deepEqual(FISH_LIST.map((f) => f.stage), Array.from({ length: 20 }, (_, i) => i + 1).flatMap((g) => [g, g, g]));
 });
 
 test("id は重ならず、強い魚とヌシだけがミニゲームの重さを持ち、弱い魚は鱗を落とさない", () => {
@@ -153,7 +160,7 @@ test("表の行は項目名つきで、数値を持たない(数値は式から:
   // 行から作った中の形(報酬は reward にまとまる、段階は魚の表から作り、進化の鱗はヌシ)。
   assert.deepEqual(FISH_LIST[1].reward, { coins: 5, scales: 1 });
   assert.deepEqual(STAGE_LIST[0].evolve, { scale: "nushi-kurodai", count: 1 });
-  assert.deepEqual(STAGE_LIST.map((s) => s.craft.scale), ["kurodai", "suzuki", "hirame", "warasa", "buri", "mejina", "ishidai", "budai", "ishigakidai", "kue"]);
+  assert.deepEqual(STAGE_LIST.map((s) => s.craft.scale), ["kurodai", "suzuki", "hirame", "warasa", "buri", "mejina", "ishidai", "budai", "ishigakidai", "kue", "yamame", "ayu", "namazu", "nijimasu", "itou", "hiramasa", "kanpachi", "shiira", "katsuo", "kihada"]);
 });
 
 test("表の点検は、形のまちがいを見つける", () => {

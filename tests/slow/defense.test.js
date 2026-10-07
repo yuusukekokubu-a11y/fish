@@ -83,6 +83,45 @@ test("磯の実データ(g=6〜10、ヌシ・メジナ〜ヌシ・クエ):s=1 �
   assert.ok(wins / total < 0.06);
 });
 
+/** 目安の外で、報告して相談中のヌシ(D-350):ヌシ・ヒラマサ(g=16・s=1)は 7 回(目安 4〜6 回)。 */
+const KNOWN_OUTSIDE = Object.freeze({ "nushi-hiramasa": 7 });
+
+// 川・沖の本物の表(D-347):磯と同じ条件。報告に、命中回数と戦闘の時間の表を出す。
+test("川・沖の実データ(g=11〜20):s=1 は 4〜6 回、s=5 は 10〜15 回。s=5 は貫通なしで勝率 6% 未満。命中回数と時間の表", () => {
+  const C = DEFAULT_CONTENT;
+  /** @type {string[]} */
+  const problems = [];
+  const lines = ["| g | 釣り場 | s | ヌシ | 体力 | 防御 | 命中回数(中央値)| 最小〜最大 | 時間(秒・中央値)|", "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"];
+  for (let g = 11; g <= 20; g++) {
+    const id = C.stageByNumber.get(g).boss;
+    const s = areaPosition(C, g);
+    const results = GACHA_SEEDS.map((gs) => measure(C, g, grownItems(C, g, id, gs * 1000 + g), id, FIGHT_SEEDS));
+    const per = results.map((r) => r.median);
+    const m = median(per);
+    const ms = median(results.flatMap((r) => r.runs.filter((x) => x.caught).map((x) => x.ms)));
+    const fish = C.byId.get(id);
+    const finite = per.filter(Number.isFinite);
+    lines.push(`| ${g} | ${g <= 15 ? "川" : "沖"} | ${s} | ${fish.name} | ${fish.minigame.hp} | ${Math.round(fish.minigame.defense * 1000) / 10}% | ${m} | ${Math.min(...finite)}〜${Math.max(...finite)}(倒せない種 ${per.length - finite.length}) | ${(ms / 1000).toFixed(1)} |`);
+    const [lo, hi] = s === 1 ? [4, 6] : s === 5 ? [10, 15] : [4, 14];
+    // 目安の外で、報告して相談中のもの(数値は勝手に変えない:D-350)。測った値が変わったら気づけるよう、値で固定する。
+    if (KNOWN_OUTSIDE[id] !== undefined) assert.equal(m, KNOWN_OUTSIDE[id], `${fish.name}(相談中の外れ)`);
+    else if (!(m >= lo && m <= hi)) problems.push(`${fish.name}(g=${g} s=${s}):${m} 回`);
+  }
+  for (const [g, id] of [[15, "nushi-itou"], [20, "nushi-kihada"]]) {
+    let wins = 0;
+    let total = 0;
+    for (const gs of GACHA_SEEDS) {
+      const r = measure(C, g, grownItems(C, g, id, gs * 1000 + g, { noPen: true }), id, Array.from({ length: 20 }, (_, i) => i + 1));
+      wins += r.runs.filter((x) => x.caught).length;
+      total += r.runs.length;
+    }
+    lines.push(`${C.byId.get(id).name}:貫通なしの育てた装備の勝率 ${((wins / total) * 100).toFixed(1)}%(${wins} / ${total})`);
+    assert.ok(wins / total < 0.06, lines.at(-1));
+  }
+  console.log(lines.join("\n"));
+  assert.deepEqual(problems, []);
+});
+
 test("貫通必須:s=5 のヌシは、貫通なしの育てた装備で、制限時間のうちに倒せる確率が 6% 未満", () => {
   const lines = [];
   for (const g of [5, 10, 15, 20, 50, 100]) {

@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { DEFAULT_CONFIG as DEFAULT_CONFIG_FOR_TESTS } from "../src/core/config.js";
-import { defineFish, FISH_ROWS, makeContent } from "../src/core/fish.js";
+import { DEFAULT_CONTENT as DEFAULT_CONTENT_FOR_TESTS, defineFish, FISH_ROWS, makeContent } from "../src/core/fish.js";
 import { emptyGear } from "../src/core/gear.js";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -80,27 +80,44 @@ export function progressAt(rodStage, rodStep = "none", extra = {}) {
 
 /**
  * 釣り場を 1 つ足すときに足す行(釣り場の表 1 行と、魚の表 15 行だけ:D-272)。川(g=11〜15)。
- * 名前は D-277 の候補。数値は式から作る(D-225)。
+ * ②-5d から川は本物の表にあるので、本物の表から取り出す(D-345)。
  */
-export const RIVER_AREA = Object.freeze({ id: "kawa", name: "川", firstStage: 11, stages: 5, sky: ["#a7c957", "#f2e8cf"], sea: ["#6a994e", "#386641"] });
-const RIVER_NAMES = [
-  ["oikawa", "オイカワ", "yamame", "ヤマメ"],
-  ["funa", "フナ", "ayu", "アユ"],
-  ["ugui", "ウグイ", "namazu", "ナマズ"],
-  ["nigoi", "ニゴイ", "nijimasu", "ニジマス"],
-  ["dojou", "ドジョウ", "itou", "イトウ"],
-];
-export const RIVER_ROWS = Object.freeze(
-  RIVER_NAMES.flatMap(([wid, wname, sid, sname], i) => [
-    { id: wid, name: wname, kind: "weak", stage: 11 + i, color: "#fefae0", size: 24 },
-    { id: sid, name: sname, kind: "strong", stage: 11 + i, color: "#bc6c25", size: 40 },
-    { id: `nushi-${sid}`, name: `ヌシ・${sname}`, kind: "boss", stage: 11 + i, color: "#7f4f24", size: 58 },
-  ]),
-);
+export const RIVER_AREA = AREA_ROWS.find((a) => a.id === "kawa");
+export const RIVER_ROWS = Object.freeze(FISH_ROWS.filter((r) => r.stage >= 11 && r.stage <= 15));
 
-/** 川(g=11〜15)を足した表 1 組。equipKinds・skills を渡すと、それも差し替える。 */
+/**
+ * 本物の表を、段階 maxStage まで(と、その段階までに始まる釣り場)に切った表 1 組。
+ * 「釣り場を足すと、コードを変えずに動く」を確かめるときに、足す前と後の表を作るのに使う。
+ * @param {number} maxStage
+ */
+export function contentUpTo(maxStage, equipKinds = undefined, skills = undefined) {
+  return makeContent(
+    FISH_ROWS.filter((r) => r.stage <= maxStage).map((r) => defineFish(r)),
+    undefined,
+    equipKinds,
+    skills,
+    AREA_ROWS.filter((a) => a.firstStage <= maxStage),
+  );
+}
+
+/**
+ * 表に段階が足されたあとの読み方(D-350):「進化済み」は表の最後の段階でだけありうるので、
+ * 次の段階がある「進化済み」は、次の段階の未製作として読む(磯の 5 段階目の進化済み → 川の段階 1)。
+ * 互換の正解データの期待の値を、いまの表に合わせるのに使う(正解データは書き換えない)。
+ * @param {any} progress
+ */
+export function asCurrentTable(progress, content = DEFAULT_CONTENT_FOR_TESTS) {
+  const p = structuredClone(progress);
+  if (p.rodStep === "evolved" && content.stageByNumber.has(p.rodStage + 1)) Object.assign(p, { rodStage: p.rodStage + 1, rodStep: "none" });
+  return p;
+}
+
+/** 港と磯(g=1〜10)だけの表(川を足す前)。 */
+export const HARBOR_ISO_CONTENT = contentUpTo(10);
+
+/** 川(g=11〜15)まで足した表 1 組。equipKinds・skills を渡すと、それも差し替える。 */
 export function riverContent(equipKinds = undefined, skills = undefined) {
-  return makeContent([...FISH_ROWS, ...RIVER_ROWS].map((r) => defineFish(r)), undefined, equipKinds, skills, [...AREA_ROWS, RIVER_AREA]);
+  return contentUpTo(15, equipKinds, skills);
 }
 
 /**
