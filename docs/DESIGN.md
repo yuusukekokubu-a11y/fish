@@ -37,6 +37,8 @@
 | `src/core/glove.js` | グローブ(D-332〜D-335)。能力の表(`GLOVE_ABILITY_ROWS`)とレア度の表(`GLOVE_RARITY_ROWS`。行は並べ替えない)、抽選(`drawGlove`)、釣れるクレートの判定(`rollCrate`)と開封(`openCrate`)、付ける・外す・分解・ロック、対応段階(`coverLimit`)。 |
 | `src/core/glove_play.js` | 釣りの中のグローブのフック(D-333・D-334)。釣れるクレートの条件(`rollGloveCrate`)、いまの魚に効く能力の値(`gloveEffect`)、対応外(`gloveOutOfRange`)、仕切り直しのストック、かすりの帯。 |
 | `src/core/casts.js` | 投げの中身を決める(`drawCast`・`resolveCast`・`makeBossCast`・`makeBaitCast`。fishing.js を 800 行に余裕を持たせるため分けた:D-344)。fishing.js からも使える。 |
+| `src/core/play_log.js` | 遊びの記録の形と計算(D-348・D-350)。戦闘の結果 1 件から記録 1 件(`fightEntry`)、合わせの分け方(`hookKind`)、足す(`addToPlayLog`。200 件まで)、読み直し(`parsePlayLog`。壊れていれば空)、集計(`summarizePlayLog`)、コピーの文章(`playLogText`)。保存はしない(画面の役目)。ゲームの結果を読むだけ。 |
+| `src/ui/play_log_view.js` | 遊びの記録の保存場所(本番 `tsuri:playlog`・デバッグ `tsuri:debug-playlog`)と、記録の器(`createPlayLogRecorder`:結果で足し、戦闘の間でないときに書く)、デバッグ画面の「遊びの記録」の節(本番は読むだけ)。 |
 | `src/core/fight_stats.js` | 命中 1 回の数値(`triggeredStats`・`zoneBand`。fishing.js を 800 行以内にするため分けた:D-337)。 |
 | `src/core/gear.js` | 装備・クレート・ガチャ(D-147〜D-149・D-181・D-253)。レア度の表(`RARITY_ROWS`)と装備の種類の表(`EQUIP_KIND_ROWS`)、クレートの一覧と価格の数式(`makeCrates`)、抽選(`drawItem`・`pullCrate`)、装着と分解、ロック(`setLocked`。ロック中は分解しない:D-246)、自動分解(表 `AUTO_SCRAP_ROWS`・`autoScrapTargets`・`autoScrap`:D-266)、装備を反映した戦闘の数値の表(`applyGear`)。JSDoc で型を書いている(D-144)。 |
 | `src/core/areas.js` | 釣り場(D-272〜D-276・D-282)。釣り場の表(`AREA_ROWS`:id・名前・最初の通し番号・段階の数・空と海の色)、表にない段階の釣り場を自動で作る(`makeAreas`)、通し番号の釣り場と位置(`areaOfStage`・`areaPosition`)、いまいる釣り場と移る(`currentArea`・`setArea`・`normalizeArea`)、魚の段階の範囲(`poolRange`)、表の点検(`checkAreas`)。 |
@@ -59,6 +61,7 @@
 | `tests/slow/*.test.js` | 重いテスト(D-026)。`npm run test:slow` で回る。 |
 | `tests/skills_seen.test.js` | 発動中だけのスキル画面、出会ったスキルと NEW、保存の版 5、装備画面の並べ替え・絞り込みと保存場所のテスト。 |
 | `tests/glove_more.test.js` | ②-5c の能力 5 個(連鎖・連撃加速・芯の達人・縁の達人・追い風)と、10 個の抽選のテスト(D-340・D-344)。重いテスト `tests/slow/glove.test.js` に、組み合わせ・ミスの多い遊び方の装備・最強の装備 × グローブの表。 |
+| `tests/play_log.test.js` | 遊びの記録(D-348):戦闘 1 回で 1 件、合わせの通算、200 件、壊れたデータ、集計とコピーの文章、本番とデバッグで別のキー、戦闘の間の書き込み 0 回、セーブコードに入らない。 |
 | `tests/glove.test.js` | グローブの抽選・釣れるクレート(条件・乱数・成功と失敗)・持ち物・対応段階・能力 5 個・保存の版 7 と `compat_save_v7.json` のテスト(D-332〜D-337)。重いテストは `tests/slow/glove.test.js`(出現の間隔・放置の稼ぎ・ヌシの命中回数)。 |
 | `tests/gear_extra.test.js` | おもり・浮き・おまもり(拮抗型の効果・印の速さ・合わせの帯・ウロコイン)、ガチャの 6 種類の等確率(10 万回)、保存の版 6 と `compat_save_v6.json` のテスト(D-320〜D-327)。 |
 | `tests/signed_code.test.js`・`tests/stamp_key.test.js` | 署名つきのセーブコード(往復・1 文字の変更・長さ・鍵の番号・デバッグ用・署名なし・正解データ)と、鍵の書き込みと置き場(リポジトリに本番の鍵がない・鍵がないと失敗)のテスト。 |
@@ -138,10 +141,11 @@
 
 - ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データ・FISH2〜FISH7・読み替えの仕組みと古い版のテストは削除した)。
 - 装備のロック(D-246・D-247)で版 2、餌と自動分解(D-267)で版 3、釣り場(D-280)で版 4、出会ったスキル(D-300)で版 5、装着の枠 6 つ(D-325。本文の形は同じ。版 5 までの読み手が新しい種類の番号を読めないので区切った)で版 6、グローブ(D-335)で版 7 にした。今の版は 7。
+- 遊びの記録(D-348)は、ゲームの保存とは別の場所(`tsuri:playlog`・デバッグは `tsuri:debug-playlog`)に JSON で置く。セーブコードには入れない。
 - 保存の中身は、セーブコードと同じ 1 行の文字列 `TSURI4-本文-印`(`save.js`・`savecode.js`)。ブラウザの保存場所は `tsuri:save`(デバッグは `tsuri:debug-save`)。
 - 本文は 11 の欄を「~」で区切る(版 1 は 1〜7 の 7 つ、版 2 は 8 つ、版 3 は 9 つ、版 4 は 10)。数は 36 進数(英小文字と数字)。
   1. ウロコイン
-  2. 竿:`段階.工程の番号`(工程の番号は `STEP_ORDER`:0 未製作・1 製作済み・2 ヌシ撃破・3 進化済み)
+  2. 竿:`段階.工程の番号`(工程の番号は `STEP_ORDER`:0 未製作・1 製作済み・2 ヌシ撃破・3 進化済み)。進化済みは表の最後の段階でだけ書く。表に段階が足されて次の段階ができたら、読むときに次の段階の未製作にする(D-350)
   3. 鱗:`魚の id:数` を「,」で(持っているものだけ)
   4. 一度でも釣れた魚:魚の id を「,」で
   5. ガチャ:`引いた回数.ガチャの種.次の個体の番号`(種がまだないときは空)
@@ -185,14 +189,17 @@
 
 ### 釣り場を足す手順(D-272・D-282)
 
-釣り場は、釣り場の表(`src/core/areas.js` の `AREA_ROWS`)1 行と、魚の表(`src/core/fish.js` の `FISH_ROWS`)15 行だけで足せる。コードは変えなくてよい(`tests/content.test.js` が、川(g=11〜15)を足した表で、解放・切り替え・プール・保存・素材が動くことを確かめている。クレートと釣り場の画面は `tests/area_view.test.js`)。
+釣り場は、釣り場の表(`src/core/areas.js` の `AREA_ROWS`)1 行と、魚の表(`src/core/fish.js` の `FISH_ROWS`)15 行だけで足せる。コードは変えなくてよい(川・沖はこの手順で足した:D-347。`tests/content.test.js` が、港と磯だけの表(`HARBOR_ISO_CONTENT`)に本物の川の行を足した表(`riverContent`)で、解放・切り替え・プール・保存・素材が動くことを確かめている。クレートと釣り場の画面は `tests/area_view.test.js`。本物の表を段階 n までに切るのは `tests/helpers.js` の `contentUpTo`)。
+
+表に釣り場を足すと、前の最後の段階で「進化済み」だった保存は、読むときに次の段階の未製作にする(`save.js` の `decodeSave`。保存の版は変えない:D-350)。互換の正解データ(`tests/fixtures/compat_*.json`)は書き換えず、期待の値をテストの中で `asCurrentTable` で、いまの表に合わせる。
 
 1. `AREA_ROWS` の最後に 1 行足す。例:`{ id: "kawa", name: "川", firstStage: 11, stages: 5, sky: ["#a7c957", "#f2e8cf"], sea: ["#6a994e", "#386641"] }`
    - id は小文字の英字(保存に使うので、あとから変えない)。最初の通し番号は、前の釣り場の次。段階の数は 5。色は「#」と 16 進 6 けた(空の上・下、海の上・下)。
 2. `FISH_ROWS` に、その釣り場の段階(g=11〜15)ごとに、弱い魚・強い魚・ヌシを 1 行ずつ、計 15 行足す(下の「魚を 1 種類足す」と同じ形)。ヌシの名前は「ヌシ・強い魚の名前」。
 3. `npm test` を回す。`checkContent`(と `checkAreas`)が、釣り場が切れ目なく 5 段階ずつ並び、最後の段階まで覆うことを確かめる。
-4. これだけで、前の釣り場の最後の段階の「次の釣り場はまだない」が「進化」になり、進化すると新しい釣り場が解放されて移る。目次の「釣り場」、クレートと素材のグループ、絵の色にも加わる。保存は版を変えなくてよい(釣り場の id と段階の上限は表から読む)。
-5. 魚の名前は、釣り場を足す直前に提案する(D-272)。
+4. 重いテストに、その釣り場の本物の表での確かめを足す(川・沖は `tests/slow/defense.test.js` のヌシの命中回数と、`tests/slow/limits.test.js` の時間)。
+5. これだけで、前の釣り場の最後の段階の「次の釣り場はまだない」が「進化」になり、進化すると新しい釣り場が解放されて移る。目次の「釣り場」、クレートと素材のグループ、絵の色にも加わる。保存は版を変えなくてよい(釣り場の id と段階の上限は表から読む)。
+6. 魚の名前は、釣り場を足す直前に提案する(D-272)。
 
 ### 段階や魚を足す手順(D-093・D-111・D-136・D-225)
 

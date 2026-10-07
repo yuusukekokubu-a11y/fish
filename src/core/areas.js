@@ -21,12 +21,14 @@
 export const AREA_STAGES = 5;
 
 /**
- * 釣り場の表(並び:港 → 磯。以後、川 → 沖 → 外洋 → 深海 を足す)。行は並べ替えない。
+ * 釣り場の表(並び:港 → 磯 → 川 → 沖。以後、外洋 → 深海 を足す:D-345)。行は並べ替えない。
  * @type {readonly AreaRow[]}
  */
 export const AREA_ROWS = Object.freeze([
   { id: "minato", name: "港", firstStage: 1, stages: AREA_STAGES, sky: ["#7ec8e3", "#c9ecf6"], sea: ["#1b6ca8", "#0b3954"] },
   { id: "iso", name: "磯", firstStage: 6, stages: AREA_STAGES, sky: ["#8fa9c4", "#e3e9ee"], sea: ["#1f7a72", "#0b3433"] },
+  { id: "kawa", name: "川", firstStage: 11, stages: AREA_STAGES, sky: ["#a9dcef", "#e6f6fb"], sea: ["#3a8f8c", "#17504f"] },
+  { id: "oki", name: "沖", firstStage: 16, stages: AREA_STAGES, sky: ["#1f5fa8", "#7fb2e0"], sea: ["#0d3b7a", "#03173a"] },
 ]);
 
 // 表にない釣り場の色(確かめ用。順に使い回す)。

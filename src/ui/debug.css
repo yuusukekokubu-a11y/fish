@@ -76,3 +76,41 @@
   display: block;
   text-align: left;
 }
+
+/* 遊びの記録(D-348):本番とデバッグを並べる。表は横にはみ出さないよう、文字を詰めて幅いっぱいに。 */
+.playlog-block {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.playlog-title {
+  font-size: 16px;
+  margin: 4px 0;
+}
+
+.playlog-note,
+.playlog-caption {
+  font-size: 14px;
+  margin: 8px 0 4px;
+  opacity: 0.85;
+}
+
+.playlog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  table-layout: fixed;
+}
+
+.playlog-table th,
+.playlog-table td {
+  padding: 4px 2px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-wrap: anywhere;
+}
+
+.playlog-buttons button {
+  min-height: 48px;
+}

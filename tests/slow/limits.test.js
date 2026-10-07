@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
-import { checkContent, FISH_KINDS } from "../../src/core/fish.js";
+import { checkContent, DEFAULT_CONTENT, FISH_KINDS } from "../../src/core/fish.js";
 import { createGame, update } from "../../src/core/fishing.js";
 import { craftCount, fishCoins, fishDefense, fishHp, fishSweepMs, fishTimeLimitMs, fishZoneWidth, stagePosition } from "../../src/core/formula.js";
 import { BASE_KIND_IDS, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
@@ -89,8 +89,8 @@ function geared(g) {
 }
 
 /** 段階 g で、done(game) が true になるまでの時間(秒)。 */
-function secondsUntil(g, done, style, seed, limitMs = 3600000) {
-  const game = createGame(seed, { content: BIG, progress: geared(g) });
+function secondsUntil(g, done, style, seed, limitMs = 3600000, content = BIG) {
+  const game = createGame(seed, { content, progress: geared(g) });
   const policy = policyOf(style, seed);
   for (let t = 16; t <= limitMs; t += 16) {
     update(game, 16);
@@ -127,6 +127,27 @@ test("時間:クレート 1 回分は上手で 30〜90 秒(ときどき失敗で
     if (g > 1 && g % 5 === 1) assert.ok(craft <= 270, `g=${g}(釣り場の最初)の製作 ${craft} 秒`);
   }
   lines.push(`全ての g(1〜100)で一番長いもの:クレート 上手 ${worst.crate.toFixed(0)} 秒・ときどき失敗 ${worst.sloppy.toFixed(0)} 秒、製作 ${(worst.craft / 60).toFixed(1)} 分`);
+  console.log(lines.join("\n"));
+});
+
+// 川・沖の本物の表(D-347):表のデータだけで足した釣り場でも、時間の条件が成り立つ。
+test("川・沖の本物の表(g=11〜20):クレート 1 回分は上手で 30〜90 秒(ときどき失敗 120 秒以内)、製作は釣り場の最初で約 3〜4 分、全体で 30 分以内", () => {
+  const crates = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG);
+  const lines = ["| g | 釣り場 | クレート | 上手(秒) | ときどき失敗(秒) | 製作の鱗 | 製作(分) |", "| --- | --- | --- | --- | --- | --- | --- |"];
+  for (let g = 11; g <= 20; g++) {
+    const price = crates[g - 1].price;
+    const until = (done, style, s) => secondsUntil(g, done, style, s, 3600000, DEFAULT_CONTENT);
+    const crateSkilled = median(SEEDS.map((s) => until((game) => game.progress.coins >= price, SKILLED, s)));
+    const crateSloppy = median(SEEDS.map((s) => until((game) => game.progress.coins >= price, SLOPPY, s)));
+    const strong = DEFAULT_CONTENT.fish.find((f) => f.kind === FISH_KINDS.STRONG && f.stage === g);
+    const need = craftCount(g);
+    const craft = median(SEEDS.map((s) => until((game) => (game.progress.scales[strong.id] ?? 0) >= need, SKILLED, s)));
+    lines.push(`| ${g} | ${g <= 15 ? "川" : "沖"} | ${formatCount(price)} | ${crateSkilled.toFixed(0)} | ${crateSloppy.toFixed(0)} | ${need} | ${(craft / 60).toFixed(1)} |`);
+    assert.ok(crateSkilled >= 30 && crateSkilled <= 90, `g=${g} クレート 上手 ${crateSkilled} 秒`);
+    assert.ok(crateSloppy <= 120, `g=${g} クレート ときどき失敗 ${crateSloppy} 秒`);
+    assert.ok(craft <= 1800, `g=${g} 製作 ${craft} 秒`);
+    if (g % 5 === 1) assert.ok(craft <= 270, `g=${g}(釣り場の最初)の製作 ${craft} 秒`);
+  }
   console.log(lines.join("\n"));
 });
 

@@ -48,6 +48,7 @@ import { defenseBadge, fightBadges, gaugeBands } from "./fight_view.js";
 import { playPull } from "./gacha_fx.js";
 import { glovePullView, retryLabel } from "./glove_view.js";
 import { drawScene } from "./draw.js";
+import { createPlayLogRecorder, loadPlayLog, PLAY_LOG_KEY, playLogKeyFor } from "./play_log_view.js";
 import {
   addGrazeEffects,
   addHitEffects,
@@ -127,6 +128,15 @@ const TIMING_KEY = timingKeyFor(URL_OPTIONS);
  */
 function isBusyPhase(phase) {
   return phase === PHASES.BITE || phase === PHASES.REELING || phase === PHASES.MINIGAME;
+}
+
+/** ブラウザの保存場所(使えないときは null)。 */
+function safeStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 function clearSave() {
@@ -232,6 +242,8 @@ function main() {
   let perfBox = null;
   let perfVisible = true;
 
+  // 遊びの記録(D-348):ゲームの保存データとは別の場所(本番とデバッグで別)。結果の場面で足し、戦闘の間は書かない。
+  const playLog = createPlayLogRecorder(safeStorage(), playLogKeyFor(URL_OPTIONS));
   // 保存は後回しにできる(D-284)。合わせと戦闘の間は印だけ付け、場面が終わったら保存する。
   let saveDirty = false;
   const requestSave = () => {
@@ -239,6 +251,7 @@ function main() {
     if (!isBusyPhase(game.phase)) flushSave();
   };
   const flushSave = () => {
+    playLog.flush();
     if (!saveDirty) return;
     saveDirty = false;
     saveProgress(game.progress);
@@ -369,6 +382,13 @@ function main() {
           return n;
         },
       },
+      // 遊びの記録(D-348)。デバッグ画面で、本番(読むだけ)とデバッグの記録を並べる。
+      playLog: {
+        main: () => loadPlayLog(safeStorage(), PLAY_LOG_KEY),
+        debug: () => playLog.log(),
+        resetDebug: () => playLog.reset(),
+        version: versionLabel(),
+      },
       // 確かめ用の表示(?debug のときだけ:D-286)。
       perf: {
         visible: () => perfVisible,
@@ -414,6 +434,7 @@ function main() {
     window.fishSession = session;
     window.fishNav = () => nav;
     window.fishSaveCount = () => saveCount;
+    window.fishPlayLogWrites = () => playLog.writes();
   }
 
   // 確かめ用の表示(?debug のときだけ):入力の遅れとフレーム間隔(D-286)。デバッグ画面で出す・消すを切り替える。
@@ -457,6 +478,7 @@ function main() {
       } else {
         addResultEffects(effects, result, now, game.content);
       }
+      playLog.add(game, result);
       shownResults += 1;
       saveDirty = true;
     }

@@ -418,7 +418,7 @@ test("保存の版 7:グローブが往復で元に戻る。壊れた系(能力�
     "存在しない能力": withGloves("0.2.", `1.${(10 * 4).toString(36)}.1`),
     "ノーマルの自動合わせ": withGloves("0.2.", "1.0.1"),
     "グレード 0": withGloves("0.2.", "1.4.0"),
-    "グレードが表より上": withGloves("0.2.", "1.4.b"),
+    "グレードが表より上": withGloves("0.2.", `1.4.${(DEFAULT_CONTENT.maxStage + 1).toString(36)}`),
     "装着の番号が持ち物にない": withGloves("0.2.5", "1.4.1"),
     "上限をこえる": withGloves("0.m.", Array.from({ length: 21 }, () => "1.4.1").join(",")),
     "次の番号が持ち物以下": withGloves("0.1.", "1.4.1"),

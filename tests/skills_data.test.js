@@ -12,7 +12,7 @@ import { decodeSaveCode, encodeSaveCode } from "../src/core/savecode.js";
 import { itemLevelRange, levelRange, skillById } from "../src/core/skills.js";
 import { slotRows } from "../src/ui/gear_view.js";
 import { skillRows } from "../src/ui/skill_view.js";
-import { progressAt, riverContent } from "./helpers.js";
+import { HARBOR_ISO_CONTENT, progressAt, riverContent } from "./helpers.js";
 
 const GACHA = DEFAULT_CONFIG.gacha;
 
@@ -35,7 +35,7 @@ test("段階 11(川を足した表):成長型の最大は Lv13、グレード 11
   const game = createGame(1, { content, progress: p });
   assert.equal(skillRows(game).find((r) => r.id === "power").max, 13);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p, content), content), { ok: true, progress: p });
-  assert.equal(decodeSaveCode(encodeSaveCode(p, content)).ok, false, "元の表には段階 11 がない");
+  assert.equal(decodeSaveCode(encodeSaveCode(p, content), HARBOR_ISO_CONTENT).ok, false, "川を足す前の表には段階 11 がない");
 });
 
 test("装備の枠 7 つ:7 枠ぶんのレベルを足し、保存とセーブコードで往復し、画面の枠も 7 つ", () => {

@@ -79,7 +79,7 @@ export function fightOnce(content, g, items, fishId, seed, options = {}) {
     }
   }
   const last = game.lastResult;
-  return { caught: last.outcome === "caught", hits: last.hits ?? damages.length, damages, raws, effs };
+  return { caught: last.outcome === "caught", hits: last.hits ?? damages.length, damages, raws, effs, ms: last.fightMs ?? 0 };
 }
 
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];

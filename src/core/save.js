@@ -305,12 +305,18 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
 
   const rod = rodText.split(".");
   if (rod.length !== 2) return fail;
-  const stage = readNum(rod[0]);
+  let stage = readNum(rod[0]);
   const stepIndex = readNum(rod[1]);
   if (stage === null || stepIndex === null || stage < 1 || stage > content.maxStage) return fail;
-  const step = STEP_ORDER[stepIndex];
-  // 「進化済み」は、表の最後の段階でだけありうる。
-  if (!step || (step === ROD_STEPS.EVOLVED && stage !== content.maxStage)) return fail;
+  let step = STEP_ORDER[stepIndex];
+  if (!step) return fail;
+  // 「進化済み」は、表の最後の段階でだけありうる。表に段階が足されて、次の段階ができたときは、
+  // 次の段階の未製作として読む(磯の 5 段階目の進化済みは、川の段階 1 になる:D-280 と同じ考え・D-350)。
+  if (step === ROD_STEPS.EVOLVED && stage !== content.maxStage) {
+    if (!content.stageByNumber?.has(stage + 1)) return fail;
+    stage += 1;
+    step = ROD_STEPS.NONE;
+  }
 
   /** @type {Record<string, number>} */
   const scales = {};

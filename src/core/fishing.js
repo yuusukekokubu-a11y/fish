@@ -281,6 +281,12 @@ function finish(game, outcome, reason) {
     result.hits = game.fight.hits;
     result.misses = game.fight.misses;
     result.crits = game.fight.crits;
+    // 遊びの記録(D-348):かすり・保険・連撃の最大段数・戦闘にかかった時間。結果は変えない。
+    result.grazes = game.fight.grazes;
+    result.insured = game.fight.insured;
+    result.maxCombo = game.fight.maxCombo;
+    // 時間切れは、場面の時刻を進める前に終わるので、制限時間をそのまま使う。
+    result.fightMs = reason === REASONS.TIMEOUT ? game.fight.timeLimitMs : game.phase === PHASES.MINIGAME ? game.phaseMs : 0;
     // ジャストの初撃(D-256)。画面の「一撃!」や数字に使う。
     if (game.fight.strike) result.strike = game.fight.strike;
   }
@@ -445,6 +451,8 @@ function startFight(game, grade) {
     boosts,
     // 連撃の段数(続けて命中した回数)。ミスで 0 に戻る(D-185)。
     combo: 0,
+    // 連撃の最大段数(遊びの記録:D-348)。
+    maxCombo: 0,
     hp: minigame.hp,
     maxHp: minigame.hp,
     timeLimitMs: fightTimeLimit(minigame.timeLimitMs, game.combat, game.config.combatLimits),
@@ -531,6 +539,7 @@ function fightTap(game, at = game.phaseMs) {
     // 連撃加速:決まった回数ごとに、段数を追加で 1(最大の段数はこえない:D-340)。
     const accel = comboAccelerates(game, fight.hits) && fight.combo < config.skills.comboMax;
     if (accel) fight.combo += 1;
+    fight.maxCombo = Math.max(fight.maxCombo, fight.combo);
     // 追い風:命中で制限時間を延ばす(戦闘ごとに上限まで:D-340)。
     const tailwind = tailwindMs(game);
     fight.timeLimitMs += tailwind;

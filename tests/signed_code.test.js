@@ -10,7 +10,7 @@ import { initialProgress } from "../src/core/save.js";
 import { checksum, encodeSaveCode } from "../src/core/savecode.js";
 import { DEBUG_KEY_ID, readSaveCode, SIGNATURE_LENGTH, signSaveCode, SIGNED_CODE_ERRORS, UNSIGNED_WARNING } from "../src/core/signed_code.js";
 import { CURRENT_KEY, DEBUG_KEY, signingKeys } from "../src/ui/save_sign.js";
-import { readText } from "./helpers.js";
+import { asCurrentTable, readText } from "./helpers.js";
 
 const DEV = CURRENT_KEY;
 // テスト用の作り物の本番の鍵(本物の鍵ではない)。
@@ -35,7 +35,7 @@ test("書き出すと TSURI5-(鍵の番号)-(保存の版)-(本文)-(署名 22 �
     assert.match(code, /^TSURI5-dev-7-[0-9A-Za-z.,:~-]+-[A-Za-z0-9_-]{22}$/);
     // 本文は、これまでの本文(TSURI4 の形)のまま。
     assert.ok(code.includes(`-7-${encodeSaveCode(c.progress).slice(7, -9)}-`), c.name);
-    assert.deepEqual(await readSaveCode(code, { keys: [DEV] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
+    assert.deepEqual(await readSaveCode(code, { keys: [DEV] }), { ok: true, progress: asCurrentTable(c.progress), signed: true, keyId: "dev", warning: null }, c.name);
   }
 });
 
@@ -136,7 +136,7 @@ test("互換の正解データ(compat_v5.json):仮の鍵(dev)の署名つきの�
   assert.deepEqual([fixture.version, fixture.keyId], [5, "dev"]);
   for (const c of fixture.cases) {
     // 中身は保存の版 4。版 5 の読み替えで、持ち物のスキルが出会ったスキルになる(D-300)。
-    const expected = withSeen(c.progress);
+    const expected = asCurrentTable(withSeen(c.progress));
     assert.deepEqual(await readSaveCode(c.code, { keys: [DEV] }), { ok: true, progress: expected, signed: true, keyId: "dev", warning: null }, c.name);
     // 書き出すと保存の版 7(TSURI5-dev-7-:D-335)になり、読み直すと同じ。
     const again = await signSaveCode(expected, DEV);

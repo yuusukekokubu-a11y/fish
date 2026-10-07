@@ -50,7 +50,7 @@ test("段階 n では、段階 n 以下の弱い魚・強い魚の全種類が�
   for (const stage of STAGES) {
     const seen = new Set(castsAt(7, stage, 6000).map((c) => c.fish.id));
     // 竿の段階が属する釣り場の、最初の段階〜竿の段階の魚(D-275)。
-    const first = stage <= 5 ? 1 : 6;
+    const first = stage - ((stage - 1) % 5);
     const expected = FISH_LIST.filter((f) => f.stage >= first && f.stage <= stage && f.kind !== FISH_KINDS.BOSS).map((f) => f.id);
     assert.deepEqual([...seen].sort(), [...expected].sort(), `段階 ${stage}`);
   }

@@ -25,7 +25,7 @@ import { ROD_STEPS } from "../src/core/rod.js";
 import { createRng } from "../src/core/rng.js";
 import { decodeSaveCode, encodeSaveCode, parseSave } from "../src/core/savecode.js";
 import { materialsView } from "../src/ui/screen_views.js";
-import { hookJust, makeAimCenter, makePlayer, progressAt, riverContent } from "./helpers.js";
+import { HARBOR_ISO_CONTENT, hookJust, makeAimCenter, makePlayer, progressAt, riverContent } from "./helpers.js";
 
 const play = makePlayer({ update, tap, PHASES });
 const aimCenter = makeAimCenter(currentMarker);
@@ -90,7 +90,7 @@ test("川の進み具合も、保存とセーブコードで往復でき、元�
   const p = progressAt(13, ROD_STEPS.CRAFTED, { scales: { ayu: 1 }, area: "iso" });
   assert.deepEqual(parseSave(encodeSaveCode(p, CONTENT), CONTENT), p);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p, CONTENT), CONTENT), { ok: true, progress: p });
-  assert.equal(decodeSaveCode(encodeSaveCode(p, CONTENT)).ok, false, "元の表には段階 13 がない");
+  assert.equal(decodeSaveCode(encodeSaveCode(p, CONTENT), HARBOR_ISO_CONTENT).ok, false, "川を足す前の表には段階 13 がない");
 });
 
 test("素材の画面:釣り場を足すだけで、川のグループが出る(未入手は「?」、入手すると名前と使い道)", () => {
