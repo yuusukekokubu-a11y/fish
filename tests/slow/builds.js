@@ -92,10 +92,10 @@ export function measure(content, g, items, fishId, seeds, options = {}) {
 }
 
 /** 選ぶときの点数(小さいほど良い):3 シードの命中回数の平均。逃げたら大きな数。 */
-function score(content, g, items, fishId) {
+function score(content, g, items, fishId, play = {}) {
   let sum = 0;
   for (const s of [101, 202, 303]) {
-    const r = fightOnce(content, g, items, fishId, s);
+    const r = fightOnce(content, g, items, fishId, s, play);
     sum += r.caught ? r.hits : 1000;
   }
   return sum / 3;
@@ -119,10 +119,12 @@ function dominates(a, b) {
  * 選び方:(1) 糸・リール・ルアーの全部の組み合わせを 1 シードで比べ、良い 10 通りを 3 シードで比べ直す。
  * (2) おもり・浮き・おまもりを、この順に 1 枠ずつ、3 シードで一番良い候補に決める(何も付けないより悪ければ付けない)。
  * (3) 6 枠を順に、ほかを決めたまま 3 シードで一番良い候補に替える(1 周)。
- * noPen なら、貫通と連撃・貫を持つ装備は使わない。
+ * noPen なら、貫通と連撃・貫を持つ装備は使わない。missEvery なら、その遊び方(n 回に 1 回すぐ外)で比べて選ぶ。
  */
 export function grownItems(content, g, fishId, seed, options = {}) {
   const noPen = options.noPen ?? false;
+  // 選ぶときの遊び方(missEvery:n 回に 1 回すぐ外を押す。グローブの確かめ用:D-344)。
+  const play = options.missEvery ? { missEvery: options.missEvery } : {};
   const crate = makeCrates(content, DEFAULT_CONFIG)[g - 1];
   const per = options.per ?? referenceDraws(g);
   const byKind = new Map(content.equipKinds.map((k) => [k.id, []]));
@@ -146,7 +148,7 @@ export function grownItems(content, g, fishId, seed, options = {}) {
     for (const b of c1) {
       for (const c of c2) {
         const items = pick([a, b, c]);
-        const r = fightOnce(content, g, items, fishId, 101);
+        const r = fightOnce(content, g, items, fishId, 101, play);
         scored.push({ slots: [a, b, c], s: r.caught ? r.hits : 1000 });
       }
     }
@@ -154,7 +156,7 @@ export function grownItems(content, g, fishId, seed, options = {}) {
   scored.sort((x, y) => x.s - y.s);
   let best = null;
   for (const { slots } of scored.slice(0, 10)) {
-    const sc = score(content, g, pick(slots), fishId);
+    const sc = score(content, g, pick(slots), fishId, play);
     if (!best || sc < best.score) best = { slots, score: sc };
   }
   /** 6 枠(表の順)。 */
@@ -166,7 +168,7 @@ export function grownItems(content, g, fishId, seed, options = {}) {
     for (const cand of candidates[k]) {
       if (cand === slots[k]) continue;
       const trial = slots.map((x, i) => (i === k ? cand : x));
-      const sc = score(content, g, pick(trial), fishId);
+      const sc = score(content, g, pick(trial), fishId, play);
       if (sc < current) {
         current = sc;
         slots[k] = cand;

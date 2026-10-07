@@ -13,7 +13,7 @@ import { createGame, update } from "../../src/core/fishing.js";
 import { bossHitTarget, stagePosition } from "../../src/core/formula.js";
 import { GLOVE_ABILITY_ROWS } from "../../src/core/glove.js";
 import { syntheticContent } from "../../src/core/synthetic.js";
-import { averageItems, grownItems, measure, progressWith } from "./builds.js";
+import { averageItems, grownItems, measure, progressWith, skillSummary, strongestItems } from "./builds.js";
 import { policyOf, SKILLED } from "./policy.js";
 
 const HOUR = 3600000;
@@ -86,7 +86,7 @@ test("育てた装備に各グローブ(レジェンド)を付けても、ヌシ
   const FIGHT_SEEDS = [1, 2, 3, 4, 5];
   const abilities = GLOVE_ABILITY_ROWS.map((a) => a.id);
   const lines = [`| g | s | 目標 | 遊び方 | なし | ${abilities.map((id) => GLOVE_ABILITY_ROWS.find((a) => a.id === id)?.name).join(" | ")} |`];
-  for (const g of [1, 2, 5, 6, 10, 20, 50, 100]) {
+  for (const g of [1, 5, 10, 20, 50, 100]) {
     const boss = `s${g}-boss`;
     const builds = GACHA_SEEDS.map((gs) => grownItems(CONTENT, g, boss, gs * 1000 + g));
     for (const [label, missEvery] of /** @type {[string, number | undefined][]} */ ([
@@ -104,4 +104,52 @@ test("育てた装備に各グローブ(レジェンド)を付けても、ヌシ
     }
   }
   console.log(lines.join("\n"));
+});
+
+const legendGlove = (ability, g) => ({ items: [{ id: 1, ability, rarity: "legend", grade: g }], equipped: 1, nextId: 2, rolls: 0 });
+
+test("ミスの多い遊び方への備え(記録):3 回に 1 回すぐ外を押す遊び方に合わせて選んだ育てた装備で、s=5 のヌシ(g=5・10・20)を倒せるか", () => {
+  // 倒せないときは、原因を報告に書いて相談する(数値は変えない:D-339・D-344)。ここでは表を作るだけで、合否は付けない。
+  const CONTENT = syntheticContent(100);
+  const GACHA_SEEDS = Array.from({ length: 15 }, (_, i) => (i + 1) * 11);
+  const FIGHT_SEEDS = [1, 2, 3, 4, 5];
+  const lines = ["| g | 目標 | 体力 | 防御 | グローブ | 命中回数(中央値) | 勝率 | 倒せた装備 |"];
+  for (const g of [5, 10, 20]) {
+    const boss = `s${g}-boss`;
+    const fish = CONTENT.byId.get(boss).minigame;
+    const builds = GACHA_SEEDS.map((gs) => grownItems(CONTENT, g, boss, gs * 1000 + g, { missEvery: 3 }));
+    for (const ability of [null, "insurance", "combo-keep", "graze"]) {
+      const gloves = ability ? legendGlove(ability, g) : null;
+      const runs = builds.map((items) => measure(CONTENT, g, items, boss, FIGHT_SEEDS, { gloves, missEvery: 3 }));
+      const win = runs.reduce((a, r) => a + r.winRate, 0) / runs.length;
+      const beaten = runs.filter((r) => Number.isFinite(r.median)).length;
+      const name = ability ? GLOVE_ABILITY_ROWS.find((a) => a.id === ability)?.name : "なし";
+      lines.push(`| ${g} | ${bossHitTarget(g)} | ${fish.hp} | ${Math.round(fish.defense * 1000) / 10}% | ${name} | ${median(runs.map((r) => r.median))} | ${(win * 100).toFixed(0)}% | ${beaten} / 15 |`);
+    }
+    // 倒せた装備の例(グローブなし)。
+    const ok = builds.find((items) => Number.isFinite(measure(CONTENT, g, items, boss, FIGHT_SEEDS, { missEvery: 3 }).median));
+    lines.push(`g=${g} 倒せた装備の例(グローブなし):${ok ? skillSummary(ok) : "なし"}`);
+  }
+  console.log(lines.join("\n"));
+  assert.ok(lines.length > 3);
+});
+
+test("天井の参考(記録):最強の通常装備に各グローブ(レジェンド)を付けたときの、ヌシの命中回数", () => {
+  const CONTENT = syntheticContent(100);
+  const FIGHT_SEEDS = [1, 2, 3, 4, 5];
+  const ids = GLOVE_ABILITY_ROWS.map((a) => a.id);
+  const lines = [`| g | 遊び方 | なし | ${ids.map((id) => GLOVE_ABILITY_ROWS.find((a) => a.id === id)?.name).join(" | ")} |`];
+  for (const g of [1, 5, 10, 20, 50, 100]) {
+    const boss = `s${g}-boss`;
+    const best = strongestItems(CONTENT, g, boss);
+    for (const [label, missEvery] of /** @type {[string, number | undefined][]} */ ([
+      ["上手", undefined],
+      ["3 回に 1 回すぐ外", 3],
+    ])) {
+      const hits = (ability) => measure(CONTENT, g, best, boss, FIGHT_SEEDS, { gloves: ability ? legendGlove(ability, g) : null, missEvery }).median;
+      lines.push(`| ${g} | ${label} | ${hits(null)} | ${ids.map((id) => hits(id)).join(" | ")} |`);
+    }
+  }
+  console.log(lines.join("\n"));
+  assert.ok(lines.length > 1);
 });

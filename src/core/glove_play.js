@@ -5,6 +5,7 @@
 // 画面に関係しない計算だけを置く。JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { inNewestArea } from "./areas.js";
+import { lureZoneWidth } from "./combat.js";
 import { FISH_KINDS } from "./fish.js";
 import { copyGloves, emptyGloves, equippedGlove, gloveCovers, gloveValue, openCrate, rollCrate } from "./glove.js";
 
@@ -136,4 +137,64 @@ export function inGrazeBand(position, zone, outer) {
   const hi = Math.min(1, zone.end + extra);
   const inside = zone.start <= position && position <= zone.end;
   return !inside && lo <= position && position <= hi;
+}
+
+/**
+ * 連鎖(D-340):連撃の段数に応じて広げた命中範囲の幅。効かなければ null。
+ * ルアーの割合に「1 段ごとの割合 × 段数」を足して、同じ上限(ゲージの 70%)と下限(10%)で丸める。
+ * @param {any} game @param {number} baseWidth 魚の命中範囲の幅(ルアーの前)
+ */
+export function chainZoneWidth(game, baseWidth) {
+  const per = gloveEffect(game, "chain");
+  if (!per) return null;
+  const { config, combat } = game;
+  const stages = Math.min(game.fight.combo, config.skills.comboMax);
+  const bonus = (combat.zoneWidthBonus ?? 0) + per * 100 * stages;
+  return lureZoneWidth(baseWidth, { zoneWidthBonus: bonus }, { minZoneWidth: config.minigame.minZoneWidth, maxZoneWidth: config.combatLimits.maxZoneWidth });
+}
+
+/** 連鎖でいま広がっている割合(画面の「連鎖 +n%」)。効かなければ 0。 @param {any} game */
+export function chainBonus(game) {
+  const per = gloveEffect(game, "chain");
+  if (!per || !game.fight) return 0;
+  return per * Math.min(game.fight.combo, game.config.skills.comboMax);
+}
+
+/**
+ * 連撃加速(D-340):hits 回目の命中で、段数を追加で 1 上げるか。[分子, 分母] で、命中の数に比例して上げる(乱数なし)。
+ * @param {any} game @param {number} hits いまの命中の数(この命中を含む)
+ */
+export function comboAccelerates(game, hits) {
+  const v = gloveEffect(game, "combo-accel");
+  if (!v) return false;
+  const [num, den] = v;
+  return Math.floor((hits * num) / den) > Math.floor(((hits - 1) * num) / den);
+}
+
+/**
+ * 芯・縁の帯の割合(芯の達人・縁の達人で広げる:D-340)。芯と縁は重ならず、通常の帯を最低 minNormalBand 残す。
+ * 達人が効かなければ、表の値(config.skills)のまま。
+ * @param {any} game
+ */
+export function bandRules(game) {
+  const rules = game.config.skills;
+  const core = gloveEffect(game, "core-master");
+  const edge = gloveEffect(game, "edge-master");
+  if (!core && !edge) return rules;
+  const gap = game.config.glove.minNormalBand;
+  let coreRatio = rules.coreRatio;
+  let edgeRatio = rules.edgeRatio;
+  if (core) coreRatio = Math.max(rules.coreRatio, Math.min(coreRatio + core, edgeRatio - gap));
+  if (edge) edgeRatio = Math.min(rules.edgeRatio, Math.max(edgeRatio - edge, coreRatio + gap));
+  return { ...rules, coreRatio, edgeRatio };
+}
+
+/**
+ * 追い風(D-340):命中で延ばす制限時間(ミリ秒)。戦闘ごとの合計は上限まで。効かなければ 0。
+ * @param {any} game
+ */
+export function tailwindMs(game) {
+  const per = gloveEffect(game, "tailwind");
+  if (!per) return 0;
+  return Math.max(0, Math.min(per, game.config.glove.tailwindCapMs - (game.fight.tailwindMs ?? 0)));
 }

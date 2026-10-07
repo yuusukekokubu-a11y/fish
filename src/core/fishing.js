@@ -23,23 +23,28 @@ import {
   widenRing,
   widenZone,
 } from "./combat.js";
-import { AREA_ROWS, areaOfStage, inNewestArea, makeAreas, poolRange, setArea } from "./areas.js";
+import { areaOfStage, inNewestArea, poolRange, setArea } from "./areas.js";
 import { baitCount, baitFish, refundBait, setBait, willUseBait } from "./bait.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { applyGear, copyGear, emptyGear } from "./gear.js";
 import { applySkillsToCombat, scaledReward, scaledWait, skillRates, skillStates, triggerAmounts } from "./skills.js";
-import { availableFish, DEFAULT_CONTENT, effectiveMinigame, FISH_KINDS, FISH_LIST, pickWeighted } from "./fish.js";
+import { DEFAULT_CONTENT, FISH_KINDS } from "./fish.js";
+import { bossSeed, drawCast, makeBaitCast, makeBossCast, resolveCast } from "./casts.js";
 import { triggeredStats, zoneBand } from "./fight_stats.js";
 import {
+  bandRules,
+  chainZoneWidth,
+  comboAccelerates,
   copyGloveField,
   countCatchForRetry,
   gloveEffect,
   inGrazeBand,
   rollGloveCrate,
+  tailwindMs,
   takeCrateGlove,
   useRetry,
 } from "./glove_play.js";
-import { drawZone, isHit, markerPosition, zoneAt } from "./minigame.js";
+import { drawZone, isHit, markerPosition } from "./minigame.js";
 import { createRng, normalizeSeed } from "./rng.js";
 import {
   addCount,
@@ -56,6 +61,7 @@ import {
 import { initialProgress } from "./save.js";
 
 export { FISH_KINDS, triggeredStats, zoneBand };
+export { bossSeed, drawCast, makeBaitCast, makeBossCast, resolveCast };
 
 export const PHASES = Object.freeze({
   CASTING: "casting", // 投げる
@@ -78,75 +84,6 @@ export const REASONS = Object.freeze({
   TIMEOUT: "timeout", // 強い魚・ヌシとの制限時間が切れた
   STRIKE: "strike", // 強い魚を、ジャストの初撃で釣り上げた(ミニゲームなし:D-256)
 });
-
-/**
- * 「魚の系統」の乱数で、竿の段階 rodStage の 1 回の投げを決める(D-046・D-064)。
- * 引く順番は固定:待ち時間 → 魚 →(強い魚なら)ミニゲームの種。引く回数は Issue #6 から同じ。
- * 強い魚かどうかは魚の乱数だけで決まるので、釣り場(魚の候補)によらず、引く数は同じ(D-275)。
- * ミニゲームの種から、最初の命中範囲と「ミニゲームの系統」の乱数を作る。
- * options:{ fish: 魚の設定表, strongChance: 強い魚の出現率, range: 出る魚の段階の範囲 { min, max } }
- * (なければ基本の表・config の値・竿の段階が属する釣り場の最初の段階〜竿の段階)。
- * 引いた数は raw に残す(釣り場を移ったとき、引き直さずに魚だけ決め直す:resolveCast)。
- */
-export function drawCast(rng, config = DEFAULT_CONFIG, rodStage = 1, options = {}) {
-  const strongChance = options.strongChance ?? config.strongChance;
-  const waitMs = config.waitMinMs + rng() * (config.waitMaxMs - config.waitMinMs);
-  const u = rng();
-  const seedValue = u < strongChance ? rng() : null;
-  const range = options.range ?? { min: areaOfStage({ areas: makeAreas(AREA_ROWS, rodStage) }, rodStage).firstStage, max: rodStage };
-  return resolveCast({ waitMs, u, seedValue, strongChance }, config, options.fish ?? FISH_LIST, range);
-}
-
-/**
- * 引いた数(raw)から、段階の範囲 range の中で魚を決める(乱数は引かない)。重みは範囲の最初の段階から数える(D-275)。
- * @param {{ waitMs: number, u: number, seedValue: number | null, strongChance: number }} raw
- * @param {any} config @param {readonly any[]} list @param {{ min: number, max: number }} range
- */
-export function resolveCast(raw, config, list, range) {
-  const { waitMs, u, seedValue, strongChance } = raw;
-  const strong = seedValue !== null;
-  const kind = strong ? FISH_KINDS.STRONG : FISH_KINDS.WEAK;
-  // 区分の中での位置を 0〜1 に引きのばし、その値で種類を選ぶ。
-  const v = strong ? u / strongChance : (u - strongChance) / (1 - strongChance);
-  const fish = pickWeighted(availableFish(range.max, kind, list, range.min), v, range.min);
-  const minigame = effectiveMinigame(fish, config.minigame);
-  if (!minigame || seedValue === null) return { waitMs, kind, fish, minigame: null, zone: null, minigameSeed: null, raw };
-  const zone = zoneAt(seedValue, { zoneWidth: minigame.zoneWidth, zoneMargin: config.minigame.zoneMargin });
-  return { waitMs, kind, fish, minigame, zone, minigameSeed: Math.floor(seedValue * 4294967296), raw };
-}
-
-/** ヌシ戦の 1 回ぶん。乱数は、シードと「何回目の挑戦か」から作る(魚の系統は使わない:D-115)。 */
-export function makeBossCast(boss, config, seed, attempt) {
-  const minigameSeed = bossSeed(seed, attempt);
-  const minigame = effectiveMinigame(boss, config.minigame);
-  const zone = zoneAt(createRng(minigameSeed ^ 0x2545f491)(), {
-    zoneWidth: minigame.zoneWidth,
-    zoneMargin: config.minigame.zoneMargin,
-  });
-  return { waitMs: 0, kind: FISH_KINDS.BOSS, fish: boss, minigame, zone, minigameSeed };
-}
-
-/** ヌシ戦の乱数の種。 */
-export function bossSeed(seed, attempt) {
-  return critSeed((seed ^ Math.imul(attempt + 1, 0x9e3779b9)) >>> 0);
-}
-
-/**
- * 餌で出る強い魚の 1 回ぶん(D-264)。魚の系統は使わず、シードと何投目かから種を作る(ヌシ戦と同じ作り方)。
- * 待ち時間は、魚の系統から引いた元の投のものをそのまま使う。
- */
-export function makeBaitCast(fish, config, seed, castCount, waitMs) {
-  const minigameSeed = bossSeed((seed ^ BAIT_SEED_SALT) >>> 0, castCount);
-  const minigame = effectiveMinigame(fish, config.minigame);
-  const zone = zoneAt(createRng(minigameSeed ^ 0x2545f491)(), {
-    zoneWidth: minigame.zoneWidth,
-    zoneMargin: config.minigame.zoneMargin,
-  });
-  return { waitMs, kind: FISH_KINDS.STRONG, fish, minigame, zone, minigameSeed, bait: true };
-}
-
-/** 餌の投の種を、ヌシ戦の種とずらすための数。 */
-const BAIT_SEED_SALT = 0x3c6ef372;
 
 /** 進み具合を、ゲームの中で使う形にそろえる(呼んだ側のものは変えない)。餌と自動分解の欄は、あるときだけ写す(D-269)。 */
 function ownProgress(progress) {
@@ -524,6 +461,8 @@ function startFight(game, grade) {
     // グローブ:保険で無効にしたミスの数、かすりの数(D-334)。
     insured: 0,
     grazes: 0,
+    // 追い風で延ばした制限時間の合計(D-340)。
+    tailwindMs: 0,
     // ジャストの初撃の結果(D-256)。なければ null。
     strike: null,
   };
@@ -589,6 +528,13 @@ function fightTap(game, at = game.phaseMs) {
     fight.hp = Math.max(0, fight.hp - damage);
     fight.hits += 1;
     fight.combo += 1;
+    // 連撃加速:決まった回数ごとに、段数を追加で 1(最大の段数はこえない:D-340)。
+    const accel = comboAccelerates(game, fight.hits) && fight.combo < config.skills.comboMax;
+    if (accel) fight.combo += 1;
+    // 追い風:命中で制限時間を延ばす(戦闘ごとに上限まで:D-340)。
+    const tailwind = tailwindMs(game);
+    fight.timeLimitMs += tailwind;
+    fight.tailwindMs += tailwind;
     if (critical) fight.crits += 1;
     const base = {
       action: "hit",
@@ -601,11 +547,13 @@ function fightTap(game, at = game.phaseMs) {
       rawDamage: raw,
       defended: damage < raw,
       // 命中した帯(芯・通常・縁)。画面の「芯」「縁」の表示に使う。
-      band: zoneBand(position, fight.zone, config.skills),
+      band: zoneBand(position, fight.zone, bandRules(game)),
       combo: fight.combo,
       hp: fight.hp,
       maxHp: fight.maxHp,
       position,
+      ...(accel ? { accel: true } : {}),
+      ...(tailwind > 0 ? { tailwind } : {}),
     };
     if (fight.hp === 0) {
       finish(game, OUTCOMES.CAUGHT, REASONS.HP_ZERO);
@@ -616,7 +564,8 @@ function fightTap(game, at = game.phaseMs) {
       zoneWidth: game.cast.minigame.zoneWidth,
       zoneMargin: config.minigame.zoneMargin,
     });
-    fight.zone = widenZone(drawn, fight.zoneWidth, config.minigame.zoneMargin);
+    // 連鎖:段数に応じて広げた幅(D-340)。
+    fight.zone = widenZone(drawn, chainZoneWidth(game, game.cast.minigame.zoneWidth) ?? fight.zoneWidth, config.minigame.zoneMargin);
     return { ...base, caught: false };
   }
   // かすり:命中範囲のすぐ外は、少しダメージが入る(命中に数えない:D-334)。
@@ -636,6 +585,9 @@ function fightTap(game, at = game.phaseMs) {
   const keep = gloveEffect(game, "combo-keep");
   const kept = keep ? Math.floor(fight.combo * keep) : 0;
   fight.combo = kept;
+  // 連鎖:段数が減ったら、命中範囲の幅も戻す(真ん中は保つ:D-340)。
+  const chained = chainZoneWidth(game, game.cast.minigame.zoneWidth);
+  if (chained !== null) fight.zone = widenZone(fight.zone, chained, config.minigame.zoneMargin);
   const miss = { action: "miss", heal: fight.hp - before, hp: fight.hp, maxHp: fight.maxHp, position };
   return keep ? { ...miss, comboKept: kept } : miss;
 }

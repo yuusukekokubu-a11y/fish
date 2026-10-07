@@ -73,6 +73,8 @@ export function bandLabel(hit) {
 }
 
 export function addHitEffects(effects, hit, now) {
+  // 連撃加速で段数が追加で上がった(グローブ:D-340)。
+  if (hit.accel) effects.floats.push({ text: "加速", start: now, ms: 600, y: 0.44, size: 20, color: "#8be9fd" });
   // 防御:実効防御 100% 以上は「-1 防御」(貫通が足りない)。防御で減った命中は、数字を灰色がかった青にする(D-235)。
   if (hit.effDefense >= 1) {
     effects.shake = { start: now, ms: 120, amplitude: 2 };

@@ -98,7 +98,7 @@ test("抽選:レア度は 50/30/15/5%(10 万回で ±1%)。自動合わせはレ
   assert.ok(byAbility.get("auto-hook:legend") > 0);
   assert.deepEqual(
     GLOVE_ABILITY_ROWS.map((a) => a.id),
-    ["auto-hook", "retry", "insurance", "graze", "combo-keep"],
+    ["auto-hook", "retry", "insurance", "graze", "combo-keep", "chain", "combo-accel", "core-master", "edge-master", "tailwind"],
   );
   // 効果の値はレア度で固定。
   assert.deepEqual(["normal", "rare", "epic", "legend"].map((r) => gloveValue({ id: 1, ability: "retry", rarity: r, grade: 1 })), [1, 2, 3, 4]);
@@ -415,7 +415,7 @@ test("保存の版 7:グローブが往復で元に戻る。壊れた系(能力�
   const withGloves = (head, items) => [...parts.slice(0, 11), head, items].join("~");
   assert.equal(decodeSave(withGloves(parts[11], parts[12])).ok, true);
   const bad = {
-    "存在しない能力": withGloves("0.2.", `1.${(5 * 4).toString(36)}.1`),
+    "存在しない能力": withGloves("0.2.", `1.${(10 * 4).toString(36)}.1`),
     "ノーマルの自動合わせ": withGloves("0.2.", "1.0.1"),
     "グレード 0": withGloves("0.2.", "1.4.0"),
     "グレードが表より上": withGloves("0.2.", "1.4.b"),
@@ -443,6 +443,11 @@ test("互換の正解データ(compat_save_v7.json):保存の版 7 の署名な�
   }
   for (const c of fixture.rejected) {
     const r = decodeSaveCode(c.code);
+    // 「表にない能力(番号 5)」は、②-5c で能力の表に連鎖(番号 5)を足したので、いまは連鎖のグローブとして読める(D-344)。
+    if (c.name.startsWith("表にない能力(番号 5)")) {
+      assert.deepEqual(r.ok && r.progress.gloves.items.map((g) => [g.ability, g.rarity]), [["chain", "normal"]], c.name);
+      continue;
+    }
     assert.deepEqual([r.ok, r.ok ? "" : r.error], [false, c.error], c.name);
   }
   // 版 6 の署名つきのコードは、グローブが空の版 7 として読める(ほかの値は変わらない)。
