@@ -2,6 +2,7 @@
 // 戦闘の命中 1 回の数値(条件発動型を含む:D-184・D-191・D-197)。fishing.js から分けた(ファイルを 800 行以内にするため)。
 // 画面に関係しない計算だけを置く。乱数は使わない。
 
+import { bandRules } from "./glove_play.js";
 import { isHit } from "./minigame.js";
 
 /**
@@ -43,7 +44,8 @@ export function triggeredStats(game, position = null) {
   if (fight.hp >= fight.maxHp && fight.hits === 0) met.push(["fullHp", t.fullHp, 1]);
   if (fight.hp <= fight.maxHp * config.skills.lowHpRatio) met.push(["lowHp", t.lowHp, 1]);
   // 芯・縁:命中した位置の帯で効く(D-197)。
-  const band = position === null ? null : zoneBand(position, fight.zone, config.skills);
+  // 芯・縁の帯は、達人のグローブで広がる(D-340)。
+  const band = position === null ? null : zoneBand(position, fight.zone, bandRules(game));
   if (band === "core" || band === "edge") met.push([band, t[band], 1]);
   /** @type {string[]} */
   const active = [];

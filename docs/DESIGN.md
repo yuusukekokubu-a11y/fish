@@ -36,6 +36,7 @@
 | `src/core/synthetic.js` | 限界の確かめ用の大きな表(段階 n まで、段階ごとに 3 匹)。テストと `?debug&stages=n` だけで使う(D-233)。 |
 | `src/core/glove.js` | グローブ(D-332〜D-335)。能力の表(`GLOVE_ABILITY_ROWS`)とレア度の表(`GLOVE_RARITY_ROWS`。行は並べ替えない)、抽選(`drawGlove`)、釣れるクレートの判定(`rollCrate`)と開封(`openCrate`)、付ける・外す・分解・ロック、対応段階(`coverLimit`)。 |
 | `src/core/glove_play.js` | 釣りの中のグローブのフック(D-333・D-334)。釣れるクレートの条件(`rollGloveCrate`)、いまの魚に効く能力の値(`gloveEffect`)、対応外(`gloveOutOfRange`)、仕切り直しのストック、かすりの帯。 |
+| `src/core/casts.js` | 投げの中身を決める(`drawCast`・`resolveCast`・`makeBossCast`・`makeBaitCast`。fishing.js を 800 行に余裕を持たせるため分けた:D-344)。fishing.js からも使える。 |
 | `src/core/fight_stats.js` | 命中 1 回の数値(`triggeredStats`・`zoneBand`。fishing.js を 800 行以内にするため分けた:D-337)。 |
 | `src/core/gear.js` | 装備・クレート・ガチャ(D-147〜D-149・D-181・D-253)。レア度の表(`RARITY_ROWS`)と装備の種類の表(`EQUIP_KIND_ROWS`)、クレートの一覧と価格の数式(`makeCrates`)、抽選(`drawItem`・`pullCrate`)、装着と分解、ロック(`setLocked`。ロック中は分解しない:D-246)、自動分解(表 `AUTO_SCRAP_ROWS`・`autoScrapTargets`・`autoScrap`:D-266)、装備を反映した戦闘の数値の表(`applyGear`)。JSDoc で型を書いている(D-144)。 |
 | `src/core/areas.js` | 釣り場(D-272〜D-276・D-282)。釣り場の表(`AREA_ROWS`:id・名前・最初の通し番号・段階の数・空と海の色)、表にない段階の釣り場を自動で作る(`makeAreas`)、通し番号の釣り場と位置(`areaOfStage`・`areaPosition`)、いまいる釣り場と移る(`currentArea`・`setArea`・`normalizeArea`)、魚の段階の範囲(`poolRange`)、表の点検(`checkAreas`)。 |
@@ -57,6 +58,7 @@
 | `tests/*.test.js` | 速いテスト。`npm test` で並列に回る。 |
 | `tests/slow/*.test.js` | 重いテスト(D-026)。`npm run test:slow` で回る。 |
 | `tests/skills_seen.test.js` | 発動中だけのスキル画面、出会ったスキルと NEW、保存の版 5、装備画面の並べ替え・絞り込みと保存場所のテスト。 |
+| `tests/glove_more.test.js` | ②-5c の能力 5 個(連鎖・連撃加速・芯の達人・縁の達人・追い風)と、10 個の抽選のテスト(D-340・D-344)。重いテスト `tests/slow/glove.test.js` に、組み合わせ・ミスの多い遊び方の装備・最強の装備 × グローブの表。 |
 | `tests/glove.test.js` | グローブの抽選・釣れるクレート(条件・乱数・成功と失敗)・持ち物・対応段階・能力 5 個・保存の版 7 と `compat_save_v7.json` のテスト(D-332〜D-337)。重いテストは `tests/slow/glove.test.js`(出現の間隔・放置の稼ぎ・ヌシの命中回数)。 |
 | `tests/gear_extra.test.js` | おもり・浮き・おまもり(拮抗型の効果・印の速さ・合わせの帯・ウロコイン)、ガチャの 6 種類の等確率(10 万回)、保存の版 6 と `compat_save_v6.json` のテスト(D-320〜D-327)。 |
 | `tests/signed_code.test.js`・`tests/stamp_key.test.js` | 署名つきのセーブコード(往復・1 文字の変更・長さ・鍵の番号・デバッグ用・署名なし・正解データ)と、鍵の書き込みと置き場(リポジトリに本番の鍵がない・鍵がないと失敗)のテスト。 |
@@ -279,7 +281,8 @@
 - 乱数:釣れるクレートの判定は、ガチャの種(保存してある)に別の数を混ぜ、判定の回数 `rolls` と合わせて種を作る(`crateRng`)。投ごとに 1 回、条件を満たさなくても引く(`rollGloveCrate`。投げ終わりに、餌のあと)。手に入ったときは、同じ回の乱数の続きでレア度 → 能力を決める(`openCrate`)。魚・ミニゲーム・クリティカル・ガチャの系統には触らない。
 - 置き換え:魚の抽選はそのまま(同じ数を引いた結果)で、投に `crate` の印を付けるだけ。合わせの成功で巻き上げのあと `finishCrate` がグローブを足す。
 - 能力のフック(`fishing.js`):自動合わせは場面の終わりの時刻(`phaseEnd`)を成功帯の始まりにして、そこで `hookSuccess`。仕切り直しは早すぎ・遅すぎのところで `useRetry`。保険・かすり・連撃の維持は `fightTap` のミスの分かれ道。どれも `gloveEffect(game, 能力)` が null(付けていない・対応外)なら、前と同じ道を通る。
-- 能力を足す(②-5c):`GLOVE_ABILITY_ROWS` の最後に 1 行足し、効く場所に `gloveEffect` のフックを 1 か所足す。
+- ②-5c の能力のフック:連鎖は `chainZoneWidth`(命中範囲を引くときと、段数が減ったとき)、連撃加速は `comboAccelerates`(命中のあと)、芯の達人・縁の達人は `bandRules`(帯の判定と `gaugeBands` の色分け)、追い風は `tailwindMs`(命中のあと、`fight.tailwindMs` に合計)。
+- 能力を足す:`GLOVE_ABILITY_ROWS` の最後に 1 行足し、効く場所に `gloveEffect` のフックを 1 か所足す(保存は表の番号なので、版は上げなくてよい。行は並べ替えない)。
 
 ### 餌と自動分解の作り(D-263〜D-267・D-271)
 

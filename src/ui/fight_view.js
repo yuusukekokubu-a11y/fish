@@ -5,7 +5,7 @@
 
 import { effectiveDefense } from "../core/combat.js";
 import { softCurve } from "../core/formula.js";
-import { gloveEffect, gloveOutOfRange } from "../core/glove_play.js";
+import { bandRules, chainBonus, gloveEffect, gloveOutOfRange } from "../core/glove_play.js";
 
 /** 条件の短い名前(スキルの表の when と同じ名前)。 */
 export const TRIGGER_LABELS = Object.freeze({
@@ -26,7 +26,8 @@ export const TRIGGER_LABELS = Object.freeze({
 export function gaugeBands(game) {
   const t = game?.triggers ?? {};
   if (!game || (!t.core && !t.edge)) return null;
-  const { coreRatio, edgeRatio } = game.config.skills;
+  // 芯の達人・縁の達人で広がった帯(D-340)。
+  const { coreRatio, edgeRatio } = /** @type {any} */ (game).fight ? bandRules(game) : game.config.skills;
   return { core: t.core ? coreRatio : null, edge: t.edge ? edgeRatio : null };
 }
 
@@ -51,6 +52,10 @@ export function fightBadges(game) {
   // グローブ(D-334):保険の残りの回数。対応段階の外なら「グローブ 対応外」。
   const insurance = gloveEffect(game, "insurance");
   if (insurance && fight.insured < insurance) labels.push(`保険 ${insurance - fight.insured}`);
+  // 連鎖でいま広がっている割合、追い風で延びた時間(D-340)。
+  const chain = chainBonus(game);
+  if (chain > 0) labels.push(`連鎖 +${Math.round(chain * 1000) / 10}%`);
+  if ((fight.tailwindMs ?? 0) > 0) labels.push(`追い風 +${fight.tailwindMs / 1000} 秒`);
   if (gloveOutOfRange(game)) labels.push("グローブ 対応外");
   return { combo: n >= 2 ? `連撃 ×${n}` : null, labels };
 }

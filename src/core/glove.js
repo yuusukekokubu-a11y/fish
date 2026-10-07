@@ -106,6 +106,54 @@ export const GLOVE_ABILITY_ROWS = Object.freeze([
     weight: 1,
     format: (v) => `段数の ${pct(v)} が残る`,
   },
+  // ②-5c の 5 個(D-340)。
+  {
+    id: "chain",
+    name: "連鎖",
+    text: "連撃の段数が増えるほど、命中範囲が広がる(連撃が切れると戻る)",
+    target: "fight",
+    values: Object.freeze({ normal: 0.01, rare: 0.015, epic: 0.02, legend: 0.03 }),
+    weight: 1,
+    format: (v) => `1 段ごとに +${pct(v)}(最大 +${pct(v * 10)})`,
+  },
+  {
+    id: "combo-accel",
+    name: "連撃加速",
+    text: "命中のたびに、決まった回数ごとに、連撃の段数が追加で 1 上がる(最大の段数はこえない)",
+    target: "fight",
+    // [分子, 分母]:命中 n 回のうち、分子 回で +1 段(乱数なし)。
+    values: Object.freeze({ normal: Object.freeze([1, 3]), rare: Object.freeze([1, 2]), epic: Object.freeze([2, 3]), legend: Object.freeze([1, 1]) }),
+    weight: 1,
+    format: (v) => (v[0] === v[1] ? "毎回 +1 段" : `${v[1]} 回に ${v[0]} 回 +1 段`),
+  },
+  {
+    id: "core-master",
+    name: "芯の達人",
+    text: "芯の帯が広がる(芯のスキルを付けているときだけ効く)",
+    target: "fight",
+    values: Object.freeze({ normal: 0.05, rare: 0.08, epic: 0.12, legend: 0.18 }),
+    weight: 1,
+    format: (v) => `芯の帯 +${Math.round(v * 100)} ポイント`,
+  },
+  {
+    id: "edge-master",
+    name: "縁の達人",
+    text: "縁の帯が広がる(縁のスキルを付けているときだけ効く)",
+    target: "fight",
+    values: Object.freeze({ normal: 0.04, rare: 0.06, epic: 0.09, legend: 0.14 }),
+    weight: 1,
+    format: (v) => `縁の帯 +${Math.round(v * 100)} ポイント`,
+  },
+  {
+    id: "tailwind",
+    name: "追い風",
+    text: "命中するたびに、制限時間が少し延びる(戦闘ごとに上限あり)",
+    target: "fight",
+    // 命中 1 回で延びるミリ秒。
+    values: Object.freeze({ normal: 200, rare: 300, epic: 400, legend: 600 }),
+    weight: 1,
+    format: (v) => `命中ごとに +${v / 1000} 秒(戦闘ごとに +3 秒まで)`,
+  },
 ]);
 
 /** 釣れるクレートの判定の種を、ガチャの種とずらすための数。 */
