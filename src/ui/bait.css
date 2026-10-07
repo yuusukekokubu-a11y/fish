@@ -15,23 +15,21 @@
 }
 .auto-scrap {
   margin: 0 0 12px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
 }
-.auto-scrap-title {
-  margin: 0 0 8px;
-  font-size: 15px;
-}
-.auto-scrap-choices {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.auto-scrap-row {
+  display: flex;
   gap: 8px;
+  align-items: center;
 }
-.chip.auto-scrap-choice[aria-pressed="true"] {
-  border-color: #ffd166;
-  background: #ffd166;
-  color: #3d2c00;
+.auto-scrap-select {
+  flex: 1;
+}
+.chip.auto-scrap-help {
+  min-width: 44px;
+  min-height: 44px;
   font-weight: bold;
 }
 .auto-scrap-note {
@@ -239,4 +237,45 @@
 }
 .skill-show-all {
   margin-bottom: 8px;
+}
+/* 装備の詳細のシート(D-314):名前の横の種類とグレード、大きな「付ける/外す」、小さな分解とロック。 */
+.item-meta {
+  margin-left: 6px;
+  font-size: 14px;
+  font-weight: normal;
+  opacity: 0.8;
+}
+.item-sheet .item-equip {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 8px;
+  font-size: 18px;
+}
+.item-sheet .item-small-row > button {
+  width: auto;
+  margin-bottom: 0;
+  min-height: 44px;
+  font-size: 14px;
+}
+.item-sheet .skill-changes {
+  margin: 6px 0;
+  font-size: 15px;
+}
+/* セーブコードの共有(D-315)。書き出したあとに、使える端末でだけ出す。 */
+#code-share-row {
+  margin-top: 8px;
+}
+#code-share {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #5d7380;
+  border-radius: 10px;
+  background: #0b3954;
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: bold;
+}
+#code-share[hidden] {
+  display: none;
 }

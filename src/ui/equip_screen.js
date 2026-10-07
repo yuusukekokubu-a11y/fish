@@ -5,7 +5,8 @@
 // - 下:持ち物のカード(スキルの行つき)。並べ替えと、種類・レア度・ロックの絞り込みはプルダウン(D-304)。
 //   まとめて分解と、絞り込み中の装備のまとめてロック・解除(D-246)は、「操作」メニューにまとめる。
 //   選んだ並べ替えと絞り込みは ctx.equipView で覚える(ゲームの保存データとは別の場所。なければ画面を作り直す間だけ)。
-// - カードか枠を押すと、下から詳細のシートが出る(いまの装備との差、スキルレベルの変化、付ける・外す・分解・ロック)。
+// - カードか枠を押すと、下から詳細のシートが出る(D-314):名前の横に種類とグレード。いまの装備との差とスキルレベルの変化は
+//   変わるときだけ 1 行。「付ける/外す」を大きく、分解とロックを小さく。
 // - ロック中の装備は、カードと枠に鍵の印(🔒。色だけでなく形で分かる)。分解のボタンは押せない(D-246)。
 // 数と文字は gear_view.js が作る。操作は計算本体(gear.js)の関数を呼ぶ。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
@@ -95,27 +96,33 @@ function openItemSheet(ctx, v, crates) {
     ctx.app,
     (panel, close) => {
       panel.dataset.item = String(v.id);
-      panel.append(el("h2", "sheet-title", v.name), rarityBadge(v));
+      // 名前の横に、種類とグレードを小さく(D-314)。
+      const title = el("h2", "sheet-title item-sheet-title");
+      title.append(el("span", "", v.name), el("span", "item-meta", `・${v.kindName}・G${v.grade}`));
+      panel.append(title, rarityBadge(v));
+      if (v.equipped) panel.append(el("span", "item-tag", "装着中"));
       const dl = el("dl", "sheet-list");
       for (const [k, val] of /** @type {[string, string][]} */ ([
-        ["種類", v.kindName],
-        ["グレード", String(v.grade)],
         ["基本効果", v.effect],
         ...v.skills.map((s) => /** @type {[string, string]} */ (["スキル", s.text])),
       ])) {
         dl.append(el("dt", "", k), el("dd", "", val));
       }
       panel.append(dl);
-      const diffText = v.equipped ? "装着中" : `いまの装備との差 ${v.diff}`;
-      panel.append(el("p", `item-diff ${v.diffSign > 0 ? "up" : v.diffSign < 0 ? "down" : ""}`, diffText));
-      // 付けた(外した)ときの、スキルレベルの変化(例:「会心率 Lv2→Lv3」)。
-      if (v.skillChanges.length > 0) {
-        const changes = el("ul", "skill-changes");
-        changes.append(el("li", "skill-changes-title", v.equipped ? "外すと" : "付けると"));
-        for (const c of v.skillChanges) changes.append(el("li", `item-diff ${c.up ? "up" : "down"}`, c.text));
-        panel.append(changes);
+      // いまの装備との差と、付けた(外した)ときのスキルレベルの変化は、変わるときだけ 1 行で(D-314)。
+      if (!v.equipped && v.diffSign !== 0) {
+        panel.append(el("p", `item-diff ${v.diffSign > 0 ? "up" : "down"}`, `いまの装備との差 ${v.diff}`));
       }
-      const row = el("div", "sheet-buttons");
+      if (v.skillChanges.length > 0) {
+        const line = el("p", "skill-changes");
+        line.append(el("span", "skill-changes-title", v.equipped ? "外すと " : "付けると "));
+        v.skillChanges.forEach((c, i) => {
+          if (i > 0) line.append("・");
+          line.append(el("span", `item-diff ${c.up ? "up" : "down"}`, c.text));
+        });
+        panel.append(line);
+      }
+      // 「付ける/外す」を大きく。分解とロックは小さく横に並べる(押せる場所は 44px 以上:D-314)。
       const toggle = button(v.equipped ? "外す" : "付ける", "primary-button item-equip");
       toggle.addEventListener("click", () => {
         const item = game.progress.gear.items.find((it) => it.id === v.id);
@@ -127,7 +134,7 @@ function openItemSheet(ctx, v, crates) {
         ctx.rerender();
       });
       // ロック中は分解できない(押せない見た目と「ロック中」:D-246)。
-      const scrap = button(v.locked ? "分解(ロック中)" : `分解 +${formatCount(v.refund)}`, "secondary-button item-dismantle");
+      const scrap = button(v.locked ? "分解(ロック中)" : `分解 +${formatCount(v.refund)}`, "secondary-button item-small item-dismantle");
       scrap.disabled = v.locked;
       scrap.addEventListener("click", () => {
         if (v.locked) return;
@@ -141,8 +148,9 @@ function openItemSheet(ctx, v, crates) {
         if (v.equipped) confirmSheet(ctx.app, "装着中の装備を分解します", [v.name, `+${formatCount(v.refund)} ウロコイン`], "分解する", run);
         else run();
       });
-      const lock = button(v.locked ? "🔒 ロックを外す" : "🔒 ロックする", "secondary-button item-lock-toggle");
+      const lock = button(v.locked ? "🔒 外す" : "🔒 ロック", "secondary-button item-small item-lock-toggle");
       lock.setAttribute("aria-pressed", String(v.locked));
+      lock.setAttribute("aria-label", v.locked ? "ロックを外す" : "ロックする");
       lock.addEventListener("click", () => {
         setLocked(game.progress.gear, [v.id], !v.locked);
         ctx.onGearChanged();
@@ -151,9 +159,10 @@ function openItemSheet(ctx, v, crates) {
       });
       const cancel = button("閉じる", "secondary-button sheet-close");
       cancel.addEventListener("click", close);
-      row.append(scrap, toggle);
+      const small = el("div", "sheet-buttons item-small-row");
+      small.append(scrap, lock);
       if (v.locked) panel.append(el("p", "item-locked-note", "ロック中:分解できません"));
-      panel.append(row, lock, cancel);
+      panel.append(toggle, small, cancel);
     },
     "item-sheet",
   );

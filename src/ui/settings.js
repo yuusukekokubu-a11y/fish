@@ -3,9 +3,11 @@
 // - セーブコード:書き出し・コピー・読み込み。読み込みは、コードが正しく、上書きの確認に「はい」と答えたときだけ保存を書き換える。
 //   書き出すのは署名つき(TSURI5:D-291)。署名の計算は非同期なので、書き出しと読み込みは結果を待ってから進む。
 //   署名なしの古い形式は、確認に「署名がありません(古い形式です)」の注意を足す(D-294)。
+// - 共有:書き出したあとに「共有」を出す(ブラウザの共有の仕組みが使えるときだけ:D-315)。やめても何も起きない。
 // - データを消す:3 秒のうちに 2 回押したときだけ消す。
 
 import { makeSaveCode } from "./save_sign.js";
+import { canShareText, shareText } from "./share.js";
 import { mountTiming } from "./timing_screen.js";
 
 /** 書き出しと読み込み(ctx.saveCode がなければ、港の表と本番の点検・本番の鍵)。どちらも Promise を返す。 */
@@ -38,9 +40,14 @@ export function mountSettings(container, ctx) {
   const exportButton = el("button", { id: "code-export", type: "button" }, "書き出し");
   const copy = el("button", { id: "code-copy", type: "button" }, "コピー");
   const importButton = el("button", { id: "code-import", type: "button" }, "読み込み");
+  // 共有(D-315):書き出したあとに、使える端末でだけ出す。
+  const share = el("button", { id: "code-share", type: "button" }, "共有");
+  share.hidden = true;
   buttons.append(exportButton, copy, importButton);
+  const shareRow = el("div", { id: "code-share-row" });
+  shareRow.append(share);
   const codeNote = el("p", { class: "code-note" }, "書き出すコードは署名つき(TSURI5)です。1 文字でも書き換えると「署名が合いません」で読めません。");
-  code.append(text, status, buttons, codeNote);
+  code.append(text, status, buttons, shareRow, codeNote);
 
   const danger = el("section", { class: "screen-section" });
   danger.append(el("h2", { class: "section-title" }, "データ"));
@@ -80,9 +87,19 @@ export function mountSettings(container, ctx) {
 
   exportButton.addEventListener("click", () =>
     once(async () => {
-      if (await exportCode()) show("書き出しました(署名つき)");
+      if (await exportCode()) {
+        show("書き出しました(署名つき)");
+        share.hidden = !canShareText(navigator, text.value);
+      }
     }),
   );
+  share.addEventListener("click", async () => {
+    if (text.value === "") return;
+    const result = await shareText(navigator, text.value);
+    if (result === "shared") show("共有しました");
+    else if (result === "failed") show("共有できませんでした。コピーを使ってください", true);
+    // やめたとき(cancelled)は何も出さない。
+  });
   copy.addEventListener("click", async () => {
     if (text.value === "" && !(await exportCode())) return;
     try {

@@ -192,7 +192,7 @@ export function itemSkillLines(item, skills = SKILL_ROWS) {
 }
 
 /**
- * その装備を付けた(外した)ときの、スキルレベルの変化(例:「会心率 Lv2→Lv3」)。変わるものだけ。
+ * その装備を付けた(外した)ときの、スキルレベルの変化(例:「会心率 Lv2 → Lv3」)。変わるものだけ。
  * @param {SkillGame} game @param {Item} item
  */
 export function skillLevelChanges(game, item) {
@@ -208,6 +208,6 @@ export function skillLevelChanges(game, item) {
     .map((s) => {
       const from = before[s.id].level;
       const to = after[s.id].level;
-      return { id: s.id, up: to > from, text: `${s.name} Lv${from}→Lv${to}` };
+      return { id: s.id, up: to > from, text: `${s.name} Lv${from} → Lv${to}` };
     });
 }
