@@ -314,5 +314,11 @@ export function mountDebug(container, ctx) {
     });
   }
 
-  container.append(values, logBox, perfBox, areaBox, baitBox, make, gloveBox, presets, fight, url, reset);
+  // ドット絵の見本(D-362):専用のページへの入口はここだけ(ゲームの画面からはリンクしない)。
+  const artBox = section("ドット絵の見本");
+  const artLink = /** @type {HTMLAnchorElement} */ (el("a", "secondary-button debug-art-link", "ドット絵の見本を開く"));
+  artLink.href = "src/art/samples.html";
+  artBox.append(artLink);
+
+  container.append(values, logBox, artBox, perfBox, areaBox, baitBox, make, gloveBox, presets, fight, url, reset);
 }

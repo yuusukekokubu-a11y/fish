@@ -114,3 +114,13 @@
 .playlog-buttons button {
   min-height: 48px;
 }
+
+/* ドット絵の見本への入口(D-362)。 */
+.debug-art-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
