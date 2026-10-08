@@ -15,6 +15,7 @@ import {
   tap,
   update,
 } from "../src/core/fishing.js";
+import { fishQuirks } from "../src/core/formula.js";
 import { ROD_STEPS } from "../src/core/rod.js";
 import { createRng } from "../src/core/rng.js";
 import { emptyGear } from "../src/core/gear.js";
@@ -175,8 +176,11 @@ test("当たり範囲で押せる割合が 100% なら、全部のヌシに必�
   }
 });
 
-test("当たり範囲で押せる割合が 70% でも、シード 20 個のうち 8 割以上で勝つ(同じ装備)", () => {
+test("当たり範囲で押せる割合が 70% でも、シード 20 個のうち 8 割以上で勝つ(同じ装備。速い印・短い制限時間のヌシは除く)", () => {
   for (const s of STAGE_LIST) {
+    // 速い印のヌシ(沖など)はおもり、短い制限時間のヌシ(深海)は糸・粘りの延長が要る(D-382)。
+    // 貫通のプリセットには付かないので、ここでは数えない(合う装備での勝ち方は、重いテストの tests/slow/balance.test.js で確かめる)。
+    if (fishQuirks("boss", s.stage).some((q) => q === "short" || q === "fast")) continue;
     let wins = 0;
     for (let seed = 1; seed <= 20; seed++) {
       const game = bossGame(s.stage, seed);

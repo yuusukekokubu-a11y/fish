@@ -152,10 +152,10 @@ export function consumeBoosts(boosts) {
 
 /**
  * 魚ごとの制限時間に、表の増減(糸・粘りなど)を足す。延びる分は、魚の制限時間 × maxTimeBonusRatio まで(D-380:元の制限時間まで)。
- * 下限より短くしない。
+ * 短い制限時間のくせのヌシは、延びる上限を、くせの前の制限時間 baseMs で数える(D-382)。下限より短くしない。
  */
-export function fightTimeLimit(fishTimeLimitMs, stats, limits) {
-  const bonus = Math.min(stats.timeLimitBonusMs, fishTimeLimitMs * (limits.maxTimeBonusRatio ?? Infinity));
+export function fightTimeLimit(fishTimeLimitMs, stats, limits, baseMs = fishTimeLimitMs) {
+  const bonus = Math.min(stats.timeLimitBonusMs, baseMs * (limits.maxTimeBonusRatio ?? Infinity));
   return Math.max(limits.minTimeLimitMs, fishTimeLimitMs + bonus);
 }
 

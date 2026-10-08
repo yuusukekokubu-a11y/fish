@@ -106,9 +106,9 @@ export const DEFAULT_CONFIG = Object.freeze({
     hpPerStage: 10,
     // ヌシの体力 = 77 × g^0.77 × 1.14^g を上から 2 けた(D-380・D-381)。目安の引く回数 P(g) の装備で、ふつうの遊び方が 80% 勝つ体力に、
     // シミュレーションで合わせ、式との差(±2 割)を見込んで全体を 0.9 倍にした(g=1〜30。g=31 からは、釣り場を足すときに合わせ直す)。
-    bossHpBase: 77.3,
-    bossHpPower: 0.7685,
-    bossHpGrowth: 1.1412,
+    bossHpBase: 75.4,
+    bossHpPower: 0.9323,
+    bossHpGrowth: 1.1425,
     // 目安の引く回数 P(g) = 20 × 6^((g − 1) ÷ 29) を四捨五入(g=1 で 20 回、g=30 で 120 回:D-379)。
     targetPullsFirst: 20,
     targetPullsGrowth: 1.06375,
@@ -129,11 +129,16 @@ export const DEFAULT_CONFIG = Object.freeze({
     // ヌシのくせ(D-379・D-381):釣り場の番号 k(港 0・磯 1・川 2 …)ごとに 1 つ。その釣り場のヌシ全部に付き、4・5 体目は 1 つ前の釣り場のくせも重ねる。
     // narrow:命中範囲 × zoneScale(対策はルアー・芯と縁)。wall:防御 = max(floor, ふつうの貫通 + margin)(対策は貫通)。
     // ふつうの貫通 = 貫通 Lv min(2 + g, levelFirst + levelStep ×(g − levelAt))の値(目安の引く回数 P(g) の装備の中央値に合わせた)。
+    // fast:印の速さ × sweepScale(対策はおもり)。regen:1 秒ごとに体力 × perSecRatio を回復(対策は短い時間の火力)。
+    // short:制限時間 × timeScale(対策は糸・粘り。延びる上限は、くせの前の制限時間で数える:D-382)。
     // hpScale:くせのあるヌシの体力に掛ける数(合う装備で、ふつう + P 回が 8 割勝つように合わせた)。
     quirks: Object.freeze({
-      byArea: Object.freeze(["", "narrow", "wall"]),
-      narrow: Object.freeze({ zoneScale: 0.6, hpScale: 0.47 }),
-      wall: Object.freeze({ floor: 1.02, margin: 0.2, penPerLevel: 0.1, levelAt: 11, levelFirst: 9, levelStep: 2, hpScale: 0.4 }),
+      byArea: Object.freeze(["", "narrow", "wall", "fast", "regen", "short"]),
+      narrow: Object.freeze({ zoneScale: 0.6, hpScale: 0.52 }),
+      wall: Object.freeze({ floor: 1.02, margin: 0.2, penPerLevel: 0.1, levelAt: 11, levelFirst: 9, levelStep: 2, hpScale: 0.46 }),
+      fast: Object.freeze({ sweepScale: 0.66, hpScale: 1 }),
+      regen: Object.freeze({ perSecRatio: 0.01, hpScale: 0.69 }),
+      short: Object.freeze({ timeScale: 0.5, hpScale: 0.69 }),
     }),
     // 製作の鱗:3 + 7 ×(1 − e^(−(g−1)/8.7))を四捨五入(3・4・4・5・6 … 10)。進化はヌシの鱗 1。
     craftMin: 3,

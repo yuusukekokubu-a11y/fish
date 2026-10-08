@@ -31,8 +31,8 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {number} zoneStep
  * @property {number} zoneMin ふつうの魚の命中範囲の幅の下限(くせのあるヌシは、これより狭くなることがある:D-381)
  * @property {number} sweepMinMs ふつうの魚の印の速さの下限
- * @property {{ byArea: readonly string[], narrow: { zoneScale: number, hpScale: number }, wall: { floor: number, margin: number, penPerLevel: number, levelAt: number, levelFirst: number, levelStep: number, hpScale: number } }} quirks
- *   ヌシのくせ(D-379・D-381):釣り場の番号ごとのくせと、くせごとの数
+ * @property {{ byArea: readonly string[], narrow: { zoneScale: number, hpScale: number }, wall: { floor: number, margin: number, penPerLevel: number, levelAt: number, levelFirst: number, levelStep: number, hpScale: number }, fast?: { sweepScale: number, hpScale: number }, regen?: { perSecRatio: number, hpScale: number }, short?: { timeScale: number, hpScale: number } }} quirks
+ *   ヌシのくせ(D-379・D-381・D-382):釣り場の番号ごとのくせと、くせごとの数
  * @property {number} bossStageOffset ヌシの印の速さと幅は、強い魚のこの段だけ先の値
  * @property {number} craftMin 製作の必要数(g=1)
  * @property {number} craftMax 製作の必要数の行き着く先
@@ -190,39 +190,61 @@ export function fishZoneWidth(kind, g, f, limits = DEFAULT_CONFIG.minigame) {
 }
 
 /**
- * 強い魚とヌシのミニゲームの設定。
+ * 強い魚とヌシのミニゲームの設定。ヌシのくせ(fishQuirks)があれば、ここで数を変える(D-381・D-382)。
+ * - regenPerSec:自動回復(1 秒あたりの回復量)。くせ「regen」のときだけ持つ。
+ * - limitBaseMs:糸・粘りで延びる上限を数える、くせの前の制限時間。くせ「short」のときだけ持つ。
  * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
  */
 export function fishMinigame(kind, g, f) {
   const c = conf(f);
   const quirks = fishQuirks(kind, g, c);
   const q = c.quirks;
+  const limits = DEFAULT_CONFIG.minigame;
+  let sweepMs = fishSweepMs(kind, g, c);
   let zoneWidth = fishZoneWidth(kind, g, c);
   let defense = fishDefense(kind, g, c);
+  const baseTimeMs = fishTimeLimitMs(kind, g, c);
+  let timeLimitMs = baseTimeMs;
+  let regenRatio = 0;
   let hpScale = 1;
   for (const id of quirks) {
     if (id === "narrow") {
       // 狭い命中範囲:幅 × zoneScale(安全の下限 minigame.minZoneWidth で止める)。
-      zoneWidth = Math.max(DEFAULT_CONFIG.minigame.minZoneWidth, Math.round(zoneWidth * q.narrow.zoneScale * 1000) / 1000);
+      zoneWidth = Math.max(limits.minZoneWidth, Math.round(zoneWidth * q.narrow.zoneScale * 1000) / 1000);
       hpScale *= q.narrow.hpScale;
     } else if (id === "wall") {
       // 防御の壁:max(floor, ふつうの貫通 + margin)。貫通なしでは 100% 以上(1 命中 1 ダメージ)、目安の装備でも margin が残る。
       defense = Math.round(Math.max(q.wall.floor, typicalPenetration(g, c) + q.wall.margin) * 1000) / 1000;
       hpScale *= q.wall.hpScale;
+    } else if (id === "fast" && q.fast) {
+      // 速い印:印の速さ × sweepScale(安全の下限 minigame.minSweepMs で止める)。
+      sweepMs = Math.max(limits.minSweepMs, Math.round(sweepMs * q.fast.sweepScale));
+      hpScale *= q.fast.hpScale;
+    } else if (id === "regen" && q.regen) {
+      // 自動回復:1 秒ごとに、体力 × perSecRatio を回復する(fishing.js の update)。
+      regenRatio = q.regen.perSecRatio;
+      hpScale *= q.regen.hpScale;
+    } else if (id === "short" && q.short) {
+      // 短い制限時間:制限時間 × timeScale(0.1 秒に丸める)。延びる上限は、くせの前の制限時間で数える。
+      timeLimitMs = Math.round((baseTimeMs * q.short.timeScale) / 100) * 100;
+      hpScale *= q.short.hpScale;
     }
   }
-  const hp = fishHp(kind, g, c);
+  const base = fishHp(kind, g, c);
+  const hp = hpScale === 1 ? base : round2(base * hpScale);
   return {
-    sweepMs: fishSweepMs(kind, g, c),
+    sweepMs,
     zoneWidth,
-    hp: hpScale === 1 ? hp : round2(hp * hpScale),
-    timeLimitMs: fishTimeLimitMs(kind, g, c),
+    hp,
+    timeLimitMs,
     defense,
+    ...(regenRatio > 0 ? { regenPerSec: Math.max(1, Math.round(hp * regenRatio)) } : {}),
+    ...(timeLimitMs !== baseTimeMs ? { limitBaseMs: baseTimeMs } : {}),
   };
 }
 
 /**
- * ヌシのくせ(D-379・D-381)の一覧。ヌシだけ。釣り場の番号 k のくせ(quirks.byArea[k])と、4・5 体目は 1 つ前の釣り場のくせも重ねる。
+ * ヌシのくせ(D-379・D-381・D-382)の一覧。ヌシだけ。釣り場の番号 k のくせ(quirks.byArea[k])と、4・5 体目は 1 つ前の釣り場のくせも重ねる。
  * 空の文字列は「くせなし」(港)。表にない釣り場(k が長さ以上)は、くせなし。
  * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
  * @returns {string[]}

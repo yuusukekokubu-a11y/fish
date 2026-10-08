@@ -393,6 +393,7 @@ export function update(game, dtMs) {
   let rest = Math.max(0, dtMs);
   while (rest > 0) {
     const remaining = phaseEnd(game) - game.phaseMs;
+    if (game.phase === PHASES.MINIGAME) regenerate(game, Math.min(rest, remaining));
     if (rest < remaining) {
       game.phaseMs += rest;
       return game;
@@ -401,6 +402,24 @@ export function update(game, dtMs) {
     advance(game);
   }
   return game;
+}
+
+/**
+ * 自動回復(ヌシのくせ「regen」:D-382)。ミニゲームの時間 ms のぶん、1 秒あたり regenPerSec を回復する。
+ * 端数は貯めて、整数になった分だけ戻す。最大の体力はこえない。乱数は引かない。
+ * @param {any} game @param {number} ms
+ */
+function regenerate(game, ms) {
+  const per = game.cast?.minigame?.regenPerSec ?? 0;
+  const fight = game.fight;
+  if (!(per > 0) || !fight || !(ms > 0)) return;
+  fight.regenCarry += (per * ms) / 1000;
+  const whole = Math.floor(fight.regenCarry);
+  if (whole < 1) return;
+  fight.regenCarry -= whole;
+  const before = fight.hp;
+  fight.hp = Math.min(fight.maxHp, fight.hp + whole);
+  fight.regenTotal += fight.hp - before;
 }
 
 /** 場面が次へ進む時刻。自動合わせが効くときの合わせは、輪が成功帯に入る瞬間(D-334)。ほかは場面の長さ。 */
@@ -455,7 +474,10 @@ function startFight(game, grade) {
     maxCombo: 0,
     hp: minigame.hp,
     maxHp: minigame.hp,
-    timeLimitMs: fightTimeLimit(minigame.timeLimitMs, game.combat, game.config.combatLimits),
+    timeLimitMs: fightTimeLimit(minigame.timeLimitMs, game.combat, game.config.combatLimits, minigame.limitBaseMs),
+    // 自動回復の端数(くせ「regen」:D-382)と、回復した合計。
+    regenCarry: 0,
+    regenTotal: 0,
     // ルアーの命中範囲。広げても真ん中の位置は変えない(乱数の引き方は同じ:D-181)。
     zoneWidth,
     zone: widenZone(zone, zoneWidth, game.config.minigame.zoneMargin),

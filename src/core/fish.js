@@ -312,5 +312,8 @@ export function effectiveMinigame(f, limits) {
     hp: f.minigame.hp,
     timeLimitMs: f.minigame.timeLimitMs,
     defense: f.minigame.defense ?? 0,
+    // ヌシのくせ(D-382):自動回復と、延びる上限を数える制限時間。持つときだけ写す。
+    ...(f.minigame.regenPerSec ? { regenPerSec: f.minigame.regenPerSec } : {}),
+    ...(f.minigame.limitBaseMs ? { limitBaseMs: f.minigame.limitBaseMs } : {}),
   };
 }
