@@ -20,14 +20,11 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {number} scalesPerCatch 強い魚とヌシが落とす鱗の数
  * @property {number} hpBase 強い魚の体力 = hpBase + hpPerStage × g
  * @property {number} hpPerStage
- * @property {number} bossHpRatio ヌシの体力 = 強い魚 × これ
  * @property {number} timeLimitMs 強い魚の制限時間(g=1)
  * @property {number} timeLimitGrowthMs g=timeLimitLogBase で増える時間(log で伸びる)
  * @property {number} bossTimeLimitMs ヌシの制限時間(g=1)
  * @property {number} bossTimeLimitGrowthMs
  * @property {number} timeLimitLogBase
- * @property {number} bossTimeLimitHitsRatio ヌシの制限時間 = 目標の命中回数 × 印が 1 回通る時間 × これ(D-366)
- * @property {number} bossTimeLimitMinMs ヌシの制限時間の下限(D-366)
  * @property {number} sweepMs 強い魚の印の速さ(端から端、g=0 の値。1 段ごとに sweepStepMs ずつ速く。限界で止まる)
  * @property {number} sweepStepMs
  * @property {number} zoneWidth 強い魚の命中範囲の幅(g=0 の値。1 段ごとに zoneStep ずつ狭く。限界で止まる)
@@ -41,25 +38,15 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {{ knee: number, soft: number }} critMultiplierCurve 会心の倍率の合計の逓減
  * @property {{ knee: number, soft: number }} penetrationCurve 貫通の合計の逓減(D-260)
  * @property {{ knee: number, soft: number }} justMultiplierCurve ジャスト倍率の合計の逓減(D-257)
- * @property {number} referenceDrawsFirst 基準の回数 N(g) = referenceDrawsFirst × g^referenceDrawsExponent(D-254)
- * @property {number} referenceDrawsExponent
+ * @property {number} targetPullsFirst 目安の引く回数 P(g) = targetPullsFirst × targetPullsGrowth^(g − 1)(D-379)
+ * @property {number} targetPullsGrowth
  * @property {number} baitPriceRatio 餌の価格 = 強い魚 1 匹のウロコイン × これ(D-265)
- * @property {number} defenseStartStage 防御を持ち始める通し番号(それより前は 0%:D-237)
- * @property {number} defensePenPerLevel 防御の式が前提にする、貫通の 1 レベルの量(スキルの表の貫通と同じ値)
- * @property {number} defenseFloor 5 体目のヌシ(s=5)の防御の下限(1 以上=貫通なしでは実効防御 100% 以上)
- * @property {number} defenseMargin 5 体目のヌシの防御 = 最大レベルの貫通 + これ(最大の貫通で残る実効防御)
- * @property {readonly number[]} bossDefenseShare 位置 s ごとの、ヌシの防御の割合(5 体目に対する)
- * @property {number} strongDefenseShare 強い魚の防御 = 同じ g の s=1 のヌシの防御 × これ
- * @property {number} nonFinalDefenseMax 5 体目より前のヌシと強い魚の防御の上限(100% 未満)
- * @property {number} bossHitsFirst ヌシの命中回数の目標(s=1)
- * @property {number} bossHitsLast ヌシの命中回数の目標(s=5)
- * @property {{ levelRatio: number, penGap: number, penGapDraws: number, reelRatio: number, scale: number, growth: number, positionScale: readonly number[] }} bossReference
- *   ヌシの体力の基準の装備(育てた装備の目安:スキルのレベルは最大 × levelRatio、リールは最大 × reelRatio、
- *   貫通は最大レベルの貫通 −(penGap + penGapDraws ÷ N(g))。scale × g^growth を掛けて、シミュレーションの命中回数に合わせる)
+ * @property {number} bossHpBase ヌシの体力 = bossHpBase × g^bossHpPower × bossHpGrowth^g(D-380。シミュレーションで合わせた)
+ * @property {number} bossHpPower
+ * @property {number} bossHpGrowth
  * @property {number} stagesPerGround 釣り場 1 つの段階の数(位置 s を数える:5。釣り場の表の段階の数と同じ:D-276)
- * @property {number} noPenTapsFactor 5 体目のヌシの体力の下限 = 押せる回数 × これ
- * @property {number} noPenBonusDraws 押せる回数を数えるときに足す、糸と粘りの最大の割合 = min(1, N(g) ÷ これ)(育てた装備の目安:D-260)
- * @property {number} [earlyBossHpMax] 序盤(防御を持つ前の g)のヌシの体力の上限(装備なしでも倒せるように:D-358)
+ * @property {number} earlyStages 序盤(装備なしでも勝てる)の段階の数(g=1〜2:D-358)
+ * @property {number} earlyBossHpMax 序盤のヌシの体力の上限(装備なしでも倒せるように:D-358)
  */
 
 /** @param {FormulaConfig} [f] */
@@ -119,23 +106,20 @@ export function fishScales(kind, _g, f) {
   return kind === "weak" ? 0 : conf(f).scalesPerCatch;
 }
 
-/** 体力(強い魚は 1 次式、ヌシはその倍率)。 @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f] */
+/**
+ * 体力。強い魚は hpBase + hpPerStage × g(1 次式)。
+ * ヌシ(D-380)は bossHpBase × g^bossHpPower × bossHpGrowth^g を上から 2 けたに丸める。係数は、目安の引く回数 P(g) の装備で、
+ * ふつうの遊び方が 80% 勝つ体力にシミュレーションで合わせた(D-379)。序盤(g=1〜2)は、装備なしでも倒せるよう上限を置く(D-358)。
+ * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
+ */
 export function fishHp(kind, g, f) {
   const c = conf(f);
-  const base = c.hpBase + c.hpPerStage * stageNumber(g);
+  const n = stageNumber(g);
   if (kind === "boss") {
-    // ヌシ:目標の命中回数 × 基準の装備の 1 命中のダメージ(防御で減らしたあと)× 位置 s ごとの補正(シミュレーションで合わせた)。
-    const eff = bossReferenceDefense(g, c);
-    const perHit = eff >= 1 ? 1 : bossReferenceDamage(g, c) * (1 - eff);
-    const s = stagePosition(g, c);
-    const hp = round2(bossHitTarget(g, c) * perHit * c.bossReference.positionScale[s - 1]);
-    // 5 体目:貫通なし(1 命中 1 ダメージ)では、制限時間の中で押せる回数より多い体力にする(D-254 の貫通必須)。
-    if (s === c.stagesPerGround) return Math.max(hp, noPenetrationFloor(g, c));
-    // 序盤(防御を持つ前の g)は、装備なしでも倒せるよう上限を置く(D-358)。
-    return stageNumber(g) < c.defenseStartStage ? Math.min(hp, c.earlyBossHpMax ?? hp) : hp;
+    const hp = round2(c.bossHpBase * n ** c.bossHpPower * c.bossHpGrowth ** n);
+    return n <= c.earlyStages ? Math.min(hp, c.earlyBossHpMax) : hp;
   }
-  // 強い魚:平均的な装備で時間の目標を保つよう、防御で減るぶん体力を下げる(防御なしなら 10 + 10g:D-254)。
-  return Math.max(1, Math.round(base * (1 - fishDefense("strong", g, c))));
+  return c.hpBase + c.hpPerStage * n;
 }
 
 /**
@@ -159,113 +143,25 @@ export function stagePosition(g, f) {
 }
 
 /**
- * 最大レベル(2 + g)の貫通で、実効防御から引ける量(逓減のあと)。防御の式が前提にする値。
- * @param {number} g @param {FormulaConfig} [f]
+ * 防御(割合。1 で 100%)。いまは、どの魚も 0(D-380:防御はいったんなくし、川からの「防御の壁」のくせとして戻す)。
+ * 戦闘の防御と貫通の仕組み(実効防御・逓減)は、そのまま残してある。
+ * @param {"weak" | "strong" | "boss"} _kind @param {number} g @param {FormulaConfig} [_f]
  */
-export function maxPenetration(g, f) {
-  const c = conf(f);
-  return softCurve(c.defensePenPerLevel * (2 + stageNumber(g)), c.penetrationCurve);
+export function fishDefense(_kind, g, _f) {
+  stageNumber(g);
+  return 0;
 }
 
 /**
- * 防御(割合。1 で 100%)。弱い魚は 0。強い魚とヌシは、通し番号 defenseStartStage から持つ(D-235・D-237)。
- * - 5 体目のヌシ(s=5):max(下限, 最大レベルの貫通 + 余り)。貫通なしでは 100% 以上、最大の貫通で余りだけ残る。
- * - ほかのヌシ:5 体目の防御 × 位置 s の割合。強い魚:同じ g の s=1 のヌシの防御 × 割合(いつもヌシより低く、100% 未満)。
- * 0.001 刻みに丸める。
- * @param {"weak" | "strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
- */
-export function fishDefense(kind, g, f) {
-  const c = conf(f);
-  if (kind === "weak" || stageNumber(g) < c.defenseStartStage) return 0;
-  const last = Math.max(c.defenseFloor, maxPenetration(g, c) + c.defenseMargin);
-  const s = stagePosition(g, c);
-  // 5 体目より前のヌシと強い魚は、貫通なしでも倒せるよう 100% 未満に収める(上限 nonFinalMax)。
-  const value = kind === "boss" ? last * c.bossDefenseShare[s - 1] : last * c.bossDefenseShare[0] * c.strongDefenseShare;
-  const capped = kind === "boss" && s === c.stagesPerGround ? value : Math.min(c.nonFinalDefenseMax, value);
-  return Math.round(capped * 1000) / 1000;
-}
-
-/** ヌシの命中回数の目標(s=1 → s=5 で少しずつ伸びる)。 @param {number} g @param {FormulaConfig} [f] */
-export function bossHitTarget(g, f) {
-  const c = conf(f);
-  return c.bossHitsFirst + ((c.bossHitsLast - c.bossHitsFirst) * (stagePosition(g, c) - 1)) / (c.stagesPerGround - 1);
-}
-
-/**
- * ヌシの体力の基準にする、1 命中の期待ダメージ(防御で減らす前)(D-254・D-260)。
- * 基準の装備:リールはレジェンド・グレード g の最大 × reelRatio、強打・会心率・会心威力・芯のレベルは最大 × levelRatio
- * (1 レベルの量は、強打 2・会心率 0.15・芯 0.1・会心威力 0.05:スキルの表と同じ値)。
- * 戦闘と同じ式(基本 + 強打、会心率と倍率の逓減、段数乗の期待値)で計算する。乱数は使わない。
- * @param {number} g @param {FormulaConfig} [f]
- */
-export function bossReferenceDamage(g, f) {
-  const c = conf(f);
-  const r = c.bossReference;
-  const level = r.levelRatio * (2 + stageNumber(g));
-  const combat = DEFAULT_CONFIG.combat;
-  // リールの基本効果:レジェンド(倍率 3.2)・グレード g の範囲の最大(基本 2)× reelRatio。
-  const reel = 2 * 3.2 * gradeFactor(g, DEFAULT_CONFIG.gacha.gradeGrowth) * r.reelRatio;
-  const base = combat.damage + reel + 2 * level;
-  const chance = softCurve(combat.critChance + 0.15 * level + 0.1 * level, c.critChanceCurve);
-  const mult = softCurve(combat.critMultiplier + 0.05 * level, c.critMultiplierCurve);
-  const whole = Math.floor(chance);
-  const frac = chance - whole;
-  return base * mult ** whole * (1 - frac + frac * mult) * r.scale * stageNumber(g) ** r.growth;
-}
-
-/**
- * 5 体目のヌシの体力の下限:制限時間(糸と粘りの最大 × min(1, N(g) ÷ noPenBonusDraws) を足したもの)の中で、印が真ん中を通る回数 × noPenTapsFactor。
- * 貫通なしでは 1 命中 1 ダメージなので、これより少ない回数では倒せない(D-254)。
- * @param {number} g @param {FormulaConfig} [f]
- */
-export function noPenetrationFloor(g, f) {
-  const c = conf(f);
-  // 糸(レジェンドの最大:基本 1 秒 × 3.2 × グレードの倍率)と粘り(1 秒 × 最大レベル)を足した、いちばん長い制限時間。
-  // 育てた装備の糸と粘りは、引く数 N(g) が少ないほど最大から遠い(N(g) ÷ noPenBonusDraws の割合。最大で 1:D-260)。
-  const ratio = Math.min(1, referenceDraws(g, c) / c.noPenBonusDraws);
-  const bonus = ratio * (1000 * 3.2 * gradeFactor(g, DEFAULT_CONFIG.gacha.gradeGrowth) + 1000 * (2 + stageNumber(g)));
-  // 制限時間は、これまでの値で数える(ヌシの制限時間を短くしても、体力を変えないため:D-366)。
-  const taps = (baseTimeLimitMs("boss", g, c) + bonus) / fishSweepMs("boss", g, c);
-  return Math.ceil(taps * c.noPenTapsFactor);
-}
-
-/**
- * ヌシの体力の基準にする実効防御。基準の装備の貫通 = 最大レベルの貫通 −(penGap + penGapDraws ÷ N(g))。
- * 引く数 N(g) が少ないほど、育てた装備の貫通は最大から遠い(D-254)。
- * @param {number} g @param {FormulaConfig} [f]
- */
-export function bossReferenceDefense(g, f) {
-  const c = conf(f);
-  const r = c.bossReference;
-  const pen = Math.max(0, maxPenetration(g, c) - r.penGap - r.penGapDraws / referenceDraws(g, c));
-  return Math.max(0, fishDefense("boss", g, c) - pen);
-}
-
-/**
- * これまでの制限時間(log で伸びる。0.1 秒に丸める)。強い魚の制限時間は、これのまま。
- * ヌシでは、制限時間の上限と、5 体目のヌシの体力の下限(noPenetrationFloor)に使う(体力を変えないため:D-366)。
- * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
- */
-export function baseTimeLimitMs(kind, g, f) {
-  const c = conf(f);
-  const t = Math.log(stageNumber(g)) / Math.log(c.timeLimitLogBase);
-  const ms = kind === "boss" ? c.bossTimeLimitMs + c.bossTimeLimitGrowthMs * t : c.timeLimitMs + c.timeLimitGrowthMs * t;
-  return Math.round(ms / 100) * 100;
-}
-
-/**
- * 制限時間(0.1 秒に丸める)。強い魚は baseTimeLimitMs のまま。
- * ヌシ(D-366・D-368):目標の命中回数 × 印が 1 回通る時間(端から端)× bossTimeLimitHitsRatio。
- * 下限 bossTimeLimitMinMs、上限はこれまでの制限時間。糸・粘り・追い風などの延長は、戦闘の中でこれに足す。
- * 序盤(防御を持つ前の g=1〜2)は、装備なしでも勝てるよう、これまでの制限時間のまま(D-368)。
+ * 制限時間(log で伸びる。0.1 秒に丸める)。強い魚 8 秒 + 4 秒 × log5(g)、ヌシ 20 秒 + 2 秒 × log5(g)(D-380)。
+ * 糸・粘りの延長は、戦闘の中でこれに足す(元の制限時間まで:combat.js の fightTimeLimit)。
  * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
  */
 export function fishTimeLimitMs(kind, g, f) {
   const c = conf(f);
-  const cap = baseTimeLimitMs(kind, g, c);
-  if (kind !== "boss" || stageNumber(g) < c.defenseStartStage) return cap;
-  const ms = bossHitTarget(g, c) * fishSweepMs("boss", g, c) * c.bossTimeLimitHitsRatio;
-  return Math.min(cap, Math.max(c.bossTimeLimitMinMs, Math.round(ms / 100) * 100));
+  const t = Math.log(stageNumber(g)) / Math.log(c.timeLimitLogBase);
+  const ms = kind === "boss" ? c.bossTimeLimitMs + c.bossTimeLimitGrowthMs * t : c.timeLimitMs + c.timeLimitGrowthMs * t;
+  return Math.round(ms / 100) * 100;
 }
 
 /**
@@ -335,10 +231,11 @@ export function growthMaxLevel(g, skills) {
 }
 
 /**
- * 基準の回数 N(g)(D-254):育てた装備は、各枠で g のクレートを N(g) 個引いた中の最良。
- * N(g) = referenceDrawsFirst × g^referenceDrawsExponent を四捨五入(N(1) = 10・N(100) = 100)。
- * @param {number} g @param {{ referenceDrawsFirst: number, referenceDrawsExponent: number }} [f]
+ * 目安の引く回数 P(g)(D-379):そのヌシまでに、段階 g のクレートを引く回数の目安(四捨五入。g=1 で 20、g=30 で 120)。
+ * 前の段階で引いた装備も持っている前提で、P(g) の装備でふつうの遊び方が 80% 勝つように、ヌシの体力を合わせた。
+ * @param {number} g @param {FormulaConfig} [f]
  */
-export function referenceDraws(g, f = DEFAULT_CONFIG.formula) {
-  return Math.round(f.referenceDrawsFirst * g ** f.referenceDrawsExponent);
+export function targetPulls(g, f) {
+  const c = conf(f);
+  return Math.round(c.targetPullsFirst * c.targetPullsGrowth ** (stageNumber(g) - 1));
 }

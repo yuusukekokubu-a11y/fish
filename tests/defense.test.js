@@ -1,4 +1,5 @@
-// 防御と貫通のテスト(②-4c 防御の条件 1・7・8・11:D-235・D-236・D-255・D-260)。
+// 防御と貫通のテスト(②-4c 防御の条件 1・7・8・11:D-235・D-236・D-255・D-260)。いまの魚の表は防御 0(D-380)なので、
+// 仕組みは、決めた魚にだけ防御を付けた表(helpers.js の withDefense)で確かめる。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -7,14 +8,14 @@ import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { defendedDamage, effectiveDefense, effectiveStats } from "../src/core/combat.js";
 import { DEFAULT_CONTENT, FISH_KINDS } from "../src/core/fish.js";
 import { createGame, PHASES, tap, update } from "../src/core/fishing.js";
-import { fishDefense, maxPenetration, softCurve, stagePosition } from "../src/core/formula.js";
+import { fishDefense, softCurve } from "../src/core/formula.js";
 import { emptyGear } from "../src/core/gear.js";
 import { decodeSaveCode, encodeSaveCode } from "../src/core/savecode.js";
 import { maxLevel, SKILL_ROWS } from "../src/core/skills.js";
 import { startQuickFight } from "../src/ui/debug_view.js";
 import { defenseBadge } from "../src/ui/fight_view.js";
 import { nextLevelText } from "../src/ui/skill_view.js";
-import { progressAt } from "./helpers.js";
+import { progressAt, withDefense } from "./helpers.js";
 
 const byId = (id) => SKILL_ROWS.find((s) => s.id === id);
 
@@ -33,10 +34,10 @@ test("防御の計算:実効防御 0%・50%・99%・100%・150% で決めたと�
 });
 
 /** 段階 g の魚 fishId と、合わせ成功で戦いを始める(装備 items)。 */
-function fightWith(g, fishId, items = [], combat = undefined) {
+function fightWith(g, fishId, items = [], combat = undefined, content = undefined) {
   const own = items.map((it, i) => ({ ...it, id: i + 1 }));
   const gear = { ...emptyGear(), seed: 1, items: own, equipped: Object.fromEntries(own.map((it) => [it.kind, it.id])), nextId: own.length + 1 };
-  const game = createGame(3, { combat, progress: progressAt(g, "none", { gear }) });
+  const game = createGame(3, { content, combat, progress: progressAt(g, "none", { gear }) });
   assert.equal(startQuickFight(game, fishId, "good").ok, true);
   return game;
 }
@@ -55,44 +56,38 @@ function hitCenter(game) {
 }
 
 test("クリティカルの段数を重ねても、実効防御 100% 以上なら 1。貫通で実効防御が下がる", () => {
-  const boss = DEFAULT_CONTENT.fish.find((f) => f.kind === FISH_KINDS.BOSS && f.stage === 5);
-  assert.ok(boss.minigame.defense >= 1);
+  // いまの魚の表は防御 0(D-380)なので、5 体目のヌシに防御 105% を付けた表で確かめる(仕組みは残してある)。
+  const plain = DEFAULT_CONTENT.fish.find((f) => f.kind === FISH_KINDS.BOSS && f.stage === 5);
+  const content = withDefense(DEFAULT_CONTENT, { [plain.id]: 1.05 });
+  const boss = content.byId.get(plain.id);
   const strongCrit = { ...DEFAULT_CONFIG.combat, damage: 500, critChance: 5, critMultiplier: 3 };
-  let game = fightWith(5, boss.id, [], strongCrit);
+  let game = fightWith(5, boss.id, [], strongCrit, content);
   let r = hitCenter(game);
   assert.ok(r.critStages >= 2, `段数 ${r.critStages}(会心率 500% は逓減で約 223%)`);
   assert.deepEqual([r.damage, r.effDefense >= 1, r.defended], [1, true, true]);
   // 貫通 Lv7(0.7。逓減の始まりちょうど)で、実効防御 1.05 − 0.7 = 0.35。
   const pen = { kind: "reel", rarity: "legend", grade: 5, value: 8, skills: [{ id: "penetration", level: 4 }] };
   const pen2 = { kind: "line", rarity: "legend", grade: 5, value: 3840, skills: [{ id: "penetration", level: 3 }] };
-  game = fightWith(5, boss.id, [pen, pen2], { ...DEFAULT_CONFIG.combat, critChance: 0 });
+  game = fightWith(5, boss.id, [pen, pen2], { ...DEFAULT_CONFIG.combat, critChance: 0 }, content);
   r = hitCenter(game);
   assert.ok(Math.abs(r.effDefense - (boss.minigame.defense - 0.7)) < 1e-9, `実効防御 ${r.effDefense}`);
   assert.equal(r.damage, Math.max(1, Math.round(r.rawDamage * (1 - r.effDefense))));
 });
 
-test("防御は強い魚とヌシだけ。弱い魚はミニゲームがなく防御もない。g=1〜2 は 0%", () => {
+test("防御は、いまはどの魚も 0%(D-380:川からの「防御の壁」のくせとして戻す)。弱い魚はミニゲームがない", () => {
   for (const f of DEFAULT_CONTENT.fish) {
     if (f.kind === FISH_KINDS.WEAK) assert.equal(f.minigame, null);
-    else assert.equal(f.minigame.defense, fishDefense(f.kind, f.stage));
-    if (f.stage <= 2 && f.minigame) assert.equal(f.minigame.defense, 0, f.id);
+    else assert.equal(f.minigame.defense, 0, f.id);
   }
-});
-
-test("最大レベルの貫通で、同じ g の 5 体目のヌシの実効防御は 30〜50%(貫通なしでは 100% 以上)", () => {
-  for (let g = 5; g <= 100; g += 5) {
-    assert.equal(stagePosition(g), 5);
-    const d = fishDefense("boss", g);
-    const eff = d - maxPenetration(g);
-    assert.ok(d >= 1, `g=${g} 防御 ${d}`);
-    assert.ok(eff >= 0.3 - 1e-9 && eff <= 0.5 + 1e-9, `g=${g} 実効防御 ${eff}`);
-  }
+  for (let g = 1; g <= 100; g++) for (const kind of /** @type {const} */ (["weak", "strong", "boss"])) assert.equal(fishDefense(kind, g), 0);
 });
 
 test("連撃・貫:連撃の段数ごとに貫通を足す(最大 10 段、ミスで 0 に戻る)", () => {
-  const boss = DEFAULT_CONTENT.fish.find((f) => f.kind === FISH_KINDS.BOSS && f.stage === 4);
+  const plain = DEFAULT_CONTENT.fish.find((f) => f.kind === FISH_KINDS.BOSS && f.stage === 4);
+  const content = withDefense(DEFAULT_CONTENT, { [plain.id]: 0.8 });
+  const boss = content.byId.get(plain.id);
   const item = { kind: "reel", rarity: "legend", grade: 5, value: 8, skills: [{ id: "combo-pen", level: 4 }] };
-  const game = fightWith(5, boss.id, [item], { ...DEFAULT_CONFIG.combat, critChance: 0 });
+  const game = fightWith(5, boss.id, [item], { ...DEFAULT_CONFIG.combat, critChance: 0 }, content);
   const effs = [];
   for (let i = 0; i < 3 && game.phase === PHASES.MINIGAME; i++) effs.push(hitCenter(game).effDefense);
   // 段数 0・1・2 で、貫通 0・0.04・0.08。

@@ -206,12 +206,3 @@ test("ヌシ戦の乱数は、挑戦の回数で変わり、魚の並びには�
   assert.equal(a.cast.waitMs, plain.cast.waitMs);
 });
 
-test("5 体目のヌシ(防御 100% 以上)は、貫通がないと 1 命中 1 ダメージで、制限時間のうちに倒せない", () => {
-  const game = bossGame(5, 3, ROD_STEPS.CRAFTED, { gear: false });
-  challengeBoss(game);
-  assert.ok(game.cast.minigame.defense >= 1);
-  fight(game, makeSkill(1, 3));
-  assert.equal(game.lastResult.outcome, OUTCOMES.ESCAPED);
-  assert.equal(game.lastResult.reason, REASONS.TIMEOUT);
-  assert.ok(game.lastResult.hits > 0);
-});

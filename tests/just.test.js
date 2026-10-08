@@ -12,7 +12,7 @@ import { emptyGear } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
 import { startQuickFight } from "../src/ui/debug_view.js";
 import { NO_CRIT } from "./fight_helpers.js";
-import { hookGood, hookJust, NO_DEFENSE_CONTENT, progressAt } from "./helpers.js";
+import { hookGood, hookJust, NO_DEFENSE_CONTENT, progressAt, withDefense } from "./helpers.js";
 
 /** スキル(id → レベル)を付けた糸を装着した進み具合(段階 5。最大 Lv7。糸なのでダメージは変わらない)。 */
 function progressWith(levels = {}, stage = 5) {
@@ -99,8 +99,10 @@ test("初撃はクリティカルを判定しない(クリティカルの乱数�
 });
 
 test("初撃にも防御と貫通が効く(実効防御で減らし、最小 1)。防御 100% 以上なら 1", () => {
-  const game = createGame(1, { combat: NO_CRIT, progress: progressWith() });
-  const buri = DEFAULT_CONTENT.byId.get("buri").minigame;
+  // いまの魚の表は防御 0(D-380)なので、ブリに防御 40% を付けた表で確かめる。
+  const content = withDefense(DEFAULT_CONTENT, { buri: 0.4 });
+  const game = createGame(1, { content, combat: NO_CRIT, progress: progressWith() });
+  const buri = content.byId.get("buri").minigame;
   const r = hookOn(game, "buri", "just");
   assert.equal(r.strike.damage, Math.max(1, Math.round(30 * (1 - buri.defense))));
   assert.equal(r.strike.defended, true);

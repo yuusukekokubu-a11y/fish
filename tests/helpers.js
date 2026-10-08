@@ -121,11 +121,17 @@ export function riverContent(equipKinds = undefined, skills = undefined) {
 }
 
 /**
- * 防御のない魚の表(港の魚。数値は式から、防御だけ 0)。スキルの計算の順など、防御と関係のない決まりを確かめるテストで使う。
+ * 防御のない魚の表(数値は式から。いまは、どの魚も防御 0:D-380)。スキルの計算の順など、防御と関係のない決まりを確かめるテストで使う。
  */
-export const NO_DEFENSE_CONTENT = makeContent(
-  FISH_ROWS.map((r) => defineFish(r, { ...DEFAULT_CONFIG_FOR_TESTS.formula, defenseStartStage: Number.MAX_SAFE_INTEGER })),
-);
+export const NO_DEFENSE_CONTENT = makeContent(FISH_ROWS.map((r) => defineFish(r, DEFAULT_CONFIG_FOR_TESTS.formula)));
+
+/**
+ * 同じ魚で、決めた魚にだけ防御を付けた表(防御と貫通の仕組みを確かめるテスト用。いまの魚の表は防御 0:D-380)。
+ * @param {any} content @param {Record<string, number>} defenses 魚の id → 防御(割合)
+ */
+export function withDefense(content, defenses) {
+  return makeContent(content.fish.map((f) => (f.minigame && defenses[f.id] !== undefined ? { ...f, minigame: { ...f.minigame, defense: defenses[f.id] } } : f)));
+}
 
 /**
  * 同じ魚(体力・制限時間などはそのまま)で、防御だけ 0 にした表。防御と関係のない決まり(芯・縁の損得、外し得など)を、
