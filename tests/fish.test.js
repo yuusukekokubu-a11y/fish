@@ -83,7 +83,8 @@ test("ヌシの体力は同じ段階の強い魚より多く、制限時間は�
     assert.ok(b.hp > (fishQuirks("boss", stage).length > 0 ? 1.5 : 2) * s.hp, `段階 ${stage}`);
     assert.equal(s.defense, 0, `段階 ${stage} の強い魚の防御`);
     assert.equal(b.defense > 0, fishQuirks("boss", stage).includes("wall"), `段階 ${stage} のヌシの防御`);
-    assert.ok(b.timeLimitMs > s.timeLimitMs, `段階 ${stage} の制限時間`);
+    // 短い制限時間のヌシ(D-382)は、くせの前の制限時間(limitBaseMs)で比べる。
+    assert.ok((b.limitBaseMs ?? b.timeLimitMs) > s.timeLimitMs, `段階 ${stage} の制限時間`);
     assert.ok(b.sweepMs <= s.sweepMs && b.zoneWidth <= s.zoneWidth);
     assert.deepEqual(effectiveMinigame({ minigame: b }, LIMITS), { ...b }, "限界で直されない");
   }

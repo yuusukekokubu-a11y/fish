@@ -13,7 +13,7 @@ export const MIN_TAP_GAP_MS = 250;
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { createGame, fightSweepMs, PHASES, tap, update } from "../../src/core/fishing.js";
 import { BASE_KIND_IDS, drawItem, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
-import { fishZoneWidth, targetPulls } from "../../src/core/formula.js";
+import { fishSweepMs, fishZoneWidth, targetPulls } from "../../src/core/formula.js";
 import { makeContent } from "../../src/core/fish.js";
 import { levelRange, SKILL_ROWS } from "../../src/core/skills.js";
 import { startQuickFight } from "../../src/ui/debug_view.js";
@@ -90,7 +90,10 @@ function playRng(seed) {
 
 /** 制限時間を長くした魚の表(倒すまでの時間を、時間切れに左右されずに測る)。体力などは同じ。 */
 export function unlimitedContent(content, limitMs = 120000) {
-  const fish = content.fish.map((f) => (f.minigame ? { ...f, minigame: { ...f.minigame, timeLimitMs: limitMs } } : f));
+  // 延びる上限は、元の制限時間で数える(limitBaseMs:D-382)。装備を選ぶとき、糸・粘りの延長を本当の上限で比べるため。
+  const fish = content.fish.map((f) =>
+    f.minigame ? { ...f, minigame: { ...f.minigame, timeLimitMs: limitMs, limitBaseMs: f.minigame.limitBaseMs ?? f.minigame.timeLimitMs } } : f,
+  );
   return makeContent(fish, content.stages, content.equipKinds, content.skills, []);
 }
 
@@ -129,14 +132,17 @@ export function fightOnce(content, g, items, fishId, seed, options = {}) {
   let lastTap = -Infinity;
   let taps = 0;
   // 遊び方の命中の割合は、くせのない命中範囲の幅(式の値)で hitRate。狭い・広い命中範囲では、ぶれのぶん変わる(D-381)。
-  const chance = std ? hitChance(std.hitRate, fishZoneWidth(game.cast.kind === "boss" ? "boss" : "strong", g)) : null;
+  // 押すときのぶれは時間で決まるので、印が速いほど位置のぶれが大きい(くせのない印の速さで hitRate:D-382)。
+  const kind = game.cast.kind === "boss" ? "boss" : "strong";
+  const chance = std ? hitChance(std.hitRate, fishZoneWidth(kind, g)) : null;
+  const sweep0 = fishSweepMs(kind, g);
   while (game.phase === PHASES.MINIGAME) {
     const s = fightSweepMs(game);
     const z = game.fight.zone;
     taps += 1;
     // n 回に 1 回は、命中範囲のすぐ外を狙う(ゲージの外に出るなら反対側)。
     const w = z.end - z.start;
-    const off = std ? rand() >= chance(w) : options.missEvery && taps % options.missEvery === 0;
+    const off = std ? rand() >= chance(w * (s / sweep0)) : options.missEvery && taps % options.missEvery === 0;
     const aim = std?.spread ? z.start + w * (0.02 + 0.96 * rand()) : (z.start + z.end) / 2;
     const c = !off ? aim : z.end + w * 0.15 <= 1 ? z.end + w * 0.15 : z.start - w * 0.15;
     const t = Math.max(game.phaseMs, lastTap + MIN_TAP_GAP_MS - 1e-6);
@@ -144,8 +150,9 @@ export function fightOnce(content, g, items, fishId, seed, options = {}) {
     // 1 往復の中で真ん中を通る時刻(行き c × s、帰り (2 − c) × s)のうち、今より後の最初のもの。
     let next = [base + c * s, base + (2 - c) * s, base + 2 * s + c * s].find((x) => x > t + 1e-6);
     if (std) {
-      // 遊び方の速さ:最初は反応の時間のあとの最初の通過。次からは、前に押してから passesPerPress 回の通過の時間(1 往復)に一番近い通過。
-      const want = taps === 1 ? std.reactMs : lastTap + std.passesPerPress * s;
+      // 遊び方の速さ:最初は反応の時間のあとの最初の通過。次からは、前に押してから passesPerPress 回の通過の時間に一番近い通過。
+      // 押す間隔は、くせ・おもりのない印の速さで決まる(押すリズムは人の側で決まり、印の速さは命中のしやすさだけを変える:D-382)。
+      const want = taps === 1 ? std.reactMs : lastTap + std.passesPerPress * sweep0;
       const b = Math.floor(want / (2 * s)) * 2 * s;
       const cands = [b - 2 * s + (2 - c) * s, b + c * s, b + (2 - c) * s, b + 2 * s + c * s].filter((x) => x > t + 1e-6 && (taps > 1 || x >= want));
       next = cands.reduce((best, x) => (Math.abs(x - want) < Math.abs(best - want) ? x : best), cands[cands.length - 1]);
@@ -161,7 +168,9 @@ export function fightOnce(content, g, items, fishId, seed, options = {}) {
     }
   }
   const last = game.lastResult;
-  return { caught: last.outcome === "caught", hits: last.hits ?? damages.length, damages, raws, effs, ms: last.fightMs ?? 0, ext: limitMs - fishLimitMs };
+  // left:逃げられたときに残っていた体力の割合(0〜1)。装備を選ぶとき、全部逃げても差がわかるように使う。
+  const left = game.fight ? game.fight.hp / game.fight.maxHp : 0;
+  return { caught: last.outcome === "caught", hits: last.hits ?? damages.length, damages, raws, effs, ms: last.fightMs ?? 0, ext: limitMs - fishLimitMs, left };
 }
 
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
@@ -173,13 +182,23 @@ export function measure(content, g, items, fishId, seeds, options = {}) {
   return { median: median(hits), winRate: runs.filter((r) => r.caught).length / runs.length, runs };
 }
 
-/** 選ぶときの点数(小さいほど良い):3 シードの命中回数の平均。逃げたら大きな数。 */
+/**
+ * 1 回の戦いの点数(小さいほど良い)。逃げたら大きな数(残った体力が多いほど大きい)。
+ * 遊び方(standard)で選ぶときは、釣り上げるまでの時間から、糸・粘りで延びる時間を引いたもので比べる
+ * (押す回数は運で変わるため。制限時間に対する余裕が大きいほど良い:D-382)。
+ */
+function playScore(r, play) {
+  // 逃げたら大きな数に、残った体力の割合を足す(自動回復のヌシなどで全部逃げても、削れたほうを選べるように:D-382)。
+  if (!r.caught) return (play.standard ? 1e7 : 1000) * (1 + (r.left ?? 0));
+  return play.standard ? r.ms - r.ext : r.hits;
+}
+
+/** 選ぶときの点数(小さいほど良い):3 シードの点数の平均。 */
 function score(content, g, items, fishId, play = {}) {
   let sum = 0;
   for (const s of [101, 202, 303]) {
     const r = fightOnce(content, g, items, fishId, s, play);
-    // 遊び方(standard)で選ぶときは、釣り上げるまでの時間で比べる(押す回数は運で変わるため)。
-    sum += play.standard ? (r.caught ? r.ms : 1e7) : r.caught ? r.hits : 1000;
+    sum += playScore(r, play);
   }
   return sum / 3;
 }
@@ -236,7 +255,7 @@ export function grownItems(content, g, fishId, seed, options = {}) {
       for (const c of c2) {
         const items = pick([a, b, c]);
         const r = fightOnce(content, g, items, fishId, 101, play);
-        scored.push({ slots: [a, b, c], s: play.standard ? (r.caught ? r.ms : 1e7) : r.caught ? r.hits : 1000 });
+        scored.push({ slots: [a, b, c], s: playScore(r, play) });
       }
     }
   }

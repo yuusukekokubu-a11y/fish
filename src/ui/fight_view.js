@@ -57,6 +57,9 @@ export function fightBadges(game) {
   if (chain > 0) labels.push(`連鎖 +${Math.round(chain * 1000) / 10}%`);
   if ((fight.tailwindMs ?? 0) > 0) labels.push(`追い風 +${fight.tailwindMs / 1000} 秒`);
   if (gloveOutOfRange(game)) labels.push("グローブ 対応外");
+  // 自動回復のヌシ(くせ「regen」:D-382)。1 秒あたりの回復量。
+  const regen = game.cast?.minigame?.regenPerSec ?? 0;
+  if (regen > 0) labels.push(`回復 +${regen}/秒`);
   return { combo: n >= 2 ? `連撃 ×${n}` : null, labels };
 }
 
