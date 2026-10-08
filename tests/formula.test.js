@@ -3,12 +3,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { fightTimeLimit } from "../src/core/combat.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { DEFAULT_CONTENT, defineFish, FISH_KINDS, FISH_ROWS, makeContent } from "../src/core/fish.js";
 import { createGame, OUTCOMES, PHASES, tap, update } from "../src/core/fishing.js";
 import {
-  baseTimeLimitMs,
-  bossHitTarget,
   coinScale,
   craftCount,
   evolveCount,
@@ -21,6 +20,7 @@ import {
   fishTimeLimitMs,
   gradeFactor,
   growthMaxLevel,
+  targetPulls,
   round2,
 } from "../src/core/formula.js";
 import { cratePrice, effectRange, EQUIP_KIND_ROWS, makeCrates, RARITY_ROWS } from "../src/core/gear.js";
@@ -126,21 +126,29 @@ test("2 けたの丸めと、製作の数は釣り場の中の位置で 3・4・
   assert.throws(() => craftCount(0));
 });
 
-test("ヌシの制限時間(D-366・D-368):目標の命中回数 × 印が 1 回通る時間 × 1.5。下限 8 秒・これまでの値をこえない。g=1〜2 と強い魚は変えない。体力は変えない", () => {
-  const f = DEFAULT_CONFIG.formula;
-  // これまでの制限時間に戻した式(係数を無限大にすると、上限=これまでの値になる)。
-  const old = { ...f, bossTimeLimitHitsRatio: Infinity };
+test("制限時間は強い魚 8 秒 + 4 秒 × log5(g)、ヌシ 20 秒 + 2 秒 × log5(g)(D-380)。延長は元の制限時間まで", () => {
+  const log5 = (g) => Math.log(g) / Math.log(5);
   for (let g = 1; g <= 100; g++) {
-    const ms = fishTimeLimitMs("boss", g);
-    const cap = baseTimeLimitMs("boss", g);
-    assert.equal(fishTimeLimitMs("boss", g, old), cap);
-    if (g < f.defenseStartStage) assert.equal(ms, cap, `g=${g} は、これまでのまま`);
-    else assert.equal(ms, Math.min(cap, Math.max(8000, Math.round((bossHitTarget(g) * fishSweepMs("boss", g) * 1.5) / 100) * 100)), `g=${g}`);
-    assert.ok(ms >= 8000 && ms <= cap);
-    assert.equal(fishTimeLimitMs("strong", g), baseTimeLimitMs("strong", g), "強い魚は変えない");
-    // 体力(5 体目の下限を含む)・防御は、制限時間の係数によらない。
-    assert.equal(fishHp("boss", g), fishHp("boss", g, old), `g=${g} の体力`);
-    assert.equal(fishDefense("boss", g), fishDefense("boss", g, old));
+    assert.equal(fishTimeLimitMs("strong", g), Math.round((8000 + 4000 * log5(g)) / 100) * 100);
+    assert.equal(fishTimeLimitMs("boss", g), Math.round((20000 + 2000 * log5(g)) / 100) * 100);
   }
-  assert.deepEqual([3, 5, 10, 100].map((g) => fishTimeLimitMs("boss", g)), [8000, 8100, 8100, 8100]);
+  // 延長(糸・粘りなど)は、魚の制限時間 × 1 まで(合計で最大 2 倍)。
+  const limits = DEFAULT_CONFIG.combatLimits;
+  assert.equal(fightTimeLimit(20000, { timeLimitBonusMs: 5000 }, limits), 25000);
+  assert.equal(fightTimeLimit(20000, { timeLimitBonusMs: 50000 }, limits), 40000);
+  assert.equal(fightTimeLimit(20000, { timeLimitBonusMs: -30000 }, limits), limits.minTimeLimitMs);
+});
+
+test("ヌシの体力は 76 × g^0.64 × 1.12^g を上から 2 けた(D-380)。g=1〜2 は 120 まで。強い魚の体力は 10 + 10g、防御はどの魚も 0", () => {
+  const f = DEFAULT_CONFIG.formula;
+  for (let g = 1; g <= 100; g++) {
+    const raw = f.bossHpBase * g ** f.bossHpPower * f.bossHpGrowth ** g;
+    assert.equal(fishHp("boss", g), g <= 2 ? Math.min(120, round2(raw)) : round2(raw), `g=${g}`);
+    assert.equal(fishHp("strong", g), 10 + 10 * g);
+    assert.equal(fishDefense("boss", g) + fishDefense("strong", g), 0);
+    if (g > 1) assert.ok(fishHp("boss", g) >= fishHp("boss", g - 1), `g=${g} は前より少なくない`);
+  }
+  assert.deepEqual([1, 10, 30].map((g) => fishHp("boss", g)), [85, 1000, 20000]);
+  // 目安の引く回数 P(g):g=1 で 20、g=30 で 120(D-379)。
+  assert.deepEqual([1, 15, 30].map((g) => targetPulls(g)), [20, 48, 120]);
 });

@@ -1,7 +1,7 @@
-// 重いテストで共通に使う、装備の組み立てと戦闘のシミュレーション(テストではない:D-254・D-260)。
+// 重いテストで共通に使う、装備の組み立てと戦闘のシミュレーション(テストではない:D-254・D-260・D-380)。
 // - 平均的な装備:レア・グレード g・値は真ん中・スキルなし(②-4c 土台の時間の測定と同じ)。
-// - 育てた装備:段階 g のクレートを T(g) = 6 × N(g) 個引いた中から(D-355)、6 枠の組み合わせで、
-//   命中回数が最も少ないもの(D-254・D-322)。
+// - 育てた装備:段階 1〜g のクレートを、目安の引く回数 P(h) ずつ引いた中から(D-379・D-380)、6 枠の組み合わせで、
+//   命中回数(遊び方を渡したときは倒すまでの時間)が最も少ないもの(D-254・D-322)。
 // - 最強の装備:レジェンド・グレード g・値は最大。スキル枠 18(3 個 × 6 枠)を、命中回数が最も少ない組み合わせで埋めたもの。
 // 戦闘は「上手」:印が命中範囲の真ん中に来るたびに必ずタップする(真ん中 = 芯。縁は狙わない)。
 // 印が真ん中に来る時刻へ時間を飛ばして進めるので、速い(結果は 16 ミリ秒ごとに見る遊び方とほぼ同じ)。
@@ -13,7 +13,8 @@ export const MIN_TAP_GAP_MS = 250;
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { createGame, fightSweepMs, PHASES, tap, update } from "../../src/core/fishing.js";
 import { BASE_KIND_IDS, drawItem, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
-import { referenceDraws } from "../../src/core/formula.js";
+import { targetPulls } from "../../src/core/formula.js";
+import { makeContent } from "../../src/core/fish.js";
 import { levelRange, SKILL_ROWS } from "../../src/core/skills.js";
 import { startQuickFight } from "../../src/ui/debug_view.js";
 
@@ -42,6 +43,45 @@ export function averageItems(content, g) {
 }
 
 /**
+ * 遊び方(D-379)。ふつう:1 往復に 1 回押す・命中 80%(命中範囲の中に一様に散らばる。残りは命中範囲のすぐ外)・最初の反応 0.5 秒・合わせのジャスト 70%。
+ * 上手:同じ速さで、ミスなく真ん中(芯)を狙う。
+ */
+export const STANDARD_PLAY = Object.freeze({ reactMs: 500, hitRate: 0.8, justRate: 0.7, passesPerPress: 2, spread: true });
+export const SKILLED_PLAY = Object.freeze({ reactMs: 500, hitRate: 1, justRate: 0.7, passesPerPress: 2, spread: false });
+
+/** テストだけで使う、シードつきの小さな乱数(mulberry32)。遊び方の命中・外れを決める(ゲームの乱数の系統には触らない)。 */
+function playRng(seed) {
+  let a = (seed ^ 0x9e3779b9) >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** 制限時間を長くした魚の表(倒すまでの時間を、時間切れに左右されずに測る)。体力などは同じ。 */
+export function unlimitedContent(content, limitMs = 120000) {
+  const fish = content.fish.map((f) => (f.minigame ? { ...f, minigame: { ...f.minigame, timeLimitMs: limitMs } } : f));
+  return makeContent(fish, content.stages, content.equipKinds, content.skills, []);
+}
+
+/**
+ * 引いた装備(D-379・D-380):段階 1〜g のクレートを、それぞれ 目安の引く回数 P(h) × frac 回ずつ引いたもの(前の段階の分も持つ)。
+ * ガチャの種 seed ごとに決まる。
+ */
+export function pulledPool(content, g, frac, seed) {
+  const crates = makeCrates(content, DEFAULT_CONFIG);
+  const out = [];
+  for (let h = 1; h <= g; h++) {
+    const n = Math.round(frac * targetPulls(h));
+    for (let i = 0; i < n; i++) out.push(drawItem(seed * 1000 + h, i, crates[h - 1], content.equipKinds, GG));
+  }
+  return out;
+}
+
+/**
  * 1 回の戦い。印が命中範囲の真ん中に来るたびにタップする。{ caught, hits, damages } を返す。
  * options.gloves:グローブの持ち物。options.missEvery:n なら n 回に 1 回、命中範囲のすぐ外(幅の 15% 外側)で押す(グローブの確かめ用)。
  * @param {object} content @param {number} g @param {object[]} items @param {string} fishId @param {number} seed
@@ -49,8 +89,13 @@ export function averageItems(content, g) {
  */
 export function fightOnce(content, g, items, fishId, seed, options = {}) {
   const game = createGame(seed, { content, progress: progressWith(g, items, options.gloves ?? null) });
-  const r = startQuickFight(game, fishId, "good");
+  const std = options.standard ?? null;
+  const rand = std ? playRng(seed * 7919 + 13) : null;
+  const r = startQuickFight(game, fishId, rand && rand() < std.justRate ? "just" : "good");
   if (!r.ok) throw new Error(r.error);
+  // ext:装備などで延びた制限時間(魚の制限時間との差)。
+  const limitMs = game.fight?.timeLimitMs ?? 0;
+  const fishLimitMs = game.cast?.minigame?.timeLimitMs ?? limitMs;
   const damages = [];
   const raws = [];
   const effs = [];
@@ -61,13 +106,21 @@ export function fightOnce(content, g, items, fishId, seed, options = {}) {
     const z = game.fight.zone;
     taps += 1;
     // n 回に 1 回は、命中範囲のすぐ外を狙う(ゲージの外に出るなら反対側)。
-    const off = options.missEvery && taps % options.missEvery === 0;
+    const off = std ? rand() >= std.hitRate : options.missEvery && taps % options.missEvery === 0;
     const w = z.end - z.start;
-    const c = !off ? (z.start + z.end) / 2 : z.end + w * 0.15 <= 1 ? z.end + w * 0.15 : z.start - w * 0.15;
+    const aim = std?.spread ? z.start + w * (0.02 + 0.96 * rand()) : (z.start + z.end) / 2;
+    const c = !off ? aim : z.end + w * 0.15 <= 1 ? z.end + w * 0.15 : z.start - w * 0.15;
     const t = Math.max(game.phaseMs, lastTap + MIN_TAP_GAP_MS - 1e-6);
     const base = Math.floor(t / (2 * s)) * 2 * s;
     // 1 往復の中で真ん中を通る時刻(行き c × s、帰り (2 − c) × s)のうち、今より後の最初のもの。
-    const next = [base + c * s, base + (2 - c) * s, base + 2 * s + c * s].find((x) => x > t + 1e-6);
+    let next = [base + c * s, base + (2 - c) * s, base + 2 * s + c * s].find((x) => x > t + 1e-6);
+    if (std) {
+      // 遊び方の速さ:最初は反応の時間のあとの最初の通過。次からは、前に押してから passesPerPress 回の通過の時間(1 往復)に一番近い通過。
+      const want = taps === 1 ? std.reactMs : lastTap + std.passesPerPress * s;
+      const b = Math.floor(want / (2 * s)) * 2 * s;
+      const cands = [b - 2 * s + (2 - c) * s, b + c * s, b + (2 - c) * s, b + 2 * s + c * s].filter((x) => x > t + 1e-6 && (taps > 1 || x >= want));
+      next = cands.reduce((best, x) => (Math.abs(x - want) < Math.abs(best - want) ? x : best), cands[cands.length - 1]);
+    }
     lastTap = next;
     update(game, next - game.phaseMs);
     if (game.phase !== PHASES.MINIGAME) break;
@@ -79,7 +132,7 @@ export function fightOnce(content, g, items, fishId, seed, options = {}) {
     }
   }
   const last = game.lastResult;
-  return { caught: last.outcome === "caught", hits: last.hits ?? damages.length, damages, raws, effs, ms: last.fightMs ?? 0 };
+  return { caught: last.outcome === "caught", hits: last.hits ?? damages.length, damages, raws, effs, ms: last.fightMs ?? 0, ext: limitMs - fishLimitMs };
 }
 
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
@@ -96,7 +149,8 @@ function score(content, g, items, fishId, play = {}) {
   let sum = 0;
   for (const s of [101, 202, 303]) {
     const r = fightOnce(content, g, items, fishId, s, play);
-    sum += r.caught ? r.hits : 1000;
+    // 遊び方(standard)で選ぶときは、釣り上げるまでの時間で比べる(押す回数は運で変わるため)。
+    sum += play.standard ? (r.caught ? r.ms : 1e7) : r.caught ? r.hits : 1000;
   }
   return sum / 3;
 }
@@ -113,8 +167,9 @@ function dominates(a, b) {
 }
 
 /**
- * 育てた装備(D-254・D-322・D-327):段階 g のクレートから 3 × N(g) 個(ガチャの種 seed で引いた順)を引き、
- * 種類ごとに分けて候補にする(枠が 6 つになっても、引く数は 3 枠のときと同じ)。
+ * 育てた装備(D-254・D-322・D-327・D-380):候補は pulledPool(段階 1〜g を P(h) × pulls 回ずつ。ガチャの種 seed で引いた順)、
+ * pool を渡せばその一覧、per を渡せば段階 g のクレートを per × 種類の数。そこから
+ * 種類ごとに分けて候補にする。standard なら、その遊び方の倒すまでの時間で比べて選ぶ。
  * 候補は、ほかの候補に負けているもの(値と、命中回数に効くスキルのレベルが全部以下)を除く。
  * 選び方:(1) 糸・リール・ルアーの全部の組み合わせを 1 シードで比べ、良い 10 通りを 3 シードで比べ直す。
  * (2) おもり・浮き・おまもりを、この順に 1 枠ずつ、3 シードで一番良い候補に決める(何も付けないより悪ければ付けない)。
@@ -124,16 +179,16 @@ function dominates(a, b) {
 export function grownItems(content, g, fishId, seed, options = {}) {
   const noPen = options.noPen ?? false;
   // 選ぶときの遊び方(missEvery:n 回に 1 回すぐ外を押す。グローブの確かめ用:D-344)。
-  const play = options.missEvery ? { missEvery: options.missEvery } : {};
-  const crate = makeCrates(content, DEFAULT_CONFIG)[g - 1];
-  const per = options.per ?? referenceDraws(g);
+  const play = options.standard ? { standard: options.standard } : options.missEvery ? { missEvery: options.missEvery } : {};
   const byKind = new Map(content.equipKinds.map((k) => [k.id, []]));
-  // 引く回数の合計 T(g) = N(g) × 装備の種類の数(6)。種類ごとの候補は、引いた順に分ける(D-355)。
-  const total = per * content.equipKinds.length;
-  for (let i = 0; i < total; i++) {
-    const it = drawItem(seed, i, crate, content.equipKinds, GG);
-    byKind.get(it.kind).push(it);
+  // 候補:pool(引いた装備の一覧)があればそれ。なければ、目安の引く回数 P(h) × (pulls ?? 1) を段階 1〜g で引いたもの(D-380)。
+  // per があれば、段階 g のクレートを per × 種類の数 だけ引く(前の決まり。グローブなどの確かめで使う)。
+  let items = options.pool;
+  if (!items && options.per) {
+    const crate = makeCrates(content, DEFAULT_CONFIG)[g - 1];
+    items = Array.from({ length: options.per * content.equipKinds.length }, (_, i) => drawItem(seed, i, crate, content.equipKinds, GG));
   }
+  for (const it of items ?? pulledPool(content, g, options.pulls ?? 1, seed)) byKind.get(it.kind).push(it);
   const isPen = (it) => it.skills.some((s) => s.id === "penetration" || s.id === "combo-pen");
   // rarities:使ってよいレア度(ノーマルとレアだけの育てた装備:D-355)。
   const rarityOk = (it) => !options.rarities || options.rarities.includes(it.rarity);
@@ -152,7 +207,7 @@ export function grownItems(content, g, fishId, seed, options = {}) {
       for (const c of c2) {
         const items = pick([a, b, c]);
         const r = fightOnce(content, g, items, fishId, 101, play);
-        scored.push({ slots: [a, b, c], s: r.caught ? r.hits : 1000 });
+        scored.push({ slots: [a, b, c], s: play.standard ? (r.caught ? r.ms : 1e7) : r.caught ? r.hits : 1000 });
       }
     }
   }

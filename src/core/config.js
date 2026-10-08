@@ -53,6 +53,8 @@ export const DEFAULT_CONFIG = Object.freeze({
     maxCritMultiplier: 100,
     minMissHeal: 0,
     minTimeLimitMs: 1000,
+    // 糸・粘りなどで延びる制限時間の上限 = 魚の制限時間 × これ(D-380:元の制限時間まで。合計で最大 2 倍)。
+    maxTimeBonusRatio: 1,
     // 計算が壊れないための安全上限だけ(ゲームデザイン上の上限ではない:D-181)。
     maxDamage: 1000000,
     maxMissHeal: 1000000,
@@ -98,19 +100,23 @@ export const DEFAULT_CONFIG = Object.freeze({
     strongCoinRatio: 5,
     bossCoinRatio: 10,
     scalesPerCatch: 1, // 強い魚とヌシが落とす鱗の数
-    // 体力:強い魚 10 + 10g(20・30・40 …)、ヌシは 3.5 倍(D-115)。
+    // 体力:強い魚 10 + 10g(20・30・40 …)。
     hpBase: 10,
     hpPerStage: 10,
-    bossHpRatio: 3.5,
-    // 制限時間:強い魚 8 秒 + 4 秒 × log5(g)、ヌシ 20 秒 + 2 秒 × log5(g)(D-260:5 体目の貫通必須と命中回数を両立するため、伸びを 10 秒から 2 秒に)。
+    // ヌシの体力 = 76 × g^0.64 × 1.12^g を上から 2 けた(D-380)。目安の引く回数 P(g) の装備で、ふつうの遊び方が 80% 勝つ体力に、
+    // シミュレーションで合わせ、式との差(±2 割)を見込んで全体を 0.9 倍にした(g=1〜30。g=31 からは、釣り場を足すときに合わせ直す)。
+    bossHpBase: 75.8,
+    bossHpPower: 0.6435,
+    bossHpGrowth: 1.1187,
+    // 目安の引く回数 P(g) = 20 × 6^((g − 1) ÷ 29) を四捨五入(g=1 で 20 回、g=30 で 120 回:D-379)。
+    targetPullsFirst: 20,
+    targetPullsGrowth: 1.06375,
+    // 制限時間:強い魚 8 秒 + 4 秒 × log5(g)、ヌシ 20 秒 + 2 秒 × log5(g)(D-260・D-380)。糸・粘りの延長は、元の制限時間まで(combatLimits)。
     timeLimitMs: 8000,
     timeLimitGrowthMs: 4000,
     bossTimeLimitMs: 20000,
     bossTimeLimitGrowthMs: 2000,
     timeLimitLogBase: 5,
-    // ヌシの制限時間(D-366・D-368):目標の命中回数 × 印が 1 回通る時間 × 1.5。下限 8 秒、上限は上の式(これまでの制限時間)。
-    bossTimeLimitHitsRatio: 1.5,
-    bossTimeLimitMinMs: 8000,
     // 印の速さ 1000 − 100g ミリ秒(限界 450)、命中範囲の幅 0.25 − 0.03g(限界 0.10)。ヌシは 1 段先の値。
     sweepMs: 1000,
     sweepStepMs: 100,
@@ -128,30 +134,13 @@ export const DEFAULT_CONFIG = Object.freeze({
     critChanceCurve: Object.freeze({ knee: 1.15, soft: 0.5 }),
     critMultiplierCurve: Object.freeze({ knee: 1.65, soft: 0.25 }),
     justMultiplierCurve: Object.freeze({ knee: 5.1, soft: 1 }),
-    // 育てた装備の 1 種類あたりの候補の数 N(g) = 30 × g^0.5(N(1) = 30・N(100) = 300)。引く回数の合計 T(g) = 6 × N(g)
-    // (T(1) = 180・T(100) = 1800。装備の種類 6 つに等しく分ける:D-355。前は N(g) = 10 × g^0.5 で合計 3N(g):D-254・D-327)。
-    referenceDrawsFirst: 30,
-    referenceDrawsExponent: 0.5,
     // 餌の価格 = 強い魚 1 匹のウロコイン × 0.8(期待報酬の 7〜9 割:D-265)。
     baitPriceRatio: 0.8,
     penetrationCurve: Object.freeze({ knee: 0.7, soft: 0.25 }),
-    // 防御(D-235・D-260):通し番号 3 から。5 体目のヌシ = max(1.02, 最大レベルの貫通 + 0.35)、ほかは割合(上限 0.9)。
-    defenseStartStage: 3,
-    defensePenPerLevel: 0.1,
-    defenseFloor: 1.02,
-    defenseMargin: 0.35,
-    bossDefenseShare: Object.freeze([0.15, 0.3625, 0.575, 0.7875, 1]),
-    strongDefenseShare: 0.5,
-    nonFinalDefenseMax: 0.9,
-    // ヌシの命中回数の目標(D-254)と、体力の基準の装備(育てた装備の目安。シミュレーションで合わせた)。
-    bossHitsFirst: 5,
-    bossHitsLast: 12,
-    bossReference: Object.freeze({ levelRatio: 0.45, penGap: 0.05, penGapDraws: 17, reelRatio: 0.4, scale: 1, growth: 0.14, positionScale: Object.freeze([1.0, 1.3, 1.55, 1.75, 2.4]) }),
     stagesPerGround: 5,
-    // 序盤(防御のない g=1〜2)のヌシの体力の上限。装備なしでも(少し外しても)倒せるように(D-358)。
+    // 序盤(g=1〜2)のヌシの体力の上限。装備なしでも(少し外しても)倒せるように(D-358)。
+    earlyStages: 2,
     earlyBossHpMax: 120,
-    noPenTapsFactor: 1.3,
-    noPenBonusDraws: 45,
   }),
   // セーブコード(D-324):署名なしの古い形式(TSURI1〜4)を、読み込みで受け付けるか。②-5a から false(拒否)。
   // ブラウザの中の保存データの読み出し(parseSave)は、この設定に関係なく読む。

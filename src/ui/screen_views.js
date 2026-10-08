@@ -106,7 +106,14 @@ const ITEM = Object.freeze({
     // いまの段階の強い魚とヌシの、命中範囲の幅の変化(例:「マグロ 11% → 17%」:D-191)。
     extra: (c, game) => zoneWidthRows(c, game),
   },
-  timeBonus: { label: "制限時間の増減", value: (c) => c.timeLimitBonusMs, format: signedSeconds, neutral: 0 },
+  timeBonus: {
+    label: "制限時間の増減",
+    value: (c) => c.timeLimitBonusMs,
+    format: signedSeconds,
+    neutral: 0,
+    // 延びるのは、その魚の制限時間まで(合計で最大 2 倍:D-380)。
+    extra: () => [["延びる上限", "その魚の制限時間まで(合計で最大 2 倍)"]],
+  },
   // ジャスト倍率(強い魚のジャストの初撃:D-256)。表 + ジャスト・ブースト(条件つき)に逓減をかけた、実際に効く値(D-257)。
   justMultiplier: {
     label: "ジャスト倍率(初撃)",

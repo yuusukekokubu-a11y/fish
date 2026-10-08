@@ -27,7 +27,7 @@ import { decodeSaveCode, encodeSaveCode, parseSave } from "../src/core/savecode.
 import { readSaveCode, signSaveCode } from "../src/core/signed_code.js";
 import { CURRENT_KEY } from "../src/ui/save_sign.js";
 import { startQuickFight } from "../src/ui/debug_view.js";
-import { progressAt, readText } from "./helpers.js";
+import { progressAt, readText, withDefense } from "./helpers.js";
 
 const SEED = 777;
 
@@ -370,8 +370,11 @@ test("かすり:範囲のすぐ外(幅 × 10/15/20/30%)はかすり。ダメー�
 });
 
 test("かすり:防御と貫通は通常どおり効く(実効防御 100% 以上は 1)", () => {
-  const boss = DEFAULT_CONTENT.fish.find((f) => f.kind === FISH_KINDS.BOSS && f.stage === 5);
-  const game = createGame(1, { progress: progressWith(5, wearing("graze", "legend", 5)) });
+  // いまの魚の表は防御 0(D-380)なので、5 体目のヌシに防御 105% を付けた表で確かめる。
+  const plain = DEFAULT_CONTENT.fish.find((f) => f.kind === FISH_KINDS.BOSS && f.stage === 5);
+  const content = withDefense(DEFAULT_CONTENT, { [plain.id]: 1.05 });
+  const boss = content.byId.get(plain.id);
+  const game = createGame(1, { content, progress: progressWith(5, wearing("graze", "legend", 5)) });
   assert.equal(startQuickFight(game, boss.id, "good").ok, true);
   const z = game.fight.zone;
   const pos = z.end + (z.end - z.start) * 0.2 <= 1 ? z.end + (z.end - z.start) * 0.2 : z.start - (z.end - z.start) * 0.2;
