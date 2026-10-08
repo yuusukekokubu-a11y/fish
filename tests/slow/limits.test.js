@@ -11,6 +11,7 @@ import { craftCount, fishCoins, fishDefense, fishHp, fishSweepMs, fishTimeLimitM
 import { BASE_KIND_IDS, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
 import { decodeSaveCode, encodeSaveCode, MAX_CODE_LENGTH } from "../../src/core/savecode.js";
 import { levelRange, maxLevel, SKILL_ROWS } from "../../src/core/skills.js";
+import { GLOVE_ABILITY_ROWS, GLOVE_RARITY_ROWS } from "../../src/core/glove.js";
 import { syntheticContent } from "../../src/core/synthetic.js";
 import { formatCount } from "../../src/ui/format.js";
 import { crateCards, inventoryRows } from "../../src/ui/gear_view.js";
@@ -18,6 +19,9 @@ import { materialsView, statusView } from "../../src/ui/screen_views.js";
 import { skillRows } from "../../src/ui/skill_view.js";
 import { progressAt } from "../helpers.js";
 import { policyOf, SKILLED, SLOPPY } from "./policy.js";
+
+/** クレート 1 回分が貯まる目標の時間(秒。D-355 で 15 秒)。上手は 0.5〜1.5 倍、ときどき失敗は 2 倍まで。 */
+const T = DEFAULT_CONFIG.gacha.targetSeconds;
 
 const G_MAX = 100;
 const BIG = syntheticContent(G_MAX);
@@ -119,8 +123,8 @@ test("時間:クレート 1 回分は上手で 30〜90 秒(ときどき失敗で
     worst.sloppy = Math.max(worst.sloppy, crateSloppy);
     worst.craft = Math.max(worst.craft, craft);
     if (shown.includes(g)) lines.push(`g=${g}:クレート ${price}(上手 ${crateSkilled.toFixed(0)} 秒・ときどき失敗 ${crateSloppy.toFixed(0)} 秒)、製作 ${need} 枚 ${(craft / 60).toFixed(1)} 分`);
-    assert.ok(crateSkilled >= 30 && crateSkilled <= 90, `g=${g} クレート 上手 ${crateSkilled} 秒`);
-    assert.ok(crateSloppy <= 120, `g=${g} クレート ときどき失敗 ${crateSloppy} 秒`);
+    assert.ok(crateSkilled >= T * 0.5 && crateSkilled <= T * 1.5, `g=${g} クレート 上手 ${crateSkilled} 秒`);
+    assert.ok(crateSloppy <= T * 2, `g=${g} クレート ときどき失敗 ${crateSloppy} 秒`);
     assert.ok(craft <= 1800, `g=${g} 製作 ${craft} 秒`);
     if (g === 1) assert.ok(craft >= 120 && craft <= 330, `g=1 の製作 ${craft} 秒(約 3〜5 分)`);
     // 釣り場の最初の段階(g=6・11 …)は、魚のプールが分かれ、鱗も 3 枚からなので、また約 3〜4 分(D-275・D-282)。
@@ -143,18 +147,27 @@ test("川・沖の本物の表(g=11〜20):クレート 1 回分は上手で 30�
     const need = craftCount(g);
     const craft = median(SEEDS.map((s) => until((game) => (game.progress.scales[strong.id] ?? 0) >= need, SKILLED, s)));
     lines.push(`| ${g} | ${g <= 15 ? "川" : "沖"} | ${formatCount(price)} | ${crateSkilled.toFixed(0)} | ${crateSloppy.toFixed(0)} | ${need} | ${(craft / 60).toFixed(1)} |`);
-    assert.ok(crateSkilled >= 30 && crateSkilled <= 90, `g=${g} クレート 上手 ${crateSkilled} 秒`);
-    assert.ok(crateSloppy <= 120, `g=${g} クレート ときどき失敗 ${crateSloppy} 秒`);
+    assert.ok(crateSkilled >= T * 0.5 && crateSkilled <= T * 1.5, `g=${g} クレート 上手 ${crateSkilled} 秒`);
+    assert.ok(crateSloppy <= T * 2, `g=${g} クレート ときどき失敗 ${crateSloppy} 秒`);
     assert.ok(craft <= 1800, `g=${g} 製作 ${craft} 秒`);
     if (g % 5 === 1) assert.ok(craft <= 270, `g=${g}(釣り場の最初)の製作 ${craft} 秒`);
   }
   console.log(lines.join("\n"));
 });
 
-test("保存とセーブコード:魚 300 種類の鱗を全部・全部釣った・持ち物 100 個(スキル 3 つ)で往復し、上限の長さに収まる", () => {
+/** グローブ 20 個(保管の上限。能力は表の順に使い回す。自動合わせはレジェンドだけ:D-334)。 */
+function fullGloves(grade) {
+  const items = Array.from({ length: DEFAULT_CONFIG.glove.max }, (_, i) => {
+    const ability = GLOVE_ABILITY_ROWS[i % GLOVE_ABILITY_ROWS.length].id;
+    return { id: i + 1, ability, rarity: ability === "auto-hook" ? "legend" : GLOVE_RARITY_ROWS[i % 4].id, grade };
+  });
+  return { items, equipped: 1, nextId: items.length + 1, rolls: 99999 };
+}
+
+test("保存とセーブコード:魚 300 種類の鱗を全部・全部釣った・持ち物 300 個(スキル 3 つ)・グローブ 20 個で往復し、上限の長さに収まる", () => {
   const kinds = BIG.equipKinds;
   const lv = levelRange("legend", G_MAX, DEFAULT_CONFIG.skills).max;
-  const items = Array.from({ length: 100 }, (_, i) => {
+  const items = Array.from({ length: DEFAULT_CONFIG.gacha.inventoryMax }, (_, i) => {
     const kind = kinds[i % kinds.length];
     return {
       id: i + 1,
@@ -172,12 +185,35 @@ test("保存とセーブコード:魚 300 種類の鱗を全部・全部釣っ�
     rodStage: G_MAX,
     rodStep: "evolved",
     seen: BIG.fish.map((f) => f.id),
-    gear: { items, equipped: { line: 1, reel: 2, lure: 3 }, draws: SAFE, seed: 4294967295, nextId: 101 },
+    gear: { items, equipped: { line: 1, reel: 2, lure: 3 }, draws: SAFE, seed: 4294967295, nextId: items.length + 1 },
+    gloves: fullGloves(G_MAX),
   };
   const code = encodeSaveCode(p, BIG);
   assert.deepEqual(decodeSaveCode(code, BIG), { ok: true, progress: p });
   assert.ok(code.length <= MAX_CODE_LENGTH, `長さ ${code.length}`);
-  console.log(`魚 300 種類の鱗を全部(数は最大)・全部釣った・持ち物 100 個(レジェンド・グレード 100・スキル 3 つ):${code.length} 文字(上限 ${MAX_CODE_LENGTH})`);
+  console.log(`魚 300 種類の鱗を全部(数は最大)・全部釣った・持ち物 300 個(レジェンド・グレード 100・スキル 3 つ)・グローブ 20 個:${code.length} 文字(上限 ${MAX_CODE_LENGTH})`);
+  // ふつうの遊びの見込み(D-355):持ち物 300 個(スキル 3 つ)・グローブ 20 個・鱗 20 種類・段階 20。
+  const g = 20;
+  const lv20 = levelRange("legend", g, DEFAULT_CONFIG.skills).max;
+  const scaleFish = BIG.fish.filter((f) => f.reward.scales > 0 && f.stage <= g).slice(0, 20);
+  const usual = {
+    coins: 10 ** 12,
+    scales: Object.fromEntries(scaleFish.map((f) => [f.id, 999])),
+    rodStage: g,
+    rodStep: "none",
+    seen: BIG.fish.filter((f) => f.stage <= g).map((f) => f.id),
+    gear: {
+      items: items.map((it) => ({ ...it, grade: g, value: effectRange(kinds.find((k) => k.id === it.kind), RARITY_ROWS[3], g, GG).max, skills: it.skills.map((sk) => ({ ...sk, level: Math.min(sk.level, lv20) })) })),
+      equipped: { line: 1, reel: 2, lure: 3 },
+      draws: 5000,
+      seed: 4294967295,
+      nextId: items.length + 1,
+    },
+    gloves: fullGloves(g),
+  };
+  const usualCode = encodeSaveCode(usual, BIG);
+  assert.deepEqual(decodeSaveCode(usualCode, BIG), { ok: true, progress: usual });
+  console.log(`持ち物 300 個(スキル 3 つ)・グローブ 20 個・鱗 20 種類(段階 20):${usualCode.length} 文字(上限 ${MAX_CODE_LENGTH})`);
 });
 
 test("画面の中身:素材(鱗 200 行)・クレート(100 個)・スキル・ステータス・装備を、段階 100 の表で作れる(崩れの元になる値がない)", () => {

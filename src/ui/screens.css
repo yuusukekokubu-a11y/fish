@@ -286,6 +286,8 @@
   gap: 8px;
 }
 .item-card {
+  content-visibility: auto; /* 画面の外のカードの配置と描画を後回し(300 個でも軽く:D-358) */
+  contain-intrinsic-size: auto 96px;
   display: flex;
   flex-direction: column;
   gap: 2px;

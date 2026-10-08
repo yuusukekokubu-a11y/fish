@@ -7,7 +7,7 @@
 // 計算(足し方・集計・コピーの文章)は計算本体の play_log.js。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
-import { addToPlayLog, emptyPlayLog, kindLabel, parsePlayLog, percentText, playLogText, stringifyPlayLog, summarizePlayLog } from "../core/play_log.js";
+import { addPlayTime, addPulls, addToPlayLog, emptyPlayLog, kindLabel, minutesText, parsePlayLog, percentText, playLogText, rateText, secondsText, stringifyPlayLog, summarizePlayLog } from "../core/play_log.js";
 import { button, el } from "./list_view.js";
 
 export const PLAY_LOG_KEY = "tsuri:playlog";
@@ -37,16 +37,38 @@ export function loadPlayLog(store, key) {
 export function createPlayLogRecorder(store, key) {
   let log = loadPlayLog(store, key);
   let dirty = false;
+  // 遊んだ時間だけが増えたとき(それだけでは書かない。ほかを書くとき・ページを離れるときに一緒に書く:D-356)。
+  let timePending = false;
   let writes = 0;
+  /** @type {number | null} */
+  let lastDraws = null;
   return {
     /** 結果 1 件を足す(書き込みはしない)。 @param {any} game @param {any} result */
     add(game, result) {
       if (addToPlayLog(log, game, result)) dirty = true;
     },
-    /** 足した分を書く。書いたら true。 */
-    flush() {
-      if (!dirty) return false;
+    /**
+     * ガチャを引いた回数を、進み具合の引いた回数の通算(gear.draws)の増え方から数える(書き込みはしない:D-356)。
+     * @param {any} game
+     */
+    observe(game) {
+      const draws = game.progress?.gear?.draws;
+      if (typeof draws !== "number") return;
+      if (lastDraws !== null && draws !== lastDraws && addPulls(log, draws - lastDraws)) dirty = true;
+      lastDraws = draws;
+    },
+    /** 遊んだ時間を足す(書き込みはしない)。 @param {number} ms */
+    addTime(ms) {
+      addPlayTime(log, ms);
+      if (ms > 0) timePending = true;
+    },
+    /** 書くものがあるか(遊んだ時間だけのときは false)。 */
+    dirty: () => dirty,
+    /** 足した分を書く。force なら、遊んだ時間だけでも書く(ページを離れるとき)。書いたら true。 @param {boolean} [force] */
+    flush(force = false) {
+      if (!dirty && !(force && timePending)) return false;
       dirty = false;
+      timePending = false;
       try {
         store?.setItem(key, stringifyPlayLog(log));
         writes += 1;
@@ -59,6 +81,7 @@ export function createPlayLogRecorder(store, key) {
     reset() {
       log = emptyPlayLog();
       dirty = false;
+      timePending = false;
       try {
         store?.removeItem(key);
       } catch {
@@ -87,6 +110,11 @@ export function playLogRows(log) {
       ["ミス率", percentText(sum.missRate)],
       ["保険で無効", String(sum.insured)],
       ["合わせ", `${sum.hooks.total} 回(ジャスト ${percentText(sum.hooks.just)}・成功 ${percentText(sum.hooks.good)}・失敗 ${percentText(sum.hooks.fail)})`],
+      // 通算(D-356)。
+      ["遊んだ時間", minutesText(sum.playSec)],
+      ["ガチャ", `${sum.pulls} 回(平均の間隔 ${secondsText(sum.pullGapSec)})`],
+      ["ウロコイン", `${sum.coins}(1 分あたり ${rateText(sum.coinsPerMin)})`],
+      ["鱗", String(sum.scales)],
     ]),
     table: sum.table.map((r) => [kindLabel(r.kind), String(r.s), String(r.fights), String(r.wins), percentText(r.missRate)]),
     recent: sum.recent.map((e) => [

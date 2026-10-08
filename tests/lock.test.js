@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createGame } from "../src/core/fishing.js";
 import { dismantleItem, dismantleRarity, emptyGear, equipItem, makeCrates, pullCrate, refundFor, setLocked, unequipKind } from "../src/core/gear.js";
 import { ROD_STEPS } from "../src/core/rod.js";
@@ -72,18 +73,18 @@ test("まとめてロック・解除:絞り込み中の装備だけが対象。�
 
 test("満タンの警告にロック中の数が出る。全部ロック中で満タンでも引けず、「装備へ」で装備の画面に移れる", () => {
   const filler = (n, locked) => Array.from({ length: n }, (_, i) => item(i + 1, "line", "normal", locked(i) ? { locked: true } : {}));
-  let game = gameWith(filler(95, (i) => i < 12));
+  let game = gameWith(filler(DEFAULT_CONFIG.gacha.inventoryMax - 5, (i) => i < 12));
   let w = inventoryWarning(game);
   assert.deepEqual([w.level, w.locked, w.lockedText], ["warn", 12, "ロック中 12 個は、分解できません"]);
   // 警告がないときは出さない。
-  game = gameWith(filler(50, () => true));
+  game = gameWith(filler(DEFAULT_CONFIG.gacha.inventoryMax - 100, () => true));
   assert.equal(inventoryWarning(game).lockedText, "");
   // 全部ロック中で満タン。
-  game = gameWith(filler(100, () => true), {}, 1e9);
+  game = gameWith(filler(DEFAULT_CONFIG.gacha.inventoryMax, () => true), {}, 1e9);
   w = inventoryWarning(game);
   assert.deepEqual([w.level, w.oneBlocked, w.tenBlocked], ["full", true, true]);
   assert.equal(w.text, "持ち物がいっぱいです。全部ロック中なので、ロックを外してから分解してください");
-  assert.equal(w.lockedText, "ロック中 100 個は、分解できません");
+  assert.equal(w.lockedText, `ロック中 ${DEFAULT_CONFIG.gacha.inventoryMax} 個は、分解できません`);
   const crate = makeCrates(game.content, game.config)[0];
   assert.deepEqual(pullCrate(game.progress, crate, 1, game.content.equipKinds, game.config.gacha), { ok: false, reason: "space" });
   assert.equal(SCREENS.find((s) => s.id === "equipment").badge(game), "full");

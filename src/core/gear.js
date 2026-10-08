@@ -77,6 +77,7 @@ import { levelRange, SKILL_ROWS } from "./skills.js";
  * @property {number} [justRate] 価格の稼ぎを見積もるときの、ジャストの割合(D-259)
  * @property {number} gradeGrowth グレードが 1 上がるごとに、基本効果の範囲が増える割合
  * @property {number} inventoryMax 持ち物の上限
+ * @property {number} [spaceWarnRatio] 満タン警告のしきい値の割合(上限 × これ:D-355)
  * @property {number} pullMax 1 回に引ける最大の回数(10 連)
  */
 

@@ -11,6 +11,9 @@ import { progressAt, riverContent } from "../helpers.js";
 import { averageItems, progressWith } from "./builds.js";
 import { policyOf, SKILLED, SLOPPY } from "./policy.js";
 
+/** クレート 1 回分が貯まる目標の時間(秒。D-355 で 15 秒)。上手は 0.5〜1.5 倍、ときどき失敗は 2 倍まで。 */
+const T = DEFAULT_CONFIG.gacha.targetSeconds;
+
 const GACHA = DEFAULT_CONFIG.gacha;
 
 test("排出率:各クレートで 1 万回(1 回引きと 10 連をまぜる)引くと、レア度の割合が表示の排出率 ±2 ポイントに収まる", () => {
@@ -68,8 +71,8 @@ test("価格と時間:各段階で、上手なら 30〜90 秒、ときどき失�
   const rows = measure(makeContent());
   console.log(rows.map((r) => `${r.crate.name} ${r.crate.price}:上手 ${r.skilled.toFixed(0)} 秒、ときどき失敗 ${r.sloppy.toFixed(0)} 秒`).join("\n"));
   for (const r of rows) {
-    assert.ok(r.skilled >= 30 && r.skilled <= 90, `${r.crate.name}:上手 ${r.skilled} 秒`);
-    assert.ok(r.sloppy <= 120, `${r.crate.name}:ときどき失敗 ${r.sloppy} 秒`);
+    assert.ok(r.skilled >= T * 0.5 && r.skilled <= T * 1.5, `${r.crate.name}:上手 ${r.skilled} 秒`);
+    assert.ok(r.sloppy <= T * 2, `${r.crate.name}:ときどき失敗 ${r.sloppy} 秒`);
   }
 });
 
@@ -77,6 +80,6 @@ test("釣り場(川)を表に足しても、数式のままで 30〜90 秒(と�
   const content = riverContent();
   const last = measure(content).at(-1);
   console.log(`段階 ${last.crate.stage}:${last.crate.name} ${last.crate.price}:上手 ${last.skilled.toFixed(0)} 秒、ときどき失敗 ${last.sloppy.toFixed(0)} 秒`);
-  assert.ok(last.skilled >= 30 && last.skilled <= 90);
-  assert.ok(last.sloppy <= 120);
+  assert.ok(last.skilled >= T * 0.5 && last.skilled <= T * 1.5);
+  assert.ok(last.sloppy <= T * 2);
 });

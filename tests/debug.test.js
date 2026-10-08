@@ -191,10 +191,11 @@ test("プリセット:表の行ごとに 3 個作って装着。追加クリテ�
   for (const id of DEBUG_PRESETS.find((p) => p.id === "best").skills) assert.equal(states[id].level, isCapped(id) ? 1 : states[id].max, id);
   // 持ち物の空きが足りないと当てない。
   const full = freshGame(5);
-  full.progress.gear.items = Array.from({ length: 99 }, (_, i) => ({ id: i + 1, kind: "line", rarity: "normal", grade: 1, value: 500, skills: [] }));
-  full.progress.gear.nextId = 100;
+  const almost = DEFAULT_CONFIG.gacha.inventoryMax - 1;
+  full.progress.gear.items = Array.from({ length: almost }, (_, i) => ({ id: i + 1, kind: "line", rarity: "normal", grade: 1, value: 500, skills: [] }));
+  full.progress.gear.nextId = almost + 1;
   assert.equal(applyPreset(full, "combo").ok, false);
-  assert.equal(full.progress.gear.items.length, 99);
+  assert.equal(full.progress.gear.items.length, almost);
 });
 
 test("すぐ戦う:選んだ魚と合わせの結果で始まり、戦いのあとは釣りに戻る。魚の並びは変わらない", () => {
