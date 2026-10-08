@@ -5,7 +5,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 
+import { BACKGROUNDS, BG_HORIZON } from "../src/art/bg/index.js";
 import { BG_MINATO, MINATO_HORIZON } from "../src/art/bg/minato.js";
+import { AREA_ROWS } from "../src/core/areas.js";
 import { KURODAI } from "../src/art/fish/kurodai.js";
 import { artSize, checkArt, colorCount, drawArt, fitScale, PALETTE_LIMITS, PIXEL_CHARS } from "../src/art/pixel.js";
 import { ROOT } from "./helpers.js";
@@ -40,6 +42,23 @@ test("港の背景(D-383):幅 130 × 高さ 280、点検に通る(色数は 32 �
   const ctx = /** @type {any} */ ({ set fillStyle(_v) {}, fillRect: (_x, _y, w, h) => (area += w * h), imageSmoothingEnabled: true });
   drawArt(ctx, BG_MINATO, { dot: 3 });
   assert.equal(area, 130 * 280 * 9);
+});
+
+test("背景は 6 つの釣り場(港・磯・川・沖・外洋・深海:D-384)。どれも 130 × 280・点検に通る・32 色まで・全面を塗る・名前と id が重ならない", () => {
+  assert.deepEqual(
+    BACKGROUNDS.map((b) => b.areaId),
+    AREA_ROWS.map((a) => a.id),
+  );
+  assert.equal(BG_HORIZON, 118);
+  assert.equal(new Set(BACKGROUNDS.map((b) => b.art.id)).size, BACKGROUNDS.length);
+  for (const { areaId, art } of BACKGROUNDS) {
+    assert.equal(art.kind, "background", areaId);
+    assert.deepEqual([art.width, art.height], [130, 280], areaId);
+    assert.deepEqual(checkArt(art), [], areaId);
+    assert.ok(colorCount(art) <= PALETTE_LIMITS[130], `${areaId}:${colorCount(art)} 色`);
+    assert.ok(art.rows.every((r) => !r.includes("0")), `${areaId}:透明のマスがない`);
+    assert.ok(art.name.startsWith(AREA_ROWS.find((a) => a.id === areaId)?.name ?? "?"), `${areaId}:名前`);
+  }
 });
 
 test("背景の点検:背景は透明のマスがあると問題、魚は透明のマスがないと問題", () => {

@@ -5,15 +5,7 @@
 // 魚は中央(y ≈ 154)、ゲージは y ≈ 224。右側と手前の海は模様を減らして、ゲームの絵を見やすくする。
 // 使い方:node scripts/art/bg_minato.mjs
 
-import { writeFileSync, mkdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-
-const OUT = join(dirname(fileURLToPath(import.meta.url)), "../../src/art/bg/minato.js");
-const CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const W = 130;
-const H = 280;
-const HORIZON = 118;
+import { H, HORIZON, makeRand, makeScene, W, writeBackground } from "./bg_common.mjs";
 
 // ---- 色(名前 → #rrggbb)。昼の港:明るい空と青い海、灰色の防波堤、赤と白の灯台 ----
 const P = {
@@ -49,40 +41,7 @@ const P = {
   gull: "#7f8c96",
 };
 
-/** マスの並び(色の名前)。 */
-const grid = Array.from({ length: H }, () => new Array(W).fill(null));
-const set = (x, y, c) => {
-  const ix = Math.round(x);
-  const iy = Math.round(y);
-  if (ix >= 0 && ix < W && iy >= 0 && iy < H) grid[iy][ix] = c;
-};
-const rect = (x0, y0, x1, y1, c) => {
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, c);
-};
-const get = (x, y) => (x >= 0 && x < W && y >= 0 && y < H ? grid[y][x] : null);
-
-/**
- * 段(帯)で塗る。bands は [始まりの行, 色]。境目の手前 4 行は、次の色の割合を 1/4・1/2・1/2・3/4 と増やす
- * 決まった模様(順序つきの点描)でまぜる(荒めのドット絵らしく、段の線が硬く見えないように)。
- * @param {number} y0 @param {number} y1 @param {[number, string][]} bands
- */
-function bandFill(y0, y1, bands) {
-  // 2 × 2 の順序つきの点描の表(しきい値 0〜3)。
-  const order = [
-    [0, 2],
-    [3, 1],
-  ];
-  for (let y = y0; y <= y1; y++) {
-    let k = 0;
-    while (k + 1 < bands.length && y >= bands[k + 1][0]) k++;
-    const next = bands[k + 1];
-    const step = next ? 4 - (next[0] - y) : -1; // 0〜3:次の帯に近いほど大きい
-    for (let x = 0; x < W; x++) {
-      const mix = step >= 0 && order[y % 2][x % 2] < [1, 2, 2, 3][step];
-      set(x, y, mix ? next[1] : bands[k][1]);
-    }
-  }
-}
+const { grid, set, rect, get, bandFill, cloud, flyingGull } = makeScene();
 
 // ---- 空:上が濃く、水平線に近いほど明るい ----
 bandFill(0, HORIZON - 1, [
@@ -93,25 +52,6 @@ bandFill(0, HORIZON - 1, [
   [100, "sky5"],
 ]);
 
-/**
- * 雲:丸のかたまり(中心と半径の並び)。下の縁に影を 2 段。平らな底。
- * @param {[number, number, number][]} puffs @param {number} bottom 底の行
- */
-function cloud(puffs, bottom) {
-  const inside = (x, y) => y <= bottom && puffs.some(([cx, cy, r]) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r);
-  const xs = puffs.map(([cx, , r]) => [cx - r, cx + r]).flat();
-  const ys = puffs.map(([, cy, r]) => cy - r);
-  for (let y = Math.floor(Math.min(...ys)); y <= bottom; y++) {
-    for (let x = Math.floor(Math.min(...xs)); x <= Math.ceil(Math.max(...xs)); x++) {
-      if (!inside(x + 0.5, y + 0.5)) continue;
-      // 影:下から 1 行目は濃い影、2 行目は薄い影。上の右寄りも少し影(光は左上から)。
-      const below = !inside(x + 0.5, y + 1.5);
-      const below2 = !inside(x + 0.5, y + 2.5);
-      const right = !inside(x + 1.5, y + 0.5);
-      set(x, y, below ? "cloudShade2" : below2 || right ? "cloudShade" : "cloud");
-    }
-  }
-}
 cloud(
   [
     [16, 26, 6],
@@ -180,11 +120,7 @@ bandFill(HORIZON, H - 1, [
 rect(0, HORIZON, W - 1, HORIZON, "waveMid");
 
 // 波:短い横線。水平線の近くは細かく多め、手前ほど長く少なく。右の竿のまわりと、ゲージのあたり(y ≥ 210)は減らす。
-let seed = 7;
-const rand = () => {
-  seed = (seed * 1103515245 + 12345) % 2147483648;
-  return seed / 2147483648;
-};
+const rand = makeRand(7);
 for (let y = HORIZON + 3; y < 206; y += 3) {
   const t = (y - HORIZON) / (206 - HORIZON);
   const count = Math.round(9 - 5 * t);
@@ -270,22 +206,6 @@ for (let y = towerTop - 12; y <= towerTop - 9; y++) {
 rect(LX, towerTop - 14, LX, towerTop - 13, "metal");
 
 // ---- カモメ(空に 2 羽、防波堤の上に 1 羽) ----
-/** 飛ぶカモメ:白い体と、「へ」の字の翼(先は灰色)。幅 11 マス。 */
-function flyingGull(x, y) {
-  const shape = [
-    "g.........g",
-    "ww.......ww",
-    ".ww.....ww.",
-    "..wwwgwww..",
-    "....wwww...",
-  ];
-  shape.forEach((row, dy) => {
-    [...row].forEach((ch, dx) => {
-      if (ch === "w") set(x + dx - 5, y + dy, "cloud");
-      if (ch === "g") set(x + dx - 5, y + dy, "gull");
-    });
-  });
-}
 flyingGull(60, 38);
 flyingGull(112, 20);
 // 止まっているカモメ(防波堤の上):白い体、灰色の羽、黄色いくちばし。
@@ -296,41 +216,14 @@ rect(27, BW_TOP - 3, 28, BW_TOP - 3, "gull");
 set(28, BW_TOP - 1, "metal");
 
 // ---- 書き出し ----
-if (grid.some((r) => r.some((c) => !c))) throw new Error("塗っていないマスがある");
-const used = [];
-for (const r of grid) for (const c of r) if (!used.includes(c)) used.push(c);
-const lum = (hex) => {
-  const n = parseInt(hex.slice(1), 16);
-  return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114;
-};
-used.sort((a, b) => lum(P[a]) - lum(P[b]));
-const unused = Object.keys(P).filter((k) => !used.includes(k));
-if (unused.length) throw new Error(`使っていない色:${unused.join("・")}`);
-const palette = ["", ...used.map((k) => P[k])];
-const rows = grid.map((r) => r.map((c) => CHARS[used.indexOf(c) + 1]).join(""));
-const art = { id: "bg-minato", name: "港(昼)", width: W, height: H, palette, rows };
-const lines = [
-  "// @ts-check",
-  "// 港(昼)の背景のドット絵(130 × 280 マス:D-383)。scripts/art/bg_minato.mjs が書き出す(手で直さない)。",
-  "// 背景なので透明のマスはない。1 行 = 1 つの文字列、1 マス = 1 文字(src/art/pixel.js の PIXEL_CHARS)。",
-  "",
-  "/** 水平線の行(上から。ゲームの水面 0.42 の位置)。 */",
-  `export const MINATO_HORIZON = ${HORIZON};`,
-  "",
-  '/** @type {import("../pixel.js").PixelArt} */',
-  "export const BG_MINATO = Object.freeze({",
-  `  id: ${JSON.stringify(art.id)},`,
-  `  name: ${JSON.stringify(art.name)},`,
-  '  kind: "background",',
-  `  width: ${W},`,
-  `  height: ${H},`,
-  `  palette: Object.freeze(${JSON.stringify(palette)}),`,
-  "  rows: Object.freeze([",
-  ...rows.map((r) => `    ${JSON.stringify(r)},`),
-  "  ]),",
-  "});",
-  "",
-];
-mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, lines.join("\n"));
-console.log(`${art.id}:${palette.length - 1} 色`);
+writeBackground({
+  id: "bg-minato",
+  name: "港(昼)",
+  constName: "BG_MINATO",
+  file: "minato.js",
+  decision: "D-383",
+  script: "scripts/art/bg_minato.mjs",
+  P,
+  grid,
+  extra: ["/** 水平線の行(上から。ゲームの水面 0.42 の位置)。 */", `export const MINATO_HORIZON = ${HORIZON};`, ""],
+});

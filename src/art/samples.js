@@ -1,12 +1,12 @@
 // @ts-check
 // ドット絵の見本のページ(D-362・D-364・D-383)。3 つの粗さのクロダイを、同じ表示の大きさで並べる。
-// 下に、背景の見本(港・昼)を 1 ドット 3px(幅 390 CSS px)で出す。「ゲームの位置」で、水面・竿・ウキ・魚・ゲージの位置を重ねる。
+// 下に、背景の見本(6 つの釣り場・昼)を 1 ドット 3px(幅 390 CSS px)で出す。釣り場を切り替え、「ゲームの位置」で、水面・竿・ウキ・魚・ゲージの位置を重ねる。
 // - 大きさ:×1(幅 160 CSS px)・×2(320)・ゲームで使う大きさの想定 96・192。1 マス = 整数の画素の数なので、
 //   表示の幅は目安にいちばん近い値になる(粗さと画素比によって少しちがう。下に実際の値を出す)。
 // - 背景の色:明るい水色・濃い青・暗い藍(魚だけを置く)。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
-import { BG_MINATO, MINATO_HORIZON } from "./bg/minato.js";
+import { BACKGROUNDS, BG_HORIZON } from "./bg/index.js";
 import { KURODAI } from "./fish/kurodai.js";
 import { artCanvas, artSize, checkArt, colorCount } from "./pixel.js";
 
@@ -103,7 +103,7 @@ function backgroundBox(art, dpr, max, guide) {
     ["データ", `${artSize(art).toLocaleString("ja-JP")} 文字`],
     ["1 ドット", `${short(cssDot)} px`],
     ["表示の幅", `${short(cssWidth)} px`],
-    ["水平線", `上から ${MINATO_HORIZON} マス`],
+    ["水平線", `上から ${BG_HORIZON} マス`],
   ])) {
     const dt = document.createElement("dt");
     dt.textContent = k;
@@ -173,8 +173,9 @@ function main() {
   const problemsBox = /** @type {HTMLElement} */ (document.getElementById("problems"));
   const bgStage = /** @type {HTMLElement} */ (document.getElementById("bg-stage"));
   const guideHost = /** @type {HTMLElement} */ (document.getElementById("guide-choices"));
-  const state = { size: "x1", bg: "blue", guide: "off" };
-  const problems = [...KURODAI, BG_MINATO].flatMap((a) => checkArt(a));
+  const areaHost = /** @type {HTMLElement} */ (document.getElementById("area-choices"));
+  const state = { size: "x1", bg: "blue", guide: "off", area: /** @type {string} */ (BACKGROUNDS[0].areaId) };
+  const problems = [...KURODAI, ...BACKGROUNDS.map((b) => b.art)].flatMap((a) => checkArt(a));
   if (problems.length > 0) {
     problemsBox.hidden = false;
     problemsBox.textContent = `データの点検で問題があります:${problems.join("、")}`;
@@ -197,7 +198,17 @@ function main() {
       render();
     });
     // 背景の見本:画面の幅をこえるときは、こえない最大の整数の画素で描く。
-    bgStage.replaceChildren(backgroundBox(BG_MINATO, dpr, Math.max(130, bgStage.clientWidth), state.guide === "on"));
+    const area = BACKGROUNDS.find((b) => b.areaId === state.area) ?? BACKGROUNDS[0];
+    bgStage.replaceChildren(backgroundBox(area.art, dpr, Math.max(130, bgStage.clientWidth), state.guide === "on"));
+    choiceButtons(
+      areaHost,
+      BACKGROUNDS.map((b) => ({ id: b.areaId, label: b.art.name.replace("(昼)", "") })),
+      state.area,
+      (id) => {
+        state.area = id;
+        render();
+      },
+    );
     choiceButtons(guideHost, GUIDE_CHOICES, state.guide, (id) => {
       state.guide = id;
       render();
