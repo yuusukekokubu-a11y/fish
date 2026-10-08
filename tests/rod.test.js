@@ -45,6 +45,17 @@ test("製作に要る鱗は、その段階の強い魚の鱗(どの釣り場も 
       ["shiira", 4, "nushi-shiira", 1],
       ["katsuo", 5, "nushi-katsuo", 1],
       ["kihada", 6, "nushi-kihada", 1],
+      // 外洋・深海も同じ(D-377)。
+      ["makajiki", 3, "nushi-makajiki", 1],
+      ["binnaga", 4, "nushi-binnaga", 1],
+      ["mebachi", 4, "nushi-mebachi", 1],
+      ["kurokajiki", 5, "nushi-kurokajiki", 1],
+      ["kuromaguro", 6, "nushi-kuromaguro", 1],
+      ["ankou", 3, "nushi-ankou", 1],
+      ["akamutsu", 4, "nushi-akamutsu", 1],
+      ["rabuka", 4, "nushi-rabuka", 1],
+      ["ryuuguunotsukai", 5, "nushi-ryuuguunotsukai", 1],
+      ["shiirakansu", 6, "nushi-shiirakansu", 1],
     ],
   );
 });

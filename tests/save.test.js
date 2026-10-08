@@ -135,8 +135,10 @@ test("版 3(TSURI3)を版 4 に読み替える:釣り場は竿の段階の釣り
   assert.deepEqual([r.progress.rodStage, r.progress.rodStep, r.progress.bait, r.progress.useBait, r.progress.autoScrap], [6, "none", 3, true, "rare"]);
   assert.deepEqual(r.progress.gear.items[0].skills, [{ id: "power", level: 2 }, { id: "agility", level: 1 }, { id: "recovery", level: 1 }]);
   assert.equal("area" in r.progress, false, "いちばん新しい釣り場(磯)");
-  // 表に次の段階がない「進化済み」は、そのまま(最後の段階)。
-  assert.equal(UPGRADES[3]("1~k.3~~~0..1~~~~0.0.0", DEFAULT_CONTENT), "1~k.3~~~0..1~~~~0.0.0~");
+  // 表に次の段階がない「進化済み」は、そのまま(いまの表の最後の段階 g=30 = u)。
+  assert.equal(UPGRADES[3]("1~u.3~~~0..1~~~~0.0.0", DEFAULT_CONTENT), "1~u.3~~~0..1~~~~0.0.0~");
+  // 沖の 5 段階目(g=20 = k)の進化済みは、外洋を足したので、外洋の段階 1(g=21 = l)の未製作として読む(D-350・D-377)。
+  assert.equal(UPGRADES[3]("1~k.3~~~0..1~~~~0.0.0", DEFAULT_CONTENT), "1~l.0~~~0..1~~~~0.0.0~");
   // 版 1 なのに 8 つの欄(ロックの欄つき)は拒否。
   assert.equal(decodeSaveCode(`TSURI1-${V1_BODY}~000-${checksum(`${V1_BODY}~000`)}`).error, "content");
 });
@@ -262,6 +264,11 @@ test("壊れた・範囲外・存在しない魚や工程・重複・装着の�
   // 表の最後でない段階の「進化済み」は、次の段階の未製作として読む(表に段階が足されたとき:D-350)。
   const evolved = decodeSaveCode(withField(1, "2.3"));
   assert.deepEqual(evolved.ok ? [evolved.progress.rodStage, evolved.progress.rodStep] : null, [3, "none"]);
+  // 沖の 5 段階目(g=20)の進化済み → 外洋の段階 1・竿は未製作(D-377)。深海の 5 段階目(g=30)の進化済みは、そのまま。
+  const oki = decodeSaveCode(withField(1, "k.3"));
+  assert.deepEqual(oki.ok ? [oki.progress.rodStage, oki.progress.rodStep] : null, [21, "none"]);
+  const deep = decodeSaveCode(withField(1, "u.3"));
+  assert.deepEqual(deep.ok ? [deep.progress.rodStage, deep.progress.rodStep] : null, [30, "evolved"]);
   // 持ち物が上限(300 個:D-355)をこえる(装着なし、次の番号は 400)。
   const parts = encodeSave(sample()).split("~");
   parts[4] = "5.3f.b4";

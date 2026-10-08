@@ -21,7 +21,7 @@
 export const AREA_STAGES = 5;
 
 /**
- * 釣り場の表(並び:港 → 磯 → 川 → 沖。以後、外洋 → 深海 を足す:D-345)。行は並べ替えない。
+ * 釣り場の表(並び:港 → 磯 → 川 → 沖 → 外洋 → 深海:D-345・D-377。「最後」はなく、あとから足し続ける:D-375)。行は並べ替えない。
  * @type {readonly AreaRow[]}
  */
 export const AREA_ROWS = Object.freeze([
@@ -29,6 +29,9 @@ export const AREA_ROWS = Object.freeze([
   { id: "iso", name: "磯", firstStage: 6, stages: AREA_STAGES, sky: ["#8fa9c4", "#e3e9ee"], sea: ["#1f7a72", "#0b3433"] },
   { id: "kawa", name: "川", firstStage: 11, stages: AREA_STAGES, sky: ["#a9dcef", "#e6f6fb"], sea: ["#3a8f8c", "#17504f"] },
   { id: "oki", name: "沖", firstStage: 16, stages: AREA_STAGES, sky: ["#1f5fa8", "#7fb2e0"], sea: ["#0d3b7a", "#03173a"] },
+  // 外洋・深海(D-377。色は仮。ドット絵ができたら置き換える)。外洋は明るい紺から白っぽい水平線の空と、深い青緑の水。深海は空も水もほぼ黒に近い藍。
+  { id: "gaiyou", name: "外洋", firstStage: 21, stages: AREA_STAGES, sky: ["#27477f", "#dfe7f0"], sea: ["#0e5a63", "#032a30"] },
+  { id: "shinkai", name: "深海", firstStage: 26, stages: AREA_STAGES, sky: ["#0c1029", "#161c3d"], sea: ["#0a1030", "#02040f"] },
 ]);
 
 // 表にない釣り場の色(確かめ用。順に使い回す)。

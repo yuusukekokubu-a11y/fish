@@ -29,13 +29,13 @@ import { progressAt } from "./helpers.js";
 
 const C = DEFAULT_CONTENT;
 
-test("釣り場の表:港(g=1〜5)・磯(g=6〜10)・川(g=11〜15)・沖(g=16〜20)。表の点検に問題がなく、位置と最後の段階は表から決まる", () => {
-  assert.deepEqual(AREA_ROWS.map((a) => [a.id, a.name, a.firstStage, a.stages]), [["minato", "港", 1, 5], ["iso", "磯", 6, 5], ["kawa", "川", 11, 5], ["oki", "沖", 16, 5]]);
+test("釣り場の表:港(g=1〜5)・磯(g=6〜10)・川(g=11〜15)・沖(g=16〜20)・外洋(g=21〜25)・深海(g=26〜30)。表の点検に問題がなく、位置と最後の段階は表から決まる", () => {
+  assert.deepEqual(AREA_ROWS.map((a) => [a.id, a.name, a.firstStage, a.stages]), [["minato", "港", 1, 5], ["iso", "磯", 6, 5], ["kawa", "川", 11, 5], ["oki", "沖", 16, 5], ["gaiyou", "外洋", 21, 5], ["shinkai", "深海", 26, 5]]);
   assert.deepEqual(checkContent(C), []);
-  assert.deepEqual(C.areas.map((a) => a.id), ["minato", "iso", "kawa", "oki"]);
-  assert.equal(C.maxStage, 20);
-  assert.deepEqual([1, 5, 6, 10, 11, 15, 16, 20].map((g) => areaPosition(C, g)), [1, 5, 1, 5, 1, 5, 1, 5]);
-  assert.deepEqual([4, 5, 6, 10, 15, 16, 20].map((g) => isAreaLastStage(C, g)), [false, true, false, true, true, false, true]);
+  assert.deepEqual(C.areas.map((a) => a.id), ["minato", "iso", "kawa", "oki", "gaiyou", "shinkai"]);
+  assert.equal(C.maxStage, 30);
+  assert.deepEqual([1, 5, 6, 10, 11, 15, 16, 20, 21, 25, 26, 30].map((g) => areaPosition(C, g)), [1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 5]);
+  assert.deepEqual([4, 5, 6, 10, 15, 16, 20, 21, 25, 29, 30].map((g) => isAreaLastStage(C, g)), [false, true, false, true, true, false, true, false, true, false, true]);
   // ヌシ戦の長さと防御の位置 s は、釣り場の中の位置(D-276)。限界の表(g=100・20 の釣り場)でも同じ。
   const big = syntheticContent(100);
   assert.equal(big.areas.length, 20);
@@ -119,21 +119,24 @@ test("製作・ヌシ戦・進化・餌は、いちばん新しい釣り場で�
   assert.deepEqual([bait.cast.bait, bait.progress.bait, bait.cast.fish.stage <= 5], [undefined, 3, true]);
 });
 
-test("解放:港 → 磯 → 川 → 沖。5 段階目の進化で次の釣り場が解放され、自動で移る(投げている投も新しい魚に)。沖の 5 段階目のあとは止まる", () => {
+test("解放:港 → 磯 → 川 → 沖 → 外洋 → 深海。5 段階目の進化で次の釣り場が解放され、自動で移る(投げている投も新しい魚に)。深海の 5 段階目のあとは止まる(次の釣り場はまだない:D-375)", () => {
   const game = createGame(2, { progress: progressAt(5, ROD_STEPS.DEFEATED, { scales: { "nushi-buri": 1 } }) });
   assert.equal(evolveGameRod(game), true);
   assert.deepEqual([game.progress.rodStage, game.areaUnlocked?.id, currentArea(game.progress, C).id], [6, "iso", "iso"]);
   assert.equal(game.cast.fish.stage, 6, "投げている投も、磯の魚に決め直す");
-  // 磯の 5 段階目 → 川、川の 5 段階目 → 沖(D-347)。
-  for (const [g, boss, next] of [[10, "nushi-kue", "kawa"], [15, "nushi-itou", "oki"]]) {
+  // 磯の 5 段階目 → 川、川の 5 段階目 → 沖(D-347)、沖 → 外洋、外洋 → 深海(D-377)。
+  for (const [g, boss, next] of [[10, "nushi-kue", "kawa"], [15, "nushi-itou", "oki"], [20, "nushi-kihada", "gaiyou"], [25, "nushi-kuromaguro", "shinkai"]]) {
     const up = createGame(2, { progress: progressAt(g, ROD_STEPS.DEFEATED, { scales: { [boss]: 1 } }) });
     assert.equal(evolveGameRod(up), true);
     assert.deepEqual([up.progress.rodStage, up.areaUnlocked?.id, currentArea(up.progress, C).id], [g + 1, next, next]);
     assert.equal(up.cast.fish.stage, g + 1, `投げている投も、${next} の魚に決め直す`);
   }
-  const last = createGame(2, { progress: progressAt(20, ROD_STEPS.DEFEATED, { scales: { "nushi-kihada": 1 } }) });
+  const last = createGame(2, { progress: progressAt(30, ROD_STEPS.DEFEATED, { scales: { "nushi-shiirakansu": 1 } }) });
   assert.equal(evolveGameRod(last), true);
-  assert.deepEqual([last.progress.rodStage, last.progress.rodStep, last.areaUnlocked], [20, ROD_STEPS.EVOLVED, null]);
+  assert.deepEqual([last.progress.rodStage, last.progress.rodStep, last.areaUnlocked], [30, ROD_STEPS.EVOLVED, null]);
+  // 次の釣り場がなくても、釣りは続けられる(エラーにならない)。
+  update(last, 60000);
+  assert.equal(currentArea(last.progress, C).id, "shinkai");
   // 段階の途中の進化は、釣り場を変えない。
   const mid = createGame(2, { progress: progressAt(6, ROD_STEPS.DEFEATED, { scales: { "nushi-mejina": 1 } }) });
   evolveGameRod(mid);
