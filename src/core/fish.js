@@ -59,7 +59,7 @@ export function stagesFromFish(fish, formula = DEFAULT_CONFIG.formula) {
 }
 
 /**
- * 魚の表(釣り場ごと・段階の順:港 g=1〜5、磯 g=6〜10、川 g=11〜15、沖 g=16〜20。D-277・D-345)。足すときは 1 行足す(DESIGN の「段階や魚を足す手順」)。
+ * 魚の表(釣り場ごと・段階の順:港 g=1〜5、磯 g=6〜10、川 g=11〜15、沖 g=16〜20、外洋 g=21〜25、深海 g=26〜30。D-277・D-345・D-377)。足すときは 1 行足す(DESIGN の「段階や魚を足す手順」)。
  * 釣り場は段階(通し番号 g)で決まる(areas.js の釣り場の表)。数値は式から作る。
  */
 export const FISH_ROWS = Object.freeze([
@@ -143,6 +143,46 @@ export const FISH_ROWS = Object.freeze([
   { id: "mutsu", name: "ムツ", kind: "weak", stage: 20, color: "#7a6f8a", size: 26 },
   { id: "kihada", name: "キハダ", kind: "strong", stage: 20, color: "#f4d35e", size: 46 },
   { id: "nushi-kihada", name: "ヌシ・キハダ", kind: "boss", stage: 20, color: "#a88b1a", size: 62 },
+  // 外洋 段階 1(g=21)
+  { id: "tobiuo", name: "トビウオ", kind: "weak", stage: 21, color: "#9fc5e8", size: 22 },
+  { id: "makajiki", name: "マカジキ", kind: "strong", stage: 21, color: "#3d5a80", size: 36 },
+  { id: "nushi-makajiki", name: "ヌシ・マカジキ", kind: "boss", stage: 21, color: "#1d2d50", size: 54 },
+  // 外洋 段階 2(g=22)
+  { id: "sanma", name: "サンマ", kind: "weak", stage: 22, color: "#a7b4c2", size: 24 },
+  { id: "binnaga", name: "ビンナガ", kind: "strong", stage: 22, color: "#5c8dbc", size: 38 },
+  { id: "nushi-binnaga", name: "ヌシ・ビンナガ", kind: "boss", stage: 22, color: "#2c4f7c", size: 56 },
+  // 外洋 段階 3(g=23)
+  { id: "kamasu", name: "カマス", kind: "weak", stage: 23, color: "#c9b18a", size: 24 },
+  { id: "mebachi", name: "メバチ", kind: "strong", stage: 23, color: "#2f4b7c", size: 40 },
+  { id: "nushi-mebachi", name: "ヌシ・メバチ", kind: "boss", stage: 23, color: "#162447", size: 58 },
+  // 外洋 段階 4(g=24)
+  { id: "urumeiwashi", name: "ウルメイワシ", kind: "weak", stage: 24, color: "#7fa6a3", size: 26 },
+  { id: "kurokajiki", name: "クロカジキ", kind: "strong", stage: 24, color: "#22313f", size: 42 },
+  { id: "nushi-kurokajiki", name: "ヌシ・クロカジキ", kind: "boss", stage: 24, color: "#0b1622", size: 60 },
+  // 外洋 段階 5(g=25)
+  { id: "datsu", name: "ダツ", kind: "weak", stage: 25, color: "#b0c4de", size: 26 },
+  { id: "kuromaguro", name: "クロマグロ", kind: "strong", stage: 25, color: "#1b3a6b", size: 46 },
+  { id: "nushi-kuromaguro", name: "ヌシ・クロマグロ", kind: "boss", stage: 25, color: "#0a1a3a", size: 62 },
+  // 深海 段階 1(g=26)
+  { id: "sokodara", name: "ソコダラ", kind: "weak", stage: 26, color: "#8c8a93", size: 22 },
+  { id: "ankou", name: "アンコウ", kind: "strong", stage: 26, color: "#6b5d4f", size: 36 },
+  { id: "nushi-ankou", name: "ヌシ・アンコウ", kind: "boss", stage: 26, color: "#3b3026", size: 54 },
+  // 深海 段階 2(g=27)
+  { id: "hadakaiwashi", name: "ハダカイワシ", kind: "weak", stage: 27, color: "#5e6b8c", size: 24 },
+  { id: "akamutsu", name: "アカムツ", kind: "strong", stage: 27, color: "#c0392b", size: 38 },
+  { id: "nushi-akamutsu", name: "ヌシ・アカムツ", kind: "boss", stage: 27, color: "#7b1e1e", size: 56 },
+  // 深海 段階 3(g=28)
+  { id: "hiuchidai", name: "ヒウチダイ", kind: "weak", stage: 28, color: "#d35400", size: 24 },
+  { id: "rabuka", name: "ラブカ", kind: "strong", stage: 28, color: "#5d6d7e", size: 40 },
+  { id: "nushi-rabuka", name: "ヌシ・ラブカ", kind: "boss", stage: 28, color: "#2e3640", size: 58 },
+  // 深海 段階 4(g=29)
+  { id: "ginzame", name: "ギンザメ", kind: "weak", stage: 29, color: "#b8b8c8", size: 26 },
+  { id: "ryuuguunotsukai", name: "リュウグウノツカイ", kind: "strong", stage: 29, color: "#e8e8f0", size: 42 },
+  { id: "nushi-ryuuguunotsukai", name: "ヌシ・リュウグウノツカイ", kind: "boss", stage: 29, color: "#a83232", size: 60 },
+  // 深海 段階 5(g=30)
+  { id: "kinmedai", name: "キンメダイ", kind: "weak", stage: 30, color: "#e74c3c", size: 26 },
+  { id: "shiirakansu", name: "シーラカンス", kind: "strong", stage: 30, color: "#4a5a6a", size: 46 },
+  { id: "nushi-shiirakansu", name: "ヌシ・シーラカンス", kind: "boss", stage: 30, color: "#1f2a35", size: 62 },
 ]);
 
 export const FISH_LIST = Object.freeze(FISH_ROWS.map((r) => defineFish(r)));

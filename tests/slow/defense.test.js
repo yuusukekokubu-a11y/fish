@@ -10,7 +10,7 @@ import { effectiveStats, hitDamage } from "../../src/core/combat.js";
 import { createGame } from "../../src/core/fishing.js";
 import { bossHitTarget, fishDefense, softCurve, stagePosition } from "../../src/core/formula.js";
 import { skillAmount, SKILL_ROWS } from "../../src/core/skills.js";
-import { areaPosition } from "../../src/core/areas.js";
+import { areaOfStage, areaPosition } from "../../src/core/areas.js";
 import { DEFAULT_CONTENT, defineFish, FISH_ROWS, makeContent } from "../../src/core/fish.js";
 import { syntheticContent } from "../../src/core/synthetic.js";
 import { averageItems, fightOnce, grownItems, measure, progressWith, skillSummary, strongestItems } from "./builds.js";
@@ -92,13 +92,14 @@ test("磯の実データ(g=6〜10、ヌシ・メジナ〜ヌシ・クエ):s=1 �
 /** 目安の外で、報告して相談中のヌシ(D-350)。s=1 の目安を 4〜7 回に広げたので、いまはない(D-351)。 */
 const KNOWN_OUTSIDE = Object.freeze({});
 
-// 川・沖の本物の表(D-347):磯と同じ条件。報告に、命中回数と戦闘の時間の表を出す。
-test("川・沖の実データ(g=11〜20):s=1 は 4〜7 回、s=5 は 10〜15 回。s=5 は貫通なしで勝率 6% 未満。命中回数と時間の表", () => {
+// 川・沖・外洋・深海の本物の表(D-347・D-377):磯と同じ条件。報告に、命中回数と戦闘の時間の表を出す。
+// 外洋・深海(g=21〜30)の s=5 の目安は 9〜19 回(依頼の条件:D-377)。
+test("川・沖・外洋・深海の実データ(g=11〜30):s=1 は 4〜7 回、s=5 は 10〜15 回(外洋・深海は 9〜19 回)。s=5 は貫通なしで勝率 6% 未満。命中回数と時間の表", () => {
   const C = DEFAULT_CONTENT;
   /** @type {string[]} */
   const problems = [];
   const lines = ["| g | 釣り場 | s | ヌシ | 体力 | 防御 | 命中回数(中央値)| 最小〜最大 | 時間(秒・中央値)|", "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"];
-  for (let g = 11; g <= 20; g++) {
+  for (let g = 11; g <= 30; g++) {
     const id = C.stageByNumber.get(g).boss;
     const s = areaPosition(C, g);
     // 命中回数と時間は、これまでの制限時間で数える(D-368)。
@@ -108,13 +109,13 @@ test("川・沖の実データ(g=11〜20):s=1 は 4〜7 回、s=5 は 10〜15 �
     const ms = median(results.flatMap((r) => r.runs.filter((x) => x.caught).map((x) => x.ms)));
     const fish = C.byId.get(id);
     const finite = per.filter(Number.isFinite);
-    lines.push(`| ${g} | ${g <= 15 ? "川" : "沖"} | ${s} | ${fish.name} | ${fish.minigame.hp} | ${Math.round(fish.minigame.defense * 1000) / 10}% | ${m} | ${Math.min(...finite)}〜${Math.max(...finite)}(倒せない種 ${per.length - finite.length}) | ${(ms / 1000).toFixed(1)} |`);
-    const [lo, hi] = s === 1 ? [4, 7] : s === 5 ? [10, 15] : [4, 14];
+    lines.push(`| ${g} | ${areaOfStage(C, g).name} | ${s} | ${fish.name} | ${fish.minigame.hp} | ${Math.round(fish.minigame.defense * 1000) / 10}% | ${m} | ${Math.min(...finite)}〜${Math.max(...finite)}(倒せない種 ${per.length - finite.length}) | ${(ms / 1000).toFixed(1)} |`);
+    const [lo, hi] = s === 1 ? [4, 7] : s === 5 ? (g > 20 ? [9, 19] : [10, 15]) : [4, 14];
     // 目安の外で、報告して相談中のもの(数値は勝手に変えない:D-350)。測った値が変わったら気づけるよう、値で固定する。
     if (KNOWN_OUTSIDE[id] !== undefined) assert.equal(m, KNOWN_OUTSIDE[id], `${fish.name}(相談中の外れ)`);
     else if (!(m >= lo && m <= hi)) problems.push(`${fish.name}(g=${g} s=${s}):${m} 回`);
   }
-  for (const [g, id] of [[15, "nushi-itou"], [20, "nushi-kihada"]]) {
+  for (const [g, id] of [[15, "nushi-itou"], [20, "nushi-kihada"], [25, "nushi-kuromaguro"], [30, "nushi-shiirakansu"]]) {
     let wins = 0;
     let total = 0;
     for (const gs of GACHA_SEEDS) {

@@ -23,13 +23,12 @@ test("釣り場の画面:目次に「釣り場」。解放済みは名前・色�
     areaRows(gameAt(3)).map((r) => [r.name, r.unlocked, r.current, r.progressText, r.note]),
     [
       ["港", true, true, "段階 3/5", ""],
-      ["???", false, false, "", UNLOCK_NOTE],
-      ["???", false, false, "", UNLOCK_NOTE],
-      ["???", false, false, "", UNLOCK_NOTE],
+      // 磯・川・沖・外洋・深海は未解放(D-377)。
+      ...Array.from({ length: 5 }, () => ["???", false, false, "", UNLOCK_NOTE]),
     ],
   );
   const rows = areaRows(gameAt(8, { area: "minato" }));
-  assert.deepEqual(rows.map((r) => [r.name, r.current, r.newest, r.progressText]), [["港", true, false, ""], ["磯", false, true, "段階 3/5"], ["???", false, false, ""], ["???", false, false, ""]]);
+  assert.deepEqual(rows.map((r) => [r.name, r.current, r.newest, r.progressText]), [["港", true, false, ""], ["磯", false, true, "段階 3/5"], ...Array.from({ length: 4 }, () => ["???", false, false, ""])]);
   assert.deepEqual(rows[1].sky, ["#8fa9c4", "#e3e9ee"]);
 });
 
