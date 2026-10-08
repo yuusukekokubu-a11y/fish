@@ -1,10 +1,12 @@
 // @ts-check
-// ドット絵の見本のページ(D-362・D-364)。3 つの粗さのクロダイを、同じ表示の大きさで並べる。
+// ドット絵の見本のページ(D-362・D-364・D-383)。3 つの粗さのクロダイを、同じ表示の大きさで並べる。
+// 下に、背景の見本(港・昼)を 1 ドット 3px(幅 390 CSS px)で出す。「ゲームの位置」で、水面・竿・ウキ・魚・ゲージの位置を重ねる。
 // - 大きさ:×1(幅 160 CSS px)・×2(320)・ゲームで使う大きさの想定 96・192。1 マス = 整数の画素の数なので、
 //   表示の幅は目安にいちばん近い値になる(粗さと画素比によって少しちがう。下に実際の値を出す)。
-// - 背景の色:明るい水色・濃い青・暗い藍(魚だけを置く。背景の絵はまだない)。
+// - 背景の色:明るい水色・濃い青・暗い藍(魚だけを置く)。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
+import { BG_MINATO, MINATO_HORIZON } from "./bg/minato.js";
 import { KURODAI } from "./fish/kurodai.js";
 import { artCanvas, artSize, checkArt, colorCount } from "./pixel.js";
 
@@ -22,6 +24,96 @@ export const BG_CHOICES = Object.freeze([
   { id: "blue", label: "濃い青", color: "#1f5fa8" },
   { id: "navy", label: "暗い藍", color: "#141c3a" },
 ]);
+
+/** 背景の見本の重ね方。 */
+export const GUIDE_CHOICES = Object.freeze([
+  { id: "off", label: "絵だけ" },
+  { id: "on", label: "ゲームの位置" },
+]);
+
+/** 背景の見本の表示の幅(CSS px。1 ドット 3px:D-372)。 */
+export const BACKGROUND_WIDTH = 390;
+
+/**
+ * ゲームの絵の位置(画面の幅 w・高さ h に対する割合。src/ui/draw.js の drawScene と同じ数)。
+ * 背景の見本に重ねて、邪魔にならないかを見る。
+ */
+export const GAME_GUIDES = Object.freeze({
+  waterY: 0.42,
+  rod: Object.freeze({ x0: 0.82, y0: 0.98, x1: 0.62, y1: 0.3 }),
+  bobber: Object.freeze({ x: 0.4, y: 0.5 }),
+  fish: Object.freeze({ x: 0.5, y: 0.55 }),
+  gauge: Object.freeze({ x: 0.1, y: 0.8, w: 0.8, hPx: 34 }),
+});
+
+/**
+ * 背景の見本に、ゲームの位置を線で重ねる(水面・竿・ウキ・魚・ゲージ)。
+ * @param {CanvasRenderingContext2D} ctx @param {number} w @param {number} h 画素の幅と高さ @param {number} px 1 CSS px の画素の数
+ */
+function drawGuides(ctx, w, h, px) {
+  const g = GAME_GUIDES;
+  ctx.lineWidth = 2 * px;
+  ctx.strokeStyle = "rgba(255, 60, 90, 0.9)";
+  ctx.fillStyle = "rgba(255, 60, 90, 0.9)";
+  ctx.font = `${12 * px}px system-ui, sans-serif`;
+  ctx.setLineDash([6 * px, 4 * px]);
+  ctx.beginPath();
+  ctx.moveTo(0, g.waterY * h);
+  ctx.lineTo(w, g.waterY * h);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillText("水面", 4 * px, g.waterY * h - 4 * px);
+  ctx.beginPath();
+  ctx.moveTo(g.rod.x0 * w, g.rod.y0 * h);
+  ctx.lineTo(g.rod.x1 * w, g.rod.y1 * h);
+  ctx.stroke();
+  ctx.fillText("竿", g.rod.x1 * w + 4 * px, g.rod.y1 * h);
+  ctx.beginPath();
+  ctx.arc(g.bobber.x * w, g.bobber.y * h, 6 * px, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillText("ウキ", g.bobber.x * w - 30 * px, g.bobber.y * h + 4 * px);
+  ctx.beginPath();
+  ctx.ellipse(g.fish.x * w, g.fish.y * h, 40 * px, 16 * px, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillText("魚", g.fish.x * w + 44 * px, g.fish.y * h + 4 * px);
+  ctx.strokeRect(g.gauge.x * w, g.gauge.y * h, g.gauge.w * w, g.gauge.hPx * px);
+  ctx.fillText("ゲージ", g.gauge.x * w, g.gauge.y * h - 4 * px);
+}
+
+/**
+ * 背景の見本(絵と、その下のラベル)。guide なら、ゲームの位置を重ねる。
+ * @param {import("./pixel.js").PixelArt} art @param {number} dpr @param {number} max 表示の幅の上限 @param {boolean} guide
+ */
+function backgroundBox(art, dpr, max, guide) {
+  const box = document.createElement("figure");
+  box.className = "sample background";
+  box.dataset.art = art.id;
+  box.style.margin = "0";
+  const { canvas, dot, cssWidth, cssDot } = artCanvas(art, BACKGROUND_WIDTH, dpr, { max });
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", art.name);
+  canvas.dataset.dot = String(dot);
+  const ctx = canvas.getContext("2d");
+  if (guide && ctx) drawGuides(ctx, canvas.width, canvas.height, dpr || 1);
+  const title = document.createElement("h2");
+  title.textContent = `${art.name}(${art.width}×${art.height})`;
+  const dl = document.createElement("dl");
+  for (const [k, v] of /** @type {[string, string][]} */ ([
+    ["色数", `${colorCount(art)} 色`],
+    ["データ", `${artSize(art).toLocaleString("ja-JP")} 文字`],
+    ["1 ドット", `${short(cssDot)} px`],
+    ["表示の幅", `${short(cssWidth)} px`],
+    ["水平線", `上から ${MINATO_HORIZON} マス`],
+  ])) {
+    const dt = document.createElement("dt");
+    dt.textContent = k;
+    const dd = document.createElement("dd");
+    dd.textContent = v;
+    dl.append(dt, dd);
+  }
+  box.append(canvas, title, dl);
+  return box;
+}
 
 /** 数を 1 けた(小数)まで。 @param {number} n */
 const short = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "").replace(/\.$/, ""));
@@ -79,8 +171,10 @@ function main() {
   const bgHost = /** @type {HTMLElement} */ (document.getElementById("bg-choices"));
   const dprNote = /** @type {HTMLElement} */ (document.getElementById("dpr-note"));
   const problemsBox = /** @type {HTMLElement} */ (document.getElementById("problems"));
-  const state = { size: "x1", bg: "blue" };
-  const problems = KURODAI.flatMap((a) => checkArt(a));
+  const bgStage = /** @type {HTMLElement} */ (document.getElementById("bg-stage"));
+  const guideHost = /** @type {HTMLElement} */ (document.getElementById("guide-choices"));
+  const state = { size: "x1", bg: "blue", guide: "off" };
+  const problems = [...KURODAI, BG_MINATO].flatMap((a) => checkArt(a));
   if (problems.length > 0) {
     problemsBox.hidden = false;
     problemsBox.textContent = `データの点検で問題があります:${problems.join("、")}`;
@@ -100,6 +194,12 @@ function main() {
     });
     choiceButtons(bgHost, BG_CHOICES, state.bg, (id) => {
       state.bg = id;
+      render();
+    });
+    // 背景の見本:画面の幅をこえるときは、こえない最大の整数の画素で描く。
+    bgStage.replaceChildren(backgroundBox(BG_MINATO, dpr, Math.max(130, bgStage.clientWidth), state.guide === "on"));
+    choiceButtons(guideHost, GUIDE_CHOICES, state.guide, (id) => {
+      state.guide = id;
       render();
     });
     dprNote.textContent = `この画面の画素比 ${short(dpr)}。1 マスを整数の数の画素で描くので、表示の幅は目安(${size.target} px)にいちばん近い値になります。`;

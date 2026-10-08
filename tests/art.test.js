@@ -1,10 +1,11 @@
-// ドット絵のデータと描く部品(D-360〜D-364):点検・表示の大きさ・補間なしの描き方・左右反転。
+// ドット絵のデータと描く部品(D-360〜D-364・D-383):点検・表示の大きさ・補間なしの描き方・左右反転。
 // ゲームを開くときに絵のデータを読み込まないこと、見本のページへの入口が ?debug の画面だけにあること。
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 
+import { BG_MINATO, MINATO_HORIZON } from "../src/art/bg/minato.js";
 import { KURODAI } from "../src/art/fish/kurodai.js";
 import { artSize, checkArt, colorCount, drawArt, fitScale, PALETTE_LIMITS, PIXEL_CHARS } from "../src/art/pixel.js";
 import { ROOT } from "./helpers.js";
@@ -21,6 +22,31 @@ test("クロダイは 32・64・128 マスの 3 枚。どれも点検(幅×高�
   // 粗さが細かいほど、色数とデータは増える。
   assert.ok(colorCount(KURODAI[0]) < colorCount(KURODAI[1]) && colorCount(KURODAI[1]) < colorCount(KURODAI[2]));
   assert.ok(artSize(KURODAI[0]) < artSize(KURODAI[1]) && artSize(KURODAI[1]) < artSize(KURODAI[2]));
+});
+
+test("港の背景(D-383):幅 130 × 高さ 280、点検に通る(色数は 32 まで)、全面を塗る、水平線は 118 行目", () => {
+  assert.equal(BG_MINATO.kind, "background");
+  assert.deepEqual([BG_MINATO.width, BG_MINATO.height], [130, 280]);
+  assert.deepEqual(checkArt(BG_MINATO), []);
+  assert.ok(colorCount(BG_MINATO) <= PALETTE_LIMITS[130], `${colorCount(BG_MINATO)} 色`);
+  assert.ok(BG_MINATO.rows.every((r) => !r.includes("0")), "透明のマスがない");
+  // 水平線(ゲームの水面 0.42 の位置)。
+  assert.equal(MINATO_HORIZON, 118);
+  assert.equal(Math.round(280 * 0.42), MINATO_HORIZON);
+  // 1 ドット 3px で、幅 390px(スマホの幅)。
+  assert.equal(fitScale(BG_MINATO.width, 390, 1).cssWidth, 390);
+  // 描くと全面が塗られる(塗った面積 = 幅 × 高さ × dot²)。
+  let area = 0;
+  const ctx = /** @type {any} */ ({ set fillStyle(_v) {}, fillRect: (_x, _y, w, h) => (area += w * h), imageSmoothingEnabled: true });
+  drawArt(ctx, BG_MINATO, { dot: 3 });
+  assert.equal(area, 130 * 280 * 9);
+});
+
+test("背景の点検:背景は透明のマスがあると問題、魚は透明のマスがないと問題", () => {
+  const bg = { id: "b", name: "b", kind: /** @type {"background"} */ ("background"), width: 2, height: 1, palette: ["", "#000000"], rows: ["11"] };
+  assert.deepEqual(checkArt(bg), []);
+  assert.ok(checkArt({ ...bg, rows: ["01"] }).length > 0, "背景に透明");
+  assert.ok(checkArt({ ...bg, kind: "fish" }).length > 0, "魚に透明がない");
 });
 
 test("点検は、形のまちがいを見つける", () => {
