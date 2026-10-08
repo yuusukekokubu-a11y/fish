@@ -382,6 +382,8 @@ function main() {
           return n;
         },
       },
+      // ガチャで引いた装備のレア度を、遊びの記録に数える(D-368)。
+      onPull: (/** @type {readonly { rarity: string }[]} */ items) => playLog.pulled(items),
       // 遊びの記録(D-348)。デバッグ画面で、本番(読むだけ)とデバッグの記録を並べる。
       playLog: {
         main: () => loadPlayLog(safeStorage(), PLAY_LOG_KEY),

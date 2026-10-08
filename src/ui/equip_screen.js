@@ -32,6 +32,7 @@ import { confirmSheet, openSheet } from "./sheet.js";
  * @property {HTMLElement} app 画面全体(シートや演出を重ねる場所)
  * @property {() => void} rerender 今の画面を作り直す(スクロールの位置は保つ)
  * @property {() => void} onGearChanged 装備が変わったとき(戦闘の数値の表を作り直して保存する)
+ * @property {(items: readonly { rarity: string }[]) => void} [onPull] ガチャで引いたとき(遊びの記録にレア度を数える:D-368)
  * @property {(id: string) => void} navigate 別の画面に移る
  * @property {{ get: () => import("./equip_prefs.js").EquipPrefs, set: (p: import("./equip_prefs.js").EquipPrefs) => void }} [equipView]
  *   並べ替えと絞り込みを覚える場所(D-304)

@@ -1,4 +1,5 @@
-/* 全画面・下から出るシート・引く演出の見た目(D-152・D-154・D-161・D-162)。index.html から読む。 */
+/* 全画面の共通の見た目(D-152・D-154・D-161・D-162):全画面の枠・ボタン・詳細のシート・下から出るシート・設定の画面・目次の印・古い版の案内。
+   index.html から読む。分野ごとのファイル(equip.css・crate.css・skills.css)に分けた(D-368)。 */
 
 /* 全画面(D-152・D-154・D-161)。押せる場所は 44px 四方以上、文字は 14px 以上。端の安全領域に余白を取る。 */
 .screen {
@@ -125,6 +126,7 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+
 /* ボタン(44px 以上)。 */
 .primary-button,
 .secondary-button,
@@ -179,6 +181,7 @@
   font-weight: bold;
   white-space: nowrap;
 }
+
 /* 詳細のシート:レア度と「装着中」を 1 行に(D-318)。 */
 .item-sheet-badges {
   display: flex;
@@ -212,132 +215,7 @@
 #code-status.error {
   color: #ff8fa3;
 }
-/* 装備の画面(D-155・D-162・D-179)。枠は小さめの 3 列のグリッドで上に固定(6 枠で 2 段:D-321)。持ち物は 1 列のカード。 */
-.slots-fixed {
-  position: sticky;
-  top: -12px;
-  z-index: 2;
-  margin: -12px -4px 12px;
-  padding: 10px 4px 8px;
-  background: #062a3d;
-  box-shadow: 0 6px 8px -6px rgba(0, 0, 0, 0.6);
-}
-.slots-fixed .section-title {
-  margin: 0 2px 6px;
-}
-.slot-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-.slot-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 0;
-  min-height: 56px;
-  padding: 6px 8px;
-  border: 2px solid var(--rarity, #5d7380);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
-  font: inherit;
-  font-size: 14px;
-  text-align: left;
-}
-.slot-cell.empty {
-  border-style: dashed;
-  border-color: #5d7380;
-  color: #a9bcc7;
-}
-.slot-kind {
-  font-size: 14px;
-  opacity: 0.8;
-}
-.slot-name,
-.slot-effect {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-.slot-stars {
-  font-size: 14px;
-  letter-spacing: -1px;
-}
-.slot-name {
-  font-weight: bold;
-}
-.slot-empty {
-  font-size: 15px;
-}
-.bag-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.bag-head .section-title {
-  margin: 0;
-}
-.item-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.item-card {
-  content-visibility: auto; /* 画面の外のカードの配置と描画を後回し(300 個でも軽く:D-358) */
-  contain-intrinsic-size: auto 96px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  min-height: 72px;
-  padding: 8px 12px;
-  border: 0;
-  border-left: 6px solid var(--rarity, #5d7380);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
-  font: inherit;
-  font-size: 15px;
-  text-align: left;
-}
-.item-card-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-  font-size: 14px;
-}
-.item-kind {
-  opacity: 0.8;
-}
-.item-name {
-  font-weight: bold;
-  overflow-wrap: anywhere;
-}
-.item-skills {
-  margin: 4px 0 0;
-  padding: 0 0 0 1.2em;
-  font-size: 14px;
-  color: #b9e6ff;
-}
-.skill-changes {
-  margin: 0 0 8px;
-  padding: 0;
-  list-style: none;
-  font-size: 15px;
-}
-.skill-changes-title {
-  opacity: 0.8;
-  font-size: 14px;
-}
-.fx-skills {
-  margin-top: 2px;
-  font-size: 14px;
-  color: #b9e6ff;
-}
+
 /* 下から出るシート。 */
 .sheet-backdrop {
   position: absolute;
@@ -397,51 +275,7 @@
   background: #062a3d;
   color: #fff;
 }
-/* クレートの画面(D-162)。 */
-.crate-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.crate-card {
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-}
-.crate-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-.crate-name {
-  margin: 0;
-  font-size: 17px;
-}
-.crate-price {
-  margin: 4px 0 10px;
-  font-size: 15px;
-}
-.crate-buttons {
-  display: flex;
-  gap: 8px;
-}
-.crate-buttons > button {
-  flex: 1;
-}
-.crate-detail {
-  margin-top: 10px;
-}
-.detail-title {
-  margin: 8px 0 4px;
-  font-size: 14px;
-  opacity: 0.8;
-}
-.gacha-message {
-  min-height: 1.4em;
-  margin: 0 2px 8px;
-  font-size: 15px;
-}
+
 /* 設定の画面。 */
 #code-text {
   width: 100%;
@@ -481,233 +315,7 @@
   color: #3d0010;
   font-weight: bold;
 }
-/* 引く演出(画面全体:D-121・D-162)。 */
-.fx-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(2, 16, 26, 0.97);
-  overflow: hidden;
-}
-.fx-stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  max-height: 85%;
-  padding: 0 12px;
-  box-sizing: border-box;
-  overflow-y: auto;
-}
-.fx-crate {
-  position: relative;
-  width: 150px;
-  height: 120px;
-}
-.fx-crate-lid {
-  height: 28px;
-  border-radius: 8px 8px 2px 2px;
-  background: #8d5a2b;
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.25);
-}
-.fx-crate-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 88px;
-  border-radius: 2px 2px 8px 8px;
-  background: #a86b35;
-  color: #fff3e0;
-  font-size: 13px;
-  font-weight: bold;
-  text-align: center;
-}
-.fx-crate.charging {
-  animation: fx-charge 1.2s ease-in forwards;
-}
-@keyframes fx-charge {
-  0% { transform: scale(1) rotate(0); }
-  30% { transform: scale(1.04) rotate(-3deg); }
-  50% { transform: scale(1.06) rotate(3deg); }
-  70% { transform: scale(1.1) rotate(-5deg); }
-  85% { transform: scale(1.14) rotate(6deg); }
-  100% { transform: scale(1.2) rotate(0); }
-}
-.fx-flash {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle, var(--best) 0%, transparent 70%);
-  opacity: 0;
-  pointer-events: none;
-}
-.fx-overlay.flashing .fx-flash {
-  animation: fx-flash 0.45s ease-out forwards;
-}
-.fx-overlay[data-best="legend"].flashing .fx-flash {
-  background: var(--best);
-}
-@keyframes fx-flash {
-  0% { opacity: 0; }
-  30% { opacity: var(--flash); }
-  100% { opacity: 0.15; }
-}
-.fx-overlay.shake {
-  animation: fx-shake 0.45s linear;
-}
-@keyframes fx-shake {
-  0%, 100% { transform: translate(0, 0); }
-  20% { transform: translate(-8px, 4px); }
-  40% { transform: translate(7px, -5px); }
-  60% { transform: translate(-6px, -3px); }
-  80% { transform: translate(5px, 4px); }
-}
-.fx-title {
-  font-size: 20px;
-  font-weight: bold;
-}
-.fx-list {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  width: 100%;
-}
-.fx-list.single {
-  grid-template-columns: 1fr;
-  max-width: 280px;
-}
-.fx-card {
-  padding: 8px;
-  border: 2px solid var(--rarity);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  font-size: 14px;
-  animation: fx-pop 0.25s ease-out;
-}
-.fx-card.big {
-  padding: 16px;
-  font-size: 16px;
-  text-align: center;
-  box-shadow: 0 0 24px var(--rarity);
-}
-.fx-card.best {
-  box-shadow: 0 0 16px var(--rarity);
-  background: rgba(255, 255, 255, 0.14);
-}
-@keyframes fx-pop {
-  0% { transform: scale(0.6); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-.fx-card-top {
-  display: flex;
-  justify-content: space-between;
-}
-.fx-rarity {
-  color: var(--rarity);
-  font-weight: bold;
-}
-.fx-better {
-  color: #8bd17c;
-  font-weight: bold;
-}
-.fx-name {
-  margin-top: 2px;
-  font-weight: bold;
-}
-.fx-link {
-  min-height: 48px;
-  margin-top: 6px;
-  padding: 0 24px;
-  border: 0;
-  border-radius: 10px;
-  background: #ffd166;
-  color: #3d2c00;
-  font: inherit;
-  font-size: 15px;
-  font-weight: bold;
-}
-.fx-hint {
-  position: absolute;
-  bottom: calc(env(safe-area-inset-bottom) + 16px);
-  font-size: 14px;
-  opacity: 0.6;
-}
-/* スキルの画面(D-179)。1 行に 名前・Lv/最大・MAX の印、細い棒、今の効果。 */
-.skill-row {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-}
-.skill-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.skill-top .menu-label {
-  flex: 1;
-}
-.skill-max {
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: #ffd54f;
-  color: #062a3d;
-  font-size: 14px;
-  font-weight: bold;
-}
-.skill-bar {
-  display: block;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.15);
-  overflow: hidden;
-}
-.skill-bar-fill {
-  display: block;
-  height: 100%;
-  background: #4fc3f7;
-}
-.skill-effect {
-  font-size: 14px;
-  opacity: 0.85;
-}
-/* 次のレベルでの増分(D-239)。 */
-.skill-next {
-  font-size: 14px;
-  color: #8be9fd;
-}
-/* 持ち物の空きの警告(D-216)。空き 10 以下は黄、0 は赤。目次の「装備」にも「!」の印。 */
-.space-warning {
-  margin: 0 2px 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: bold;
-}
-.space-warning.warn {
-  border: 1px solid #ffd166;
-  background: rgba(255, 209, 102, 0.15);
-  color: #ffd166;
-}
-.space-warning.full {
-  border: 1px solid #ff8fa3;
-  background: rgba(255, 143, 163, 0.15);
-  color: #ff8fa3;
-}
-.space-warning-text {
-  margin: 0 0 6px;
-}
-.space-warning-go {
-  width: 100%;
-}
-.pull-note {
-  margin: 6px 2px 0;
-  color: #ffd166;
-  font-size: 14px;
-}
+
 .drawer-badge {
   display: inline-block;
   min-width: 22px;
@@ -726,35 +334,7 @@
 .drawer-badge[hidden] {
   display: none;
 }
-/* スキルの画面のグループ(D-217)。見出しを押すと閉じる・開く。 */
-.skill-group-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  min-height: 48px;
-  padding: 0 4px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-.skill-group-head .section-title {
-  margin: 0;
-}
-.skill-group-head::after {
-  content: "▾";
-  margin-left: 8px;
-}
-.skill-group-head[aria-expanded="false"]::after {
-  content: "▸";
-}
-.skill-group-count {
-  margin-left: auto;
-  font-size: 15px;
-  opacity: 0.85;
-}
+
 /* 古い版のデータの案内(D-223)。 */
 .old-data-text {
   margin: 4px 2px 14px;
@@ -763,37 +343,4 @@
 }
 .old-data-ok {
   width: 100%;
-}
-
-/* 装備のロック(D-246):鍵の印・ロック中のカード・まとめてロックの行 */
-.item-lock {
-  font-size: 15px;
-  line-height: 1;
-}
-.item-card.locked {
-  outline: 2px solid rgba(255, 209, 102, 0.55);
-  outline-offset: -2px;
-}
-.item-locked-note,
-.space-warning-locked {
-  margin: 6px 2px;
-  font-size: 14px;
-  font-weight: bold;
-}
-.item-lock-toggle {
-  width: 100%;
-  margin-bottom: 8px;
-}
-.bulk-lock-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.bulk-lock-row button {
-  flex: 1;
-}
-.secondary-button:disabled {
-  border-color: #44555f;
-  background: #2a3a44;
-  color: #a9bcc7;
 }

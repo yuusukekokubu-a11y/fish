@@ -9,13 +9,14 @@
 import { areaPosition } from "./areas.js";
 import { effectiveDefense, effectiveStats } from "./combat.js";
 import { FISH_KINDS } from "./fish.js";
-import { equippedGlove } from "./glove.js";
+import { RARITY_ROWS } from "./gear.js";
+import { equippedGlove, GLOVE_RARITY_ROWS } from "./glove.js";
 import { gloveBag } from "./glove_play.js";
 
 /** 記録の形の版(形を変えたら上げる。版がちがう記録は、空から始める)。 */
-export const PLAY_LOG_VERSION = 2;
-/** 読める古い形の版(足りない欄は 0 から:D-356)。 */
-const READABLE_VERSIONS = Object.freeze([1, 2]);
+export const PLAY_LOG_VERSION = 3;
+/** 読める古い形の版(足りない欄は 0 から:D-356・D-368)。 */
+const READABLE_VERSIONS = Object.freeze([1, 2, 3]);
 /** 1 回に数える、ガチャを引いた回数の上限(10 連。読み込みなどで回数が飛んだときは数えない)。 */
 const MAX_PULLS_AT_ONCE = 10;
 /** 戦闘の記録を残す数(新しいほうから)。 */
@@ -48,6 +49,16 @@ export const PLAY_LOG_RECENT = 20;
  * @property {FightEntry[]} fights 戦闘の記録(古い順。最大 PLAY_LOG_MAX 件)
  * @property {{ just: number, good: number, fail: number }} hooks 合わせの結果の通算
  * @property {PlayTotals} totals 通算(形の版 2 で足した:D-356)
+ * @property {Record<string, number>} gear ガチャで引いた装備の、レア度ごとの個数の通算(キーは装備のレア度の表の id。形の版 3:D-368)
+ * @property {GloveTotals} gloves 釣れるクレートの通算(形の版 3:D-368)
+ */
+
+/**
+ * 釣れるクレートの通算(D-368)。
+ * @typedef {object} GloveTotals
+ * @property {number} catches 釣れた回数(合わせが成功してグローブを手に入れた回数)
+ * @property {number} escapes 逃した回数(合わせの失敗)
+ * @property {Record<string, number>} rarity 釣れたグローブの、レア度ごとの個数(キーはグローブのレア度の表の id)
  */
 
 /**
@@ -59,13 +70,27 @@ export const PLAY_LOG_RECENT = 20;
  * @property {number} scales 稼いだ鱗
  */
 
+/** レア度ごとの個数(全部 0。表の順)。 @param {readonly { id: string }[]} rows @param {any} [from] 読み直すときの元(形のちがう欄は 0) */
+function rarityCounts(rows, from) {
+  return Object.fromEntries(rows.map((r) => [r.id, count(from?.[r.id]) ? from[r.id] : 0]));
+}
+
 /** 空の記録。 @returns {PlayLog} */
 export function emptyPlayLog() {
-  return { v: PLAY_LOG_VERSION, fights: [], hooks: { just: 0, good: 0, fail: 0 }, totals: { pulls: 0, playMs: 0, coins: 0, scales: 0 } };
+  return {
+    v: PLAY_LOG_VERSION,
+    fights: [],
+    hooks: { just: 0, good: 0, fail: 0 },
+    totals: { pulls: 0, playMs: 0, coins: 0, scales: 0 },
+    gear: rarityCounts(RARITY_ROWS),
+    gloves: { catches: 0, escapes: 0, rarity: rarityCounts(GLOVE_RARITY_ROWS) },
+  };
 }
 
 /** 0 以上の整数か。 @param {unknown} n */
-const count = (n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
+function count(n) {
+  return typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
+}
 
 /** 1 件の形を確かめる。 @param {any} e @returns {e is FightEntry} */
 function isEntry(e) {
@@ -100,14 +125,17 @@ export function parsePlayLog(text) {
     const data = JSON.parse(text);
     if (!data || !READABLE_VERSIONS.includes(data.v) || !Array.isArray(data.fights)) return emptyPlayLog();
     const h = data.hooks ?? {};
-    // 版 1 には通算の欄がない。足りない欄・形のちがう欄は 0 から(D-356)。
+    // 版 1 には通算の欄がない。版 1・2 にはレア度ごとの個数の欄がない。足りない欄・形のちがう欄は 0 から(D-356・D-368)。
     const t = data.totals ?? {};
+    const gl = data.gloves ?? {};
     const n = (/** @type {unknown} */ x) => (count(x) ? /** @type {number} */ (x) : 0);
     return {
       v: PLAY_LOG_VERSION,
       fights: data.fights.filter(isEntry).slice(-PLAY_LOG_MAX),
       hooks: { just: n(h.just), good: n(h.good), fail: n(h.fail) },
       totals: { pulls: n(t.pulls), playMs: n(t.playMs), coins: n(t.coins), scales: n(t.scales) },
+      gear: rarityCounts(RARITY_ROWS, data.gear),
+      gloves: { catches: n(gl.catches), escapes: n(gl.escapes), rarity: rarityCounts(GLOVE_RARITY_ROWS, gl.rarity) },
     };
   } catch {
     return emptyPlayLog();
@@ -174,6 +202,14 @@ export function addToPlayLog(log, game, result) {
     log.totals.scales = Math.min(Number.MAX_SAFE_INTEGER, log.totals.scales + (reward.scales ?? 0));
     changed = true;
   }
+  // 釣れるクレート(D-368):釣れた回数・逃した回数と、釣れたグローブのレア度。
+  if (result?.crate) {
+    if (result.outcome === "caught") log.gloves.catches += 1;
+    else log.gloves.escapes += 1;
+    const rarity = result.glove?.rarity;
+    if (typeof rarity === "string" && rarity in log.gloves.rarity) log.gloves.rarity[rarity] += 1;
+    changed = true;
+  }
   const hook = hookKind(result);
   if (hook) {
     log.hooks[hook] += 1;
@@ -196,6 +232,21 @@ export function addPulls(log, delta) {
   if (!Number.isSafeInteger(delta) || delta < 1 || delta > MAX_PULLS_AT_ONCE) return false;
   log.totals.pulls += delta;
   return true;
+}
+
+/**
+ * ガチャで引いた装備のレア度を数える(引いた直後に画面の役目で呼ぶ:D-368)。表にないレア度は数えない。数えたら true。
+ * @param {PlayLog} log @param {readonly { rarity: string }[]} items
+ */
+export function addPulledItems(log, items) {
+  let changed = false;
+  for (const it of items) {
+    if (typeof it?.rarity === "string" && it.rarity in log.gear) {
+      log.gear[it.rarity] += 1;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 /**
@@ -241,7 +292,28 @@ export function summarizePlayLog(log) {
     .map((r) => ({ kind: r.kind, s: r.s, fights: r.fights, wins: r.wins, missRate: rate(r.misses, r.hits + r.grazes + r.misses) }));
   const hookTotal = log.hooks.just + log.hooks.good + log.hooks.fail;
   const t = log.totals;
+  // 1 時間あたりの個数(遊んだ時間が 0 なら null:D-368)。
+  const hours = t.playMs / 3600000;
+  const perHour = (/** @type {number} */ n) => (hours > 0 ? n / hours : null);
+  const gearTotal = RARITY_ROWS.reduce((a, r) => a + log.gear[r.id], 0);
+  const epicUp = log.gear.epic + log.gear.legend;
+  const gloveTotal = GLOVE_RARITY_ROWS.reduce((a, r) => a + log.gloves.rarity[r.id], 0);
   return {
+    // レア度ごとの個数(D-368):装備(割合・1 時間あたり)、エピック以上とレジェンドの 1 時間あたり、グローブ。
+    gear: {
+      total: gearTotal,
+      perHour: perHour(gearTotal),
+      rows: RARITY_ROWS.map((r) => ({ id: r.id, name: r.name, count: log.gear[r.id], share: rate(log.gear[r.id], gearTotal), perHour: perHour(log.gear[r.id]) })),
+      epicUp,
+      epicUpPerHour: perHour(epicUp),
+      legendPerHour: perHour(log.gear.legend),
+    },
+    gloves: {
+      catches: log.gloves.catches,
+      escapes: log.gloves.escapes,
+      total: gloveTotal,
+      rows: GLOVE_RARITY_ROWS.map((r) => ({ id: r.id, name: r.name, count: log.gloves.rarity[r.id], share: rate(log.gloves.rarity[r.id], gloveTotal) })),
+    },
     // 通算(D-356):平均のガチャの間隔(遊んだ時間 ÷ 引いた回数。秒)、ウロコインを稼いだ速さ(1 分あたり)。
     pulls: t.pulls,
     playSec: t.playMs / 1000,
@@ -288,6 +360,11 @@ export function rateText(v) {
   return v === null ? "-" : String(Math.round(v));
 }
 
+/** 1 時間あたりの個数の文字(小数 1 けた。null は「-」)。 @param {number | null} v */
+export function perHourText(v) {
+  return v === null ? "-" : (Math.round(v * 10) / 10).toFixed(1);
+}
+
 /** 区分の短い名前。 @param {string} kind */
 export function kindLabel(kind) {
   return kind === FISH_KINDS.BOSS ? "ヌシ" : "強い";
@@ -306,6 +383,10 @@ export function playLogText(sum, title, version) {
     `合わせ ${sum.hooks.total} ジャスト ${percentText(sum.hooks.just)} 成功 ${percentText(sum.hooks.good)} 失敗 ${percentText(sum.hooks.fail)}`,
     `遊んだ時間 ${minutesText(sum.playSec)} ガチャ ${sum.pulls} 回 平均の間隔 ${secondsText(sum.pullGapSec)}`,
     `ウロコイン ${sum.coins} 1 分あたり ${rateText(sum.coinsPerMin)} 鱗 ${sum.scales}`,
+    // レア度ごとの個数(D-368)。
+    `装備 ${sum.gear.total} ${sum.gear.rows.map((r) => `${r.name} ${r.count} ${percentText(r.share)}`).join(" ")}`,
+    `1 時間あたり 装備 ${perHourText(sum.gear.perHour)} エピック以上 ${perHourText(sum.gear.epicUpPerHour)} レジェンド ${perHourText(sum.gear.legendPerHour)}`,
+    `グローブ 釣れた ${sum.gloves.catches} 逃した ${sum.gloves.escapes} ${sum.gloves.rows.map((r) => `${r.name} ${r.count}`).join(" ")}`,
     "",
     "区分 s 挑戦 勝ち ミス率",
     ...sum.table.map((r) => `${kindLabel(r.kind)} ${r.s} ${r.fights} ${r.wins} ${percentText(r.missRate)}`),

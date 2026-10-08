@@ -11,21 +11,26 @@ import { createGame } from "../../src/core/fishing.js";
 import { bossHitTarget, fishDefense, softCurve, stagePosition } from "../../src/core/formula.js";
 import { skillAmount, SKILL_ROWS } from "../../src/core/skills.js";
 import { areaPosition } from "../../src/core/areas.js";
-import { DEFAULT_CONTENT } from "../../src/core/fish.js";
+import { DEFAULT_CONTENT, defineFish, FISH_ROWS, makeContent } from "../../src/core/fish.js";
 import { syntheticContent } from "../../src/core/synthetic.js";
 import { averageItems, fightOnce, grownItems, measure, progressWith, skillSummary, strongestItems } from "./builds.js";
 
 const G_MAX = 100;
 const CONTENT = syntheticContent(G_MAX);
+// これまでのヌシの制限時間(係数を無限大にすると、上限=これまでの値:D-368)。命中回数は時間切れに左右されないよう、こちらで数える
+// (体力を変えていないので、命中回数の表は変わらない)。勝率の前後の比べにも使う。
+const OLD_FORMULA = { ...DEFAULT_CONFIG.formula, bossTimeLimitHitsRatio: Infinity };
+const CONTENT_OLD = syntheticContent(G_MAX, OLD_FORMULA);
+const REAL_OLD = makeContent(FISH_ROWS.map((r) => defineFish(r, OLD_FORMULA)));
 const GACHA_SEEDS = Array.from({ length: 15 }, (_, i) => (i + 1) * 11);
 const FIGHT_SEEDS = [1, 2, 3, 4, 5];
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 const boss = (g) => `s${g}-boss`;
 const strong = (g) => `s${g}-strong`;
 
-/** 育てた装備(ガチャの種 15 個:D-262)で戦う。各装備の 5 シードの中央値の、さらに中央値。 */
+/** 育てた装備(ガチャの種 15 個:D-262)で戦う。各装備の 5 シードの中央値の、さらに中央値(これまでの制限時間で数える:D-368)。 */
 function grownHits(g, fishId, options = {}) {
-  const per = GACHA_SEEDS.map((gs) => measure(CONTENT, g, grownItems(CONTENT, g, fishId, gs * 1000 + g, options), fishId, FIGHT_SEEDS).median);
+  const per = GACHA_SEEDS.map((gs) => measure(CONTENT_OLD, g, grownItems(CONTENT_OLD, g, fishId, gs * 1000 + g, options), fishId, FIGHT_SEEDS).median);
   return { median: median(per), per };
 }
 
@@ -40,7 +45,7 @@ test("ヌシの命中回数(育てた装備・貫通を含む):s=1 は 4〜7 回
   for (const g of HIT_GS) {
     const s = stagePosition(g);
     const r = grownHits(g, boss(g));
-    const m = CONTENT.byId.get(boss(g)).minigame;
+    const m = CONTENT_OLD.byId.get(boss(g)).minigame;
     byS[s].push(r.median);
     lines.push(`| ${g} | ${s} | ${bossHitTarget(g)} | ${m.hp} | ${Math.round(m.defense * 1000) / 10}% | ${r.per.join("・")} | ${r.median} |`);
     // s=5 は 15 回まで(g=5 は D-260。ガチャの種を 15 個にして、ほかの g も 15 回が出るため:D-269)。
@@ -62,7 +67,8 @@ test("磯の実データ(g=6〜10、ヌシ・メジナ〜ヌシ・クエ):s=1 �
   bosses.forEach((id, i) => {
     const g = 6 + i;
     const s = areaPosition(ISO, g);
-    const per = GACHA_SEEDS.map((gs) => measure(ISO, g, grownItems(ISO, g, id, gs * 1000 + g), id, FIGHT_SEEDS).median);
+    // 命中回数は、これまでの制限時間で数える(D-368)。
+    const per = GACHA_SEEDS.map((gs) => measure(REAL_OLD, g, grownItems(REAL_OLD, g, id, gs * 1000 + g), id, FIGHT_SEEDS).median);
     const m = median(per);
     const fish = ISO.byId.get(id);
     const finite = per.filter(Number.isFinite);
@@ -95,7 +101,8 @@ test("川・沖の実データ(g=11〜20):s=1 は 4〜7 回、s=5 は 10〜15 �
   for (let g = 11; g <= 20; g++) {
     const id = C.stageByNumber.get(g).boss;
     const s = areaPosition(C, g);
-    const results = GACHA_SEEDS.map((gs) => measure(C, g, grownItems(C, g, id, gs * 1000 + g), id, FIGHT_SEEDS));
+    // 命中回数と時間は、これまでの制限時間で数える(D-368)。
+    const results = GACHA_SEEDS.map((gs) => measure(REAL_OLD, g, grownItems(REAL_OLD, g, id, gs * 1000 + g), id, FIGHT_SEEDS));
     const per = results.map((r) => r.median);
     const m = median(per);
     const ms = median(results.flatMap((r) => r.runs.filter((x) => x.caught).map((x) => x.ms)));
@@ -122,28 +129,59 @@ test("川・沖の実データ(g=11〜20):s=1 は 4〜7 回、s=5 は 10〜15 �
   assert.deepEqual(problems, []);
 });
 
-// ノーマルとレアだけ(D-353・D-355):各枠で T(g) の候補から、ノーマルとレアの最良を選ぶ。目標は g=3 以降のヌシに勝つ確率 5% 未満。
-// 測ると、s=1〜4 のヌシにはほぼ勝ててしまう(命中回数が増えるだけで、制限時間のうちに届く)。数値は変えず、報告して相談中(D-358)。
-// ここでは表を出し、s=5(貫通が要るヌシ)の g=10〜50 が 5% 未満であることだけを確かめる。
-test("ノーマルとレアだけの育てた装備:ヌシの勝率と命中回数の表(s=5 の g=10〜50 は 5% 未満)", () => {
-  const lines = ["| g | s | ヌシの体力 | 防御 | 勝ち / 戦い | 勝率 | 命中回数(中央値) | 育てた装備の命中回数 |", "| --- | --- | --- | --- | --- | --- | --- | --- |"];
+/**
+ * 育てた装備の、ヌシの勝率の前後(D-366・D-368)。装備は、これまでの制限時間で選ぶ(命中回数が最も少ないもの)。
+ * 同じ装備で、これまでの制限時間(前)と、新しい制限時間(後)で戦う。rarities ならそのレア度だけ。
+ */
+function winRates(g, options = {}) {
+  let before = 0;
+  let after = 0;
+  let total = 0;
+  for (const gs of GACHA_SEEDS) {
+    const items = grownItems(CONTENT_OLD, g, boss(g), gs * 1000 + g, options);
+    before += measure(CONTENT_OLD, g, items, boss(g), FIGHT_SEEDS).runs.filter((x) => x.caught).length;
+    after += measure(CONTENT, g, items, boss(g), FIGHT_SEEDS).runs.filter((x) => x.caught).length;
+    total += FIGHT_SEEDS.length;
+  }
+  return { before: before / total, after: after / total };
+}
+
+const pct = (r) => `${(r * 100).toFixed(1)}%`;
+const WIN_GS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 50, 100];
+
+/**
+ * 目安の外で、報告して相談中のもの(数値は勝手に変えない:D-366・D-368)。測った値が変わったら気づけるよう、値で固定する。
+ * 育てた装備(貫通を含む):後の勝率が 80% を下回る g。ノーマルとレアだけ:後の勝率が 5% 以上の g(g=3 以降)。
+ */
+const GROWN_BELOW = Object.freeze({});
+// ノーマルとレアだけで 5% 以上勝てる g(後の勝率 %。小数 1 けた)。s=1〜2 は下限 8 秒と糸・粘りの延長のうちに届く。s=3〜4 も多くは届く(D-368)。
+const NR_OVER = Object.freeze({ 3: 100, 4: 60, 5: 20, 6: 100, 7: 100, 8: 82.7, 9: 92, 11: 100, 12: 100, 13: 100, 14: 74.7, 16: 100, 17: 100, 18: 100, 19: 90.7, 100: 13.3 });
+
+// 育てた装備の勝率の前後(依頼の基準:後が 80% を下回るなら、数値を変えずに相談)。
+test("育てた装備(貫通を含む):ヌシの勝率の前後の表(g=1〜20・50・100)。後が 80% 未満のものは相談中として固定", () => {
+  const lines = ["| g | s | 制限時間(前 → 後) | 勝率(前) | 勝率(後) |", "| --- | --- | --- | --- | --- |"];
   /** @type {string[]} */
   const problems = [];
-  for (const g of [3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 20, 50, 100]) {
-    let wins = 0;
-    let total = 0;
-    const per = [];
-    for (const gs of GACHA_SEEDS) {
-      const items = grownItems(CONTENT, g, boss(g), gs * 1000 + g, { rarities: ["normal", "rare"] });
-      const r = measure(CONTENT, g, items, boss(g), FIGHT_SEEDS);
-      wins += r.runs.filter((x) => x.caught).length;
-      total += r.runs.length;
-      per.push(r.median);
-    }
-    const m = CONTENT.byId.get(boss(g)).minigame;
-    const full = median(GACHA_SEEDS.slice(0, 5).map((gs) => measure(CONTENT, g, grownItems(CONTENT, g, boss(g), gs * 1000 + g), boss(g), FIGHT_SEEDS).median));
-    lines.push(`| ${g} | ${stagePosition(g)} | ${m.hp} | ${Math.round(m.defense * 1000) / 10}% | ${wins} / ${total} | ${((wins / total) * 100).toFixed(1)}% | ${median(per)} | ${full} |`);
-    if (stagePosition(g) === 5 && g >= 10 && g <= 50 && wins / total >= 0.05) problems.push(`g=${g}:${((wins / total) * 100).toFixed(1)}%`);
+  for (const g of WIN_GS) {
+    const r = winRates(g);
+    lines.push(`| ${g} | ${stagePosition(g)} | ${(CONTENT_OLD.byId.get(boss(g)).minigame.timeLimitMs / 1000).toFixed(1)} → ${(CONTENT.byId.get(boss(g)).minigame.timeLimitMs / 1000).toFixed(1)} 秒 | ${pct(r.before)} | ${pct(r.after)} |`);
+    if (GROWN_BELOW[g] !== undefined) assert.equal(Math.round(r.after * 1000) / 10, GROWN_BELOW[g], `g=${g}(相談中)`);
+    else if (r.after < 0.8) problems.push(`g=${g}:${pct(r.after)}`);
+  }
+  console.log(lines.join("\n"));
+  assert.deepEqual(problems, []);
+});
+
+// ノーマルとレアだけ(D-353・D-366):各枠で T(g) の候補から、ノーマルとレアの最良を選ぶ。目標は g=3 以降のヌシに勝つ確率 5% 未満。
+test("ノーマルとレアだけの育てた装備:ヌシの勝率の前後の表(g=3 以降の目標は 5% 未満。届かないものは相談中として固定)", () => {
+  const lines = ["| g | s | 制限時間(後) | 勝率(前) | 勝率(後) |", "| --- | --- | --- | --- | --- |"];
+  /** @type {string[]} */
+  const problems = [];
+  for (const g of WIN_GS.filter((x) => x >= 3)) {
+    const r = winRates(g, { rarities: ["normal", "rare"] });
+    lines.push(`| ${g} | ${stagePosition(g)} | ${(CONTENT.byId.get(boss(g)).minigame.timeLimitMs / 1000).toFixed(1)} 秒 | ${pct(r.before)} | ${pct(r.after)} |`);
+    if (NR_OVER[g] !== undefined) assert.equal(Math.round(r.after * 1000) / 10, NR_OVER[g], `g=${g}(相談中)`);
+    else if (r.after >= 0.05) problems.push(`g=${g}:${pct(r.after)}`);
   }
   console.log(lines.join("\n"));
   assert.deepEqual(problems, []);

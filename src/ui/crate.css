@@ -1,0 +1,209 @@
+/* クレートの画面と、引く演出の見た目(D-121・D-162):クレートのカード・10 連の注意・引く演出。screens.css から分けた(D-368)。index.html から読む。 */
+
+/* クレートの画面(D-162)。 */
+.crate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.crate-card {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.crate-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.crate-name {
+  margin: 0;
+  font-size: 17px;
+}
+.crate-price {
+  margin: 4px 0 10px;
+  font-size: 15px;
+}
+.crate-buttons {
+  display: flex;
+  gap: 8px;
+}
+.crate-buttons > button {
+  flex: 1;
+}
+.crate-detail {
+  margin-top: 10px;
+}
+.detail-title {
+  margin: 8px 0 4px;
+  font-size: 14px;
+  opacity: 0.8;
+}
+.gacha-message {
+  min-height: 1.4em;
+  margin: 0 2px 8px;
+  font-size: 15px;
+}
+
+.pull-note {
+  margin: 6px 2px 0;
+  color: #ffd166;
+  font-size: 14px;
+}
+
+/* 引く演出(画面全体:D-121・D-162)。 */
+.fx-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 16, 26, 0.97);
+  overflow: hidden;
+}
+.fx-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-height: 85%;
+  padding: 0 12px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+.fx-crate {
+  position: relative;
+  width: 150px;
+  height: 120px;
+}
+.fx-crate-lid {
+  height: 28px;
+  border-radius: 8px 8px 2px 2px;
+  background: #8d5a2b;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.25);
+}
+.fx-crate-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88px;
+  border-radius: 2px 2px 8px 8px;
+  background: #a86b35;
+  color: #fff3e0;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: center;
+}
+.fx-crate.charging {
+  animation: fx-charge 1.2s ease-in forwards;
+}
+@keyframes fx-charge {
+  0% { transform: scale(1) rotate(0); }
+  30% { transform: scale(1.04) rotate(-3deg); }
+  50% { transform: scale(1.06) rotate(3deg); }
+  70% { transform: scale(1.1) rotate(-5deg); }
+  85% { transform: scale(1.14) rotate(6deg); }
+  100% { transform: scale(1.2) rotate(0); }
+}
+.fx-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--best) 0%, transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+}
+.fx-overlay.flashing .fx-flash {
+  animation: fx-flash 0.45s ease-out forwards;
+}
+.fx-overlay[data-best="legend"].flashing .fx-flash {
+  background: var(--best);
+}
+@keyframes fx-flash {
+  0% { opacity: 0; }
+  30% { opacity: var(--flash); }
+  100% { opacity: 0.15; }
+}
+.fx-overlay.shake {
+  animation: fx-shake 0.45s linear;
+}
+@keyframes fx-shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-8px, 4px); }
+  40% { transform: translate(7px, -5px); }
+  60% { transform: translate(-6px, -3px); }
+  80% { transform: translate(5px, 4px); }
+}
+.fx-title {
+  font-size: 20px;
+  font-weight: bold;
+}
+.fx-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+}
+.fx-list.single {
+  grid-template-columns: 1fr;
+  max-width: 280px;
+}
+.fx-card {
+  padding: 8px;
+  border: 2px solid var(--rarity);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+  animation: fx-pop 0.25s ease-out;
+}
+.fx-card.big {
+  padding: 16px;
+  font-size: 16px;
+  text-align: center;
+  box-shadow: 0 0 24px var(--rarity);
+}
+.fx-card.best {
+  box-shadow: 0 0 16px var(--rarity);
+  background: rgba(255, 255, 255, 0.14);
+}
+@keyframes fx-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.fx-card-top {
+  display: flex;
+  justify-content: space-between;
+}
+.fx-rarity {
+  color: var(--rarity);
+  font-weight: bold;
+}
+.fx-better {
+  color: #8bd17c;
+  font-weight: bold;
+}
+.fx-name {
+  margin-top: 2px;
+  font-weight: bold;
+}
+.fx-link {
+  min-height: 48px;
+  margin-top: 6px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 10px;
+  background: #ffd166;
+  color: #3d2c00;
+  font: inherit;
+  font-size: 15px;
+  font-weight: bold;
+}
+.fx-hint {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom) + 16px);
+  font-size: 14px;
+  opacity: 0.6;
+}
