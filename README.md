@@ -98,9 +98,9 @@ URL に `?debug` を付けると、目次の最後に「デバッグ」が出て
 | `docs/decisions/archive.md` | 置き換えられた古い決定・取り下げた決定・完了した段取りの保管庫(D-110)。 |
 | `docs/SPEC.md` | 仕様:何をするか(目的、釣りの 1 サイクル、ミニゲーム)。 |
 | `docs/DESIGN.md` | 設計:どう作るか、どこに何を書くか、検討中の論点。 |
-| `docs/ROADMAP.md` | 依頼の予定(完了・作業中・これから)。 |
+| `docs/ROADMAP.md` | 作業の予定(完了・作業中・これから)。 |
 | `docs/REQUESTS.md` | 要望の控え(対応済み・候補・時期の決まったもの)。 |
+| `docs/BALANCE_REVIEW.md` | ゲームバランスと設計思想の見直しの土台(今の仕組み・問題点・論点・決まったこと)。 |
 | `docs/CLOUD_SAVE.md` | クラウド保存(Google 経由)の調査メモ。実装は取りやめた(D-329)。「やめた案」として残してある。 |
 | `CLAUDE.md` | Code(Claude Code)の作業手順書。 |
-| `.github/ISSUE_TEMPLATE/report.md` | 報告 Issue のひな形。 |
 | `.github/pull_request_template.md` | PR の本文のひな形。 |
