@@ -8,7 +8,7 @@ import { areaOfStage } from "../../src/core/areas.js";
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { checkContent, DEFAULT_CONTENT, FISH_KINDS } from "../../src/core/fish.js";
 import { createGame, update } from "../../src/core/fishing.js";
-import { baseTimeLimitMs, craftCount, fishCoins, fishDefense, fishHp, fishSweepMs, fishTimeLimitMs, fishZoneWidth, stagePosition } from "../../src/core/formula.js";
+import { craftCount, fishCoins, fishDefense, fishHp, fishSweepMs, fishTimeLimitMs, fishZoneWidth, stagePosition } from "../../src/core/formula.js";
 import { BASE_KIND_IDS, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
 import { decodeSaveCode, encodeSaveCode, MAX_CODE_LENGTH } from "../../src/core/savecode.js";
 import { levelRange, maxLevel, SKILL_ROWS } from "../../src/core/skills.js";
@@ -42,25 +42,17 @@ test("段階 100・魚 300 種類の表:形に問題がなく、数字は安全�
       boss: fishCoins("boss", g),
       hp: fishHp("strong", g),
       time: fishTimeLimitMs("strong", g),
-      // ヌシの制限時間は、これまでの式(上限)で単調に伸びる。実際の値は目標の命中回数に合わせて s で上下し、8 秒以上・上限以下(D-366・D-368)。
-      bossTime: baseTimeLimitMs("boss", g),
+      // ヌシの制限時間と体力も、単調に伸びる(D-380)。
+      bossTime: fishTimeLimitMs("boss", g),
+      bossHp: fishHp("boss", g),
       price: crates[g - 1].price,
     };
     // 製作の鱗は、釣り場の中の位置で 3・4・4・5・6(釣り場ごとに戻る:D-282)。
     assert.equal(craftCount(g), [3, 4, 4, 5, 6][stagePosition(g) - 1], `g=${g} 製作の鱗`);
     for (const [k, v] of Object.entries(row)) assert.ok(Number.isSafeInteger(v) && v > 0 && v < SAFE, `g=${g} ${k}=${v}`);
     if (prev) for (const k of Object.keys(row)) assert.ok(row[k] >= prev[k], `g=${g} ${k} が下がった:${prev[k]} → ${row[k]}`);
-    // ヌシの体力は、5 段階ごとの位置 s で上下する(s=1 で短い戦いに戻る:D-254)。同じ s の中で伸びる。
-    assert.ok(fishTimeLimitMs("boss", g) >= 8000 && fishTimeLimitMs("boss", g) <= row.bossTime, `g=${g} ヌシの制限時間`);
-    const bossHp = fishHp("boss", g);
-    assert.ok(Number.isSafeInteger(bossHp) && bossHp > 0 && bossHp < SAFE, `g=${g} ヌシの体力 ${bossHp}`);
-    if (g > 5) assert.ok(bossHp >= fishHp("boss", g - 5), `g=${g} ヌシの体力が 5 段階前より下がった`);
-    // 防御(D-235):強い魚は 100% 未満、ヌシは同じ g の強い魚より高い(g=1〜2 はどちらも 0)、5 体目は 100% 以上。
-    const ds = fishDefense("strong", g);
-    const db = fishDefense("boss", g);
-    assert.ok(ds >= 0 && ds < 1 && Number.isFinite(db), `g=${g} 防御 ${ds} / ${db}`);
-    assert.ok(g <= 2 ? ds === 0 && db === 0 : db > ds, `g=${g} ヌシの防御は強い魚より高い`);
-    if (stagePosition(g) === 5) assert.ok(db >= 1, `g=${g} 5 体目のヌシは 100% 以上`);
+    // 防御は、いまはどの魚も 0(D-380)。
+    assert.equal(fishDefense("strong", g) + fishDefense("boss", g), 0, `g=${g} 防御`);
     // 限界:幅 10% 以上、印の速さ 0.45 秒以上。段が進むほど厳しく(同じか)。
     for (const kind of ["strong", "boss"]) {
       assert.ok(fishZoneWidth(kind, g) >= 0.1 && fishSweepMs(kind, g) >= 450, `g=${g} ${kind}`);
