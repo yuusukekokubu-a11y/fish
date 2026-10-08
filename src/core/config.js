@@ -108,6 +108,9 @@ export const DEFAULT_CONFIG = Object.freeze({
     bossTimeLimitMs: 20000,
     bossTimeLimitGrowthMs: 2000,
     timeLimitLogBase: 5,
+    // ヌシの制限時間(D-366・D-368):目標の命中回数 × 印が 1 回通る時間 × 1.5。下限 8 秒、上限は上の式(これまでの制限時間)。
+    bossTimeLimitHitsRatio: 1.5,
+    bossTimeLimitMinMs: 8000,
     // 印の速さ 1000 − 100g ミリ秒(限界 450)、命中範囲の幅 0.25 − 0.03g(限界 0.10)。ヌシは 1 段先の値。
     sweepMs: 1000,
     sweepStepMs: 100,

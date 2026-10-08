@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { checkContent, DEFAULT_CONTENT, FISH_KINDS } from "../../src/core/fish.js";
 import { createGame, update } from "../../src/core/fishing.js";
-import { craftCount, fishCoins, fishDefense, fishHp, fishSweepMs, fishTimeLimitMs, fishZoneWidth, stagePosition } from "../../src/core/formula.js";
+import { baseTimeLimitMs, craftCount, fishCoins, fishDefense, fishHp, fishSweepMs, fishTimeLimitMs, fishZoneWidth, stagePosition } from "../../src/core/formula.js";
 import { BASE_KIND_IDS, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
 import { decodeSaveCode, encodeSaveCode, MAX_CODE_LENGTH } from "../../src/core/savecode.js";
 import { levelRange, maxLevel, SKILL_ROWS } from "../../src/core/skills.js";
@@ -41,7 +41,8 @@ test("段階 100・魚 300 種類の表:形に問題がなく、数字は安全�
       boss: fishCoins("boss", g),
       hp: fishHp("strong", g),
       time: fishTimeLimitMs("strong", g),
-      bossTime: fishTimeLimitMs("boss", g),
+      // ヌシの制限時間は、これまでの式(上限)で単調に伸びる。実際の値は目標の命中回数に合わせて s で上下し、8 秒以上・上限以下(D-366・D-368)。
+      bossTime: baseTimeLimitMs("boss", g),
       price: crates[g - 1].price,
     };
     // 製作の鱗は、釣り場の中の位置で 3・4・4・5・6(釣り場ごとに戻る:D-282)。
@@ -49,6 +50,7 @@ test("段階 100・魚 300 種類の表:形に問題がなく、数字は安全�
     for (const [k, v] of Object.entries(row)) assert.ok(Number.isSafeInteger(v) && v > 0 && v < SAFE, `g=${g} ${k}=${v}`);
     if (prev) for (const k of Object.keys(row)) assert.ok(row[k] >= prev[k], `g=${g} ${k} が下がった:${prev[k]} → ${row[k]}`);
     // ヌシの体力は、5 段階ごとの位置 s で上下する(s=1 で短い戦いに戻る:D-254)。同じ s の中で伸びる。
+    assert.ok(fishTimeLimitMs("boss", g) >= 8000 && fishTimeLimitMs("boss", g) <= row.bossTime, `g=${g} ヌシの制限時間`);
     const bossHp = fishHp("boss", g);
     assert.ok(Number.isSafeInteger(bossHp) && bossHp > 0 && bossHp < SAFE, `g=${g} ヌシの体力 ${bossHp}`);
     if (g > 5) assert.ok(bossHp >= fishHp("boss", g - 5), `g=${g} ヌシの体力が 5 段階前より下がった`);

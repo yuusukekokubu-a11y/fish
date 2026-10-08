@@ -8,6 +8,7 @@ import { createGame, currentMarker, PHASES, tap, update } from "../src/core/fish
 import { isHit } from "../src/core/minigame.js";
 import {
   addPlayTime,
+  addPulledItems,
   addPulls,
   addToPlayLog,
   emptyPlayLog,
@@ -115,6 +116,7 @@ test("壊れた・版のちがう記録はエラーにならず空から。形�
 function sampleLog() {
   const e = (kind, s, won, hits, grazes, misses, g = 10) => ({ g, fish: "x", kind, s, won, hits, grazes, misses, insured: 0, maxCombo: hits, ms: 8000, defense: 0.25, glove: "" });
   return {
+    ...emptyPlayLog(),
     v: 1,
     fights: [e("strong", 1, true, 8, 0, 2), e("boss", 5, false, 10, 2, 8), e("strong", 1, false, 2, 0, 2), e("boss", 5, true, 12, 0, 0), e("boss", 2, true, 6, 0, 2)],
     hooks: { just: 3, good: 5, fail: 2 },
@@ -223,9 +225,9 @@ test("保存場所:本番とデバッグで別のキー(ゲームの保存とも
   r2.reset();
 });
 
-test("通算(形の版 2):ガチャを引いた回数・遊んだ時間・稼いだウロコインと鱗。版 1 の記録も読める(通算は 0 から)", () => {
+test("通算(形の版 2 から):ガチャを引いた回数・遊んだ時間・稼いだウロコインと鱗。版 1 の記録も読める(通算は 0 から)", () => {
   const log = emptyPlayLog();
-  assert.equal(log.v, 2);
+  assert.equal(log.v, 3);
   assert.deepEqual(log.totals, { pulls: 0, playMs: 0, coins: 0, scales: 0 });
   // ガチャ:1 回引き・10 連は 1 個ずつ。11 以上・0 以下の飛び(読み込みなど)は数えない。
   assert.equal(addPulls(log, 1), true);
@@ -252,14 +254,14 @@ test("通算(形の版 2):ガチャを引いた回数・遊んだ時間・稼い
   assert.deepEqual([none.pullGapSec, none.coinsPerMin], [null, null]);
   // 版 1(通算の欄がない)は、戦闘と合わせを残して、通算を 0 から。形のちがう欄も 0。
   const old = parsePlayLog(JSON.stringify({ v: 1, fights: [], hooks: { just: 1, good: 2, fail: 3 } }));
-  assert.deepEqual([old.v, old.hooks, old.totals], [2, { just: 1, good: 2, fail: 3 }, { pulls: 0, playMs: 0, coins: 0, scales: 0 }]);
+  assert.deepEqual([old.v, old.hooks, old.totals], [3, { just: 1, good: 2, fail: 3 }, { pulls: 0, playMs: 0, coins: 0, scales: 0 }]);
   assert.deepEqual(parsePlayLog(JSON.stringify({ v: 2, fights: [], hooks: {}, totals: { pulls: "x", playMs: -1, coins: 5, scales: 1.5 } })).totals, { pulls: 0, playMs: 0, coins: 5, scales: 0 });
-  assert.deepEqual(parsePlayLog(JSON.stringify({ v: 3, fights: [] })), emptyPlayLog(), "まだない版は空から");
+  assert.deepEqual(parsePlayLog(JSON.stringify({ v: 4, fights: [] })), emptyPlayLog(), "まだない版は空から");
   // 往復。
   assert.deepEqual(parsePlayLog(stringifyPlayLog(log)), log);
   // 画面の行。
   const rows = playLogRows({ ...emptyPlayLog(), totals: { pulls: 4, playMs: 120000, coins: 600, scales: 2 } });
-  assert.deepEqual(rows.totals.slice(-4), [["遊んだ時間", "2.0 分"], ["ガチャ", "4 回(平均の間隔 30.0 秒)"], ["ウロコイン", "600(1 分あたり 300)"], ["鱗", "2"]]);
+  assert.deepEqual(rows.totals.filter(([k]) => ["遊んだ時間", "ガチャ", "ウロコイン", "鱗"].includes(k)), [["遊んだ時間", "2.0 分"], ["ガチャ", "4 回(平均の間隔 30.0 秒)"], ["ウロコイン", "600(1 分あたり 300)"], ["鱗", "2"]]);
 });
 
 test("記録の器:ガチャを引いた回数は、引いた回数の通算の増え方から数える。遊んだ時間だけでは書かず、ページを離れるときに書く", () => {
@@ -283,4 +285,58 @@ test("記録の器:ガチャを引いた回数は、引いた回数の通算の�
   assert.equal(rec.flush(true), true);
   assert.equal(createPlayLogRecorder(store, PLAY_LOG_KEY).log().totals.playMs, 1000);
   assert.equal(rec.flush(true), false, "書いたあとは、増えるまで書かない");
+});
+
+test("レア度ごとの個数(形の版 3:D-368):ガチャの装備と釣れたグローブを通算で数え、割合と 1 時間あたりを出す。版 2 の記録も読める", () => {
+  const log = emptyPlayLog();
+  assert.deepEqual(log.gear, { normal: 0, rare: 0, epic: 0, legend: 0 });
+  assert.deepEqual(log.gloves, { catches: 0, escapes: 0, rarity: { normal: 0, rare: 0, epic: 0, legend: 0 } });
+  // ガチャ:引いた装備のレア度を数える(表にないレア度は数えない)。
+  const items = [...Array(6).fill({ rarity: "normal" }), ...Array(2).fill({ rarity: "rare" }), { rarity: "epic" }, { rarity: "legend" }];
+  assert.equal(addPulledItems(log, items), true);
+  assert.equal(addPulledItems(log, [{ rarity: "mythic" }]), false);
+  assert.deepEqual(log.gear, { normal: 6, rare: 2, epic: 1, legend: 1 });
+  // 釣れるクレート:釣れた回数・逃した回数と、釣れたグローブのレア度。合わせの通算には入れない。
+  const game = createGame(1, { progress: progressAt(1, ROD_STEPS.NONE) });
+  assert.equal(addToPlayLog(log, game, { crate: true, kind: "weak", outcome: "caught", glove: { id: 1, ability: "retry", rarity: "epic", grade: 1 }, reward: { coins: 0, scales: 0 } }), true);
+  addToPlayLog(log, game, { crate: true, kind: "weak", outcome: "escaped", reason: "late", glove: null, reward: { coins: 0, scales: 0 } });
+  assert.deepEqual(log.gloves, { catches: 1, escapes: 1, rarity: { normal: 0, rare: 0, epic: 1, legend: 0 } });
+  assert.deepEqual(log.hooks, { just: 0, good: 0, fail: 0 });
+  // 集計:割合と 1 時間あたり(30 分遊んだ)。
+  log.totals.playMs = 1800000;
+  const sum = summarizePlayLog(log);
+  assert.equal(sum.gear.total, 10);
+  assert.deepEqual(sum.gear.rows.map((r) => [r.id, r.count, r.share, r.perHour]), [["normal", 6, 0.6, 12], ["rare", 2, 0.2, 4], ["epic", 1, 0.1, 2], ["legend", 1, 0.1, 2]]);
+  assert.deepEqual([sum.gear.perHour, sum.gear.epicUp, sum.gear.epicUpPerHour, sum.gear.legendPerHour], [20, 2, 4, 2]);
+  assert.deepEqual([sum.gloves.catches, sum.gloves.escapes, sum.gloves.total], [1, 1, 1]);
+  // 遊んだ時間が 0 なら、1 時間あたりは「-」。
+  assert.equal(summarizePlayLog({ ...log, totals: { ...log.totals, playMs: 0 } }).gear.legendPerHour, null);
+  // コピーの文章と画面の行。
+  const lines = playLogText(sum, "本番の遊び", "v0.31.0").split("\n");
+  assert.ok(lines.includes("装備 10 ノーマル 6 60.0% レア 2 20.0% エピック 1 10.0% レジェンド 1 10.0%"));
+  assert.ok(lines.includes("1 時間あたり 装備 20.0 エピック以上 4.0 レジェンド 2.0"));
+  assert.ok(lines.includes("グローブ 釣れた 1 逃した 1 ノーマル 0 レア 0 エピック 1 レジェンド 0"));
+  const rows = playLogRows(log);
+  assert.deepEqual(rows.totals.find(([k]) => k === "・レジェンド"), ["・レジェンド", "1(10.0%・1 時間あたり 2.0)"]);
+  assert.deepEqual(rows.totals.find(([k]) => k === "エピック以上"), ["エピック以上", "1 時間あたり 4.0(2 個)"]);
+  assert.deepEqual(rows.totals.find(([k]) => k === "釣れるクレート"), ["釣れるクレート", "釣れた 1 回・逃した 1 回"]);
+  // 往復。版 2(個数の欄がない)は 0 から。形のちがう欄も 0。
+  assert.deepEqual(parsePlayLog(stringifyPlayLog(log)), log);
+  const old = parsePlayLog(JSON.stringify({ v: 2, fights: [], hooks: { just: 1 }, totals: { pulls: 3 } }));
+  assert.deepEqual([old.v, old.totals.pulls, old.gear, old.gloves], [3, 3, emptyPlayLog().gear, emptyPlayLog().gloves]);
+  const bad = parsePlayLog(JSON.stringify({ v: 3, fights: [], hooks: {}, gear: { normal: -1, rare: "x", legend: 2 }, gloves: { catches: 1.5, rarity: "x" } }));
+  assert.deepEqual([bad.gear, bad.gloves], [{ normal: 0, rare: 0, epic: 0, legend: 2 }, emptyPlayLog().gloves]);
+});
+
+test("記録の器:引いた装備のレア度は足すだけで書かない(書くのは flush)。ゲームの保存データとセーブコードに入らない", () => {
+  const store = fakeStore();
+  const rec = createPlayLogRecorder(store, PLAY_LOG_KEY);
+  rec.pulled([{ rarity: "legend" }, { rarity: "normal" }]);
+  assert.deepEqual(store.calls, []);
+  assert.equal(rec.dirty(), true);
+  assert.equal(rec.flush(), true);
+  assert.deepEqual(createPlayLogRecorder(store, PLAY_LOG_KEY).log().gear, { normal: 1, rare: 0, epic: 0, legend: 1 });
+  const game = createGame(1, { progress: progressAt(1, ROD_STEPS.NONE) });
+  assert.doesNotMatch(JSON.stringify(game.progress), /legend\":1|gloves\":\{\"catches/);
+  assert.doesNotMatch(encodeSaveCode(game.progress), /catches|epicUp/);
 });

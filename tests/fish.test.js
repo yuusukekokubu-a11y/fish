@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../src/core/config.js";
+import { baseTimeLimitMs } from "../src/core/formula.js";
 import {
   availableFish,
   checkContent,
@@ -61,7 +62,7 @@ test("id は重ならず、強い魚とヌシだけがミニゲームの重さ�
   }
 });
 
-test("ヌシの体力は同じ段階の強い魚より多く、防御は高く、制限時間は長く、印と幅は同じか厳しい(限界の中)", () => {
+test("ヌシの体力は同じ段階の強い魚より多く、防御は高く、制限時間は式どおり、印と幅は同じか厳しい(限界の中)", () => {
   for (const { stage, craft, boss } of STAGE_LIST) {
     const s = FISH_LIST.find((f) => f.id === craft.scale).minigame;
     const b = FISH_LIST.find((f) => f.id === boss).minigame;
@@ -70,7 +71,9 @@ test("ヌシの体力は同じ段階の強い魚より多く、防御は高く�
     // 港の位置 1〜5 は 2 倍より上。釣り場の最初(位置 1)のヌシは、5 回前後の目標(D-276)なので 1.5 倍より上。
     assert.ok(tough(b) > (stage <= 5 ? 2 : 1.5) * tough(s), `段階 ${stage}`);
     assert.ok(stage <= 2 ? b.defense === 0 && s.defense === 0 : b.defense > s.defense, `段階 ${stage} の防御`);
-    assert.ok(b.timeLimitMs > s.timeLimitMs);
+    // ヌシの制限時間(D-366・D-368):g=1〜2 は強い魚より長い(これまでのまま)。g=3 からは 8 秒以上・これまでの値以下(強い魚より短いこともある)。
+    if (stage <= 2) assert.ok(b.timeLimitMs > s.timeLimitMs);
+    else assert.ok(b.timeLimitMs >= 8000 && b.timeLimitMs <= baseTimeLimitMs("boss", stage), `段階 ${stage} の制限時間`);
     assert.ok(b.sweepMs <= s.sweepMs && b.zoneWidth <= s.zoneWidth);
     assert.deepEqual(effectiveMinigame({ minigame: b }, LIMITS), { ...b }, "限界で直されない");
   }

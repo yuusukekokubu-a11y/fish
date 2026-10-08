@@ -127,6 +127,8 @@ export function mountCrates(container, ctx) {
           return;
         }
         // 出会ったスキルは、結果が確定したとき(自動分解より前)に記録する。初めてのスキルに NEW(D-300・D-301)。
+        // 遊びの記録に、引いた装備のレア度を数える(自動分解より前:D-368)。
+        ctx.onPull?.(result.items);
         const fresh = noteSkillsSeen(/** @type {{ skillsSeen?: string[] }} */ (game.progress), result.items, skillDraw.skills);
         // 見せ方(▲ など)は分解の前に作る。引いた直後に自動分解して、まとめて保存する(D-266)。
         const view = pullResultView(game, result.items, crates, fresh);

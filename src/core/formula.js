@@ -26,6 +26,8 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {number} bossTimeLimitMs ヌシの制限時間(g=1)
  * @property {number} bossTimeLimitGrowthMs
  * @property {number} timeLimitLogBase
+ * @property {number} bossTimeLimitHitsRatio ヌシの制限時間 = 目標の命中回数 × 印が 1 回通る時間 × これ(D-366)
+ * @property {number} bossTimeLimitMinMs ヌシの制限時間の下限(D-366)
  * @property {number} sweepMs 強い魚の印の速さ(端から端、g=0 の値。1 段ごとに sweepStepMs ずつ速く。限界で止まる)
  * @property {number} sweepStepMs
  * @property {number} zoneWidth 強い魚の命中範囲の幅(g=0 の値。1 段ごとに zoneStep ずつ狭く。限界で止まる)
@@ -222,7 +224,8 @@ export function noPenetrationFloor(g, f) {
   // 育てた装備の糸と粘りは、引く数 N(g) が少ないほど最大から遠い(N(g) ÷ noPenBonusDraws の割合。最大で 1:D-260)。
   const ratio = Math.min(1, referenceDraws(g, c) / c.noPenBonusDraws);
   const bonus = ratio * (1000 * 3.2 * gradeFactor(g, DEFAULT_CONFIG.gacha.gradeGrowth) + 1000 * (2 + stageNumber(g)));
-  const taps = (fishTimeLimitMs("boss", g, c) + bonus) / fishSweepMs("boss", g, c);
+  // 制限時間は、これまでの値で数える(ヌシの制限時間を短くしても、体力を変えないため:D-366)。
+  const taps = (baseTimeLimitMs("boss", g, c) + bonus) / fishSweepMs("boss", g, c);
   return Math.ceil(taps * c.noPenTapsFactor);
 }
 
@@ -238,12 +241,31 @@ export function bossReferenceDefense(g, f) {
   return Math.max(0, fishDefense("boss", g, c) - pen);
 }
 
-/** 制限時間(log で伸びる。0.1 秒に丸める)。 @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f] */
-export function fishTimeLimitMs(kind, g, f) {
+/**
+ * これまでの制限時間(log で伸びる。0.1 秒に丸める)。強い魚の制限時間は、これのまま。
+ * ヌシでは、制限時間の上限と、5 体目のヌシの体力の下限(noPenetrationFloor)に使う(体力を変えないため:D-366)。
+ * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
+ */
+export function baseTimeLimitMs(kind, g, f) {
   const c = conf(f);
   const t = Math.log(stageNumber(g)) / Math.log(c.timeLimitLogBase);
   const ms = kind === "boss" ? c.bossTimeLimitMs + c.bossTimeLimitGrowthMs * t : c.timeLimitMs + c.timeLimitGrowthMs * t;
   return Math.round(ms / 100) * 100;
+}
+
+/**
+ * 制限時間(0.1 秒に丸める)。強い魚は baseTimeLimitMs のまま。
+ * ヌシ(D-366・D-368):目標の命中回数 × 印が 1 回通る時間(端から端)× bossTimeLimitHitsRatio。
+ * 下限 bossTimeLimitMinMs、上限はこれまでの制限時間。糸・粘り・追い風などの延長は、戦闘の中でこれに足す。
+ * 序盤(防御を持つ前の g=1〜2)は、装備なしでも勝てるよう、これまでの制限時間のまま(D-368)。
+ * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
+ */
+export function fishTimeLimitMs(kind, g, f) {
+  const c = conf(f);
+  const cap = baseTimeLimitMs(kind, g, c);
+  if (kind !== "boss" || stageNumber(g) < c.defenseStartStage) return cap;
+  const ms = bossHitTarget(g, c) * fishSweepMs("boss", g, c) * c.bossTimeLimitHitsRatio;
+  return Math.min(cap, Math.max(c.bossTimeLimitMinMs, Math.round(ms / 100) * 100));
 }
 
 /**

@@ -7,7 +7,23 @@
 // 計算(足し方・集計・コピーの文章)は計算本体の play_log.js。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
-import { addPlayTime, addPulls, addToPlayLog, emptyPlayLog, kindLabel, minutesText, parsePlayLog, percentText, playLogText, rateText, secondsText, stringifyPlayLog, summarizePlayLog } from "../core/play_log.js";
+import {
+  addPlayTime,
+  addPulledItems,
+  addPulls,
+  addToPlayLog,
+  emptyPlayLog,
+  kindLabel,
+  minutesText,
+  parsePlayLog,
+  percentText,
+  perHourText,
+  playLogText,
+  rateText,
+  secondsText,
+  stringifyPlayLog,
+  summarizePlayLog,
+} from "../core/play_log.js";
 import { button, el } from "./list_view.js";
 
 export const PLAY_LOG_KEY = "tsuri:playlog";
@@ -56,6 +72,13 @@ export function createPlayLogRecorder(store, key) {
       if (typeof draws !== "number") return;
       if (lastDraws !== null && draws !== lastDraws && addPulls(log, draws - lastDraws)) dirty = true;
       lastDraws = draws;
+    },
+    /**
+     * ガチャで引いた装備のレア度を数える(引いた直後に呼ぶ。書き込みはしない:D-368)。
+     * @param {readonly { rarity: string }[]} items
+     */
+    pulled(items) {
+      if (addPulledItems(log, items)) dirty = true;
     },
     /** 遊んだ時間を足す(書き込みはしない)。 @param {number} ms */
     addTime(ms) {
@@ -115,6 +138,13 @@ export function playLogRows(log) {
       ["ガチャ", `${sum.pulls} 回(平均の間隔 ${secondsText(sum.pullGapSec)})`],
       ["ウロコイン", `${sum.coins}(1 分あたり ${rateText(sum.coinsPerMin)})`],
       ["鱗", String(sum.scales)],
+      // レア度ごとの個数(D-368)。割合と 1 時間あたり。
+      ["引いた装備", `${sum.gear.total} 個(1 時間あたり ${perHourText(sum.gear.perHour)})`],
+      ...sum.gear.rows.map((r) => /** @type {[string, string]} */ ([`・${r.name}`, `${r.count}(${percentText(r.share)}・1 時間あたり ${perHourText(r.perHour)})`])),
+      ["エピック以上", `1 時間あたり ${perHourText(sum.gear.epicUpPerHour)}(${sum.gear.epicUp} 個)`],
+      ["レジェンド", `1 時間あたり ${perHourText(sum.gear.legendPerHour)}`],
+      ["釣れるクレート", `釣れた ${sum.gloves.catches} 回・逃した ${sum.gloves.escapes} 回`],
+      ["グローブ", sum.gloves.rows.map((r) => `${r.name} ${r.count}`).join("・")],
     ]),
     table: sum.table.map((r) => [kindLabel(r.kind), String(r.s), String(r.fights), String(r.wins), percentText(r.missRate)]),
     recent: sum.recent.map((e) => [
