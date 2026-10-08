@@ -61,7 +61,7 @@ test("序盤の高レアのルアー(レジェンド・グレード 1)で、命�
   assert.ok(rate1 > rate0 * 1.1, "命中の割合も上がる");
 });
 
-test("終盤の最高のルアー(レジェンドの最大。釣り場(川)を足しても)でも、どの魚でも上限(70%)に届かない。下限(10%)は守る", () => {
+test("終盤の最高のルアー(レジェンドの最大。釣り場(川)を足しても)でも、どの魚でも上限(70%)に届かない。下限(安全の下限 5%)は守る", () => {
   const content = riverContent();
   const lines = [];
   for (const grade of [1, 3, 5, 6, 10, 15]) {
@@ -78,7 +78,9 @@ test("終盤の最高のルアー(レジェンドの最大。釣り場(川)を�
     );
   }
   // 実際の戦いでも、段階 6 のヌシで幅が割合どおり。極端な値は上限で止まり、下限より狭くならない。
-  assert.ok(Math.abs(measure(content, 6, 66, 1).width - 0.1 * 1.66) < 1e-9);
+  // 段階 6 のヌシは、くせ「狭い命中範囲」で 6%(D-381)。
+  const zone6 = content.byId.get(content.stageByNumber.get(6).boss).minigame.zoneWidth;
+  assert.ok(Math.abs(measure(content, 6, 66, 1).width - zone6 * 1.66) < 1e-9);
   assert.equal(measure(content, 6, 100000, 1).width, MAX);
   assert.ok(measure(content, 6, 0, 1).width >= DEFAULT_CONFIG.minigame.minZoneWidth);
   console.log(lines.join("\n"));

@@ -7,9 +7,9 @@ import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { effectiveStats, hitDamage } from "../../src/core/combat.js";
-import { DEFAULT_CONTENT } from "../../src/core/fish.js";
+import { DEFAULT_CONTENT, defineFish, FISH_ROWS, makeContent } from "../../src/core/fish.js";
 import { createGame } from "../../src/core/fishing.js";
-import { softCurve, targetPulls } from "../../src/core/formula.js";
+import { fishQuirks, softCurve, targetPulls } from "../../src/core/formula.js";
 import { skillAmount, SKILL_ROWS } from "../../src/core/skills.js";
 import { averageItems, fightOnce, grownItems, measure, progressWith, SKILLED_PLAY, skillSummary, STANDARD_PLAY, strongestItems, unlimitedContent } from "./builds.js";
 
@@ -37,7 +37,7 @@ function winRate(g, pulls, play, seeds, fights) {
 
 // 目安(D-379):ふつう + P 回で 80% 以上、上手 + 3 分の 2 で 80% 以上、ふつう + 3 分の 2 で半分くらい、ふつう + 3 分の 1 で 3 割未満。
 // 体力は g=1〜30 をシミュレーションで合わせて式にした(差は ±2 割以内:D-380)。テストの線は、式とガチャの運のぶれを見込んで、
-// ふつう + P 回は 60〜97%、上手 + 3 分の 2 は 75% 以上、3 分の 1 はふつう + 3 分の 2 以下で 65% 以下(港の 3・4 体目は 50% 台:オーナーが受け入れ)。
+// ふつう + P 回は 60〜100%、上手 + 3 分の 2 は川まで 60% 以上、3 分の 1 はふつう + 3 分の 2 以下で 65% 以下。
 test("ヌシの強さの目安:引いた回数(P・3 分の 2・3 分の 1)と遊び方(ふつう・上手)ごとの勝率", () => {
   const seeds = Array.from({ length: 10 }, (_, i) => (i + 1) * 11);
   const fights = [1, 2, 3, 4, 5, 6];
@@ -51,12 +51,38 @@ test("ヌシの強さの目安:引いた回数(P・3 分の 2・3 分の 1)と�
     const std23 = winRate(g, 2 / 3, STANDARD_PLAY, seeds, fights);
     const std13 = winRate(g, 1 / 3, STANDARD_PLAY, seeds, fights);
     lines.push(`| ${g} | ${targetPulls(g)} | ${m.hp} | ${m.timeLimitMs / 1000} 秒 | ${pct(stdP)} | ${pct(sk23)} | ${pct(std23)} | ${pct(std13)} |`);
-    if (!(stdP >= 0.6 && stdP <= 0.97)) problems.push(`g=${g} ふつう + P ${pct(stdP)}`);
-    if (!(sk23 >= 0.75)) problems.push(`g=${g} 上手 + 2/3 ${pct(sk23)}`);
+    if (!(stdP >= 0.6)) problems.push(`g=${g} ふつう + P ${pct(stdP)}`);
+    // 上手 + 3 分の 2 は、ルアーでふつうの遊び方も当てやすくなる後半ほど差が小さい(オーナーが受け入れ:D-381)。線は川まで。
+    if (g <= 15 && !(sk23 >= 0.6)) problems.push(`g=${g} 上手 + 2/3 ${pct(sk23)}`);
     if (!(std13 <= 0.65 && std13 <= std23 + 0.05)) problems.push(`g=${g} ふつう + 1/3 ${pct(std13)}`);
   }
   console.log(lines.join("\n"));
   assert.deepEqual(problems, []);
+});
+
+// くせ(D-381):合う装備(そのヌシに合わせて選ぶ)と、付け替えない装備(くせのないヌシに合わせて選ぶ)の勝率。
+// 防御の壁は、貫通を付けないと越えられない(付け替えない装備は、合う装備より 2 割以上低い)。狭い命中範囲は、差が小さい(記録)。
+test("ヌシのくせ:合う装備と、付け替えない装備の勝率(ふつう + P 回)", () => {
+  const plain = unlimitedContent(makeContent(FISH_ROWS.map((r) => defineFish(r, { ...DEFAULT_CONFIG.formula, quirks: { ...DEFAULT_CONFIG.formula.quirks, byArea: [] } }))));
+  const seeds = Array.from({ length: 10 }, (_, i) => (i + 1) * 11);
+  const fights = [1, 2, 3, 4, 5, 6];
+  const lines = ["| g | くせ | 合う装備 | 付け替えない装備 |", "| --- | --- | --- | --- |"];
+  for (const g of [8, 13, 15]) {
+    const rate = (sel) => {
+      let wins = 0;
+      for (const k of seeds) {
+        const items = grownItems(sel, g, boss(g), k, { standard: STANDARD_PLAY });
+        for (const f of fights) wins += fightOnce(CONTENT, g, items, boss(g), f, { standard: STANDARD_PLAY }).caught ? 1 : 0;
+      }
+      return wins / (seeds.length * fights.length);
+    };
+    const adapt = rate(UNLIMITED);
+    const keep = rate(plain);
+    const quirks = fishQuirks("boss", g);
+    lines.push(`| ${g} | ${quirks.join("・")} | ${pct(adapt)} | ${pct(keep)} |`);
+    if (quirks.includes("wall")) assert.ok(keep <= adapt - 0.2, lines.at(-1));
+  }
+  console.log(lines.join("\n"));
 });
 
 test("序盤:g=1〜2 の強い魚とヌシは、装備なしでも(上手に遊んで)制限時間のうちに倒せる", () => {

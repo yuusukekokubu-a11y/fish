@@ -370,14 +370,14 @@
 
 ### 防御とヌシ戦の長さの確かめ方(D-254・D-260)
 
-- 魚の防御・体力・制限時間は `formula.js`(`fishDefense`・`fishHp`・`fishTimeLimitMs`)。防御はいまどの魚も 0(D-380。仕組みは `combat.js` に残してあり、くせの「防御の壁」で使う)。ヌシの体力は `bossHpBase` × g^`bossHpPower` × `bossHpGrowth`^g(上から 2 けた。g ≤ `earlyStages` は `earlyBossHpMax` まで)。係数は、目安の引く回数 `targetPulls`(P(g))の装備で、ふつうの遊び方が 8 割勝つ体力にシミュレーションで合わせ、0.9 倍にしたもの(D-380)。制限時間は log の式で、延長(糸・粘り)は `combat.js` の `fightTimeLimit` で、魚の制限時間 × `combatLimits.maxTimeBonusRatio`(1)まで。スキルや装備の数値を変えたら、重いテスト(`tests/slow/balance.test.js`)で確かめ直し、ずれたら係数を合わせ直す。
+- 魚の防御・体力・制限時間は `formula.js`(`fishDefense`・`fishHp`・`fishTimeLimitMs`・`fishMinigame`)。ヌシのくせ(D-379・D-381)は `fishQuirks`(釣り場の番号ごとの `config.formula.quirks.byArea`。4・5 体目は 1 つ前の釣り場のくせも重ねる)で決め、`fishMinigame` が命中範囲(narrow:× `zoneScale`)・防御(wall:max(`floor`, `typicalPenetration` + `margin`))・体力(くせごとの `hpScale` を掛ける)に反映する。くせを足すときは、`byArea` に id を足し、`fishMinigame` に効き方を足し、`hpScale` をシミュレーションで合わせる。`fishDefense` はくせの前の防御で、いつも 0。命中範囲と印の速さは、ふつうの魚は式の下限(`zoneMin`・`sweepMinMs`)で止まり、くせのあるヌシは安全の下限(`minigame.minZoneWidth`・`minSweepMs`)まで入ってよい。ヌシの体力は `bossHpBase` × g^`bossHpPower` × `bossHpGrowth`^g(上から 2 けた。g ≤ `earlyStages` は `earlyBossHpMax` まで)。係数は、目安の引く回数 `targetPulls`(P(g))の装備で、ふつうの遊び方が 8 割勝つ体力にシミュレーションで合わせ、0.9 倍にしたもの(D-380・D-381)。制限時間は log の式で、延長(糸・粘り)は `combat.js` の `fightTimeLimit` で、魚の制限時間 × `combatLimits.maxTimeBonusRatio`(1)まで。スキルや装備の数値を変えたら、重いテスト(`tests/slow/balance.test.js`)で確かめ直し、ずれたら係数を合わせ直す。
 - 装備の組み立てと戦闘のシミュレーションは `tests/slow/builds.js`:
   - 平均的な装備:レア・グレード g・値は真ん中・スキルなし。
   - 育てた装備(6 枠:D-380):`pulledPool` で、段階 1〜g のクレートを P(h) × 割合(`pulls`。既定 1)回ずつ、ガチャの種で引く(前の段階の分も持つ)。種類ごとに分けて候補にする。値と、命中回数に効くスキルのレベルが全部ほかの候補以下のものは除く。糸・リール・ルアーの全部の組み合わせを 1 シードで比べて、良い 10 通りを 3 シードで比べ直し、次におもり・浮き・おまもりを 1 枠ずつ(3 シードで一番良いもの)、最後に 6 枠を 1 周見直す。遊び方(`standard`)を渡すと、その遊び方の倒すまでの時間で比べる。装備を選ぶときは、制限時間を長くした表(`unlimitedContent`)で戦う。
   - 最強の装備:6 枠全部にレジェンド・グレード g・値は最大。命中回数に効く 12 個のスキルから 6 つを選び、どれも 3 枠ずつ(枠 i にスキル i・i+1・i+2)。レベルは装備 1 個の上限。全部の選び方を 1 シードで比べ、良い 10 通りを 3 シードで比べ直す。
   - 平均的な装備(経済の基準:D-323)は、糸・リール・ルアーの 3 枠だけ(`BASE_KIND_IDS`)。
   - 戦闘は「上手」:印が命中範囲の真ん中に来るたびにタップ(真ん中は芯。縁は狙わない)。人の指の速さとして、タップの間は 250 ミリ秒以上あける。時刻を飛ばして進めるので速い。
-- 重いテスト `tests/slow/balance.test.js`:ヌシの強さの目安(引いた回数 P・3 分の 2・3 分の 1 と、ふつう・上手の勝率。g=3・8・13・18・23・28)、序盤の装備なし、強い魚、1 命中のダメージ(と初撃)の差、逓減の表。遊び方は `builds.js` の `STANDARD_PLAY`(1 往復に 1 回押す・命中 80%〔命中範囲の中に一様〕・最初の反応 0.5 秒・合わせのジャスト 70%)と `SKILLED_PLAY`(同じ速さで、ミスなく真ん中)。遊び方の乱数はテストだけの小さな乱数(ゲームの乱数の系統には触らない)。`tests/slow/strike.test.js`:一撃で釣れる割合と、初撃向けの装備の一撃。
+- 重いテスト `tests/slow/balance.test.js`:ヌシの強さの目安(引いた回数 P・3 分の 2・3 分の 1 と、ふつう・上手の勝率。g=3・8・13・18・23・28)、序盤の装備なし、強い魚、1 命中のダメージ(と初撃)の差、逓減の表。遊び方は `builds.js` の `STANDARD_PLAY`(1 往復に 1 回押す・命中 80%〔命中範囲の中に一様〕・最初の反応 0.5 秒・合わせのジャスト 70%)と `SKILLED_PLAY`(同じ速さで、真ん中を狙い命中 98%)。命中の割合は、押すタイミングのぶれ(正規分布)で決める:くせのない命中範囲の幅(式の値)でちょうど決めた割合になる大きさにし、狭い範囲では外れやすく、ルアーで広げると当たりやすい(D-381)。防御のある相手には、各枠で貫通が一番高い候補から始める選び方も比べる。くせの確かめ(合う装備と付け替えない装備)も同じファイル。遊び方の乱数はテストだけの小さな乱数(ゲームの乱数の系統には触らない)。`tests/slow/strike.test.js`:一撃で釣れる割合と、初撃向けの装備の一撃。
 - 遊び方のモデルは `tests/slow/policy.js`(`SKILLED`:ジャスト 70%・真ん中で命中・タップの間 250 ミリ秒、`SLOPPY`:通常の成功だけ・命中の 3 割は外す:D-259)。経済の時間は、平均的な装備で測る(`tests/slow/limits.test.js`・`gacha.test.js`・`rewards.test.js`)。
 
 ### 用語の点検(D-180・D-194)

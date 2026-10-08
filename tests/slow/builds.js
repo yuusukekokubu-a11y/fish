@@ -13,7 +13,7 @@ export const MIN_TAP_GAP_MS = 250;
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { createGame, fightSweepMs, PHASES, tap, update } from "../../src/core/fishing.js";
 import { BASE_KIND_IDS, drawItem, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
-import { targetPulls } from "../../src/core/formula.js";
+import { fishZoneWidth, targetPulls } from "../../src/core/formula.js";
 import { makeContent } from "../../src/core/fish.js";
 import { levelRange, SKILL_ROWS } from "../../src/core/skills.js";
 import { startQuickFight } from "../../src/ui/debug_view.js";
@@ -47,7 +47,34 @@ export function averageItems(content, g) {
  * 上手:同じ速さで、ミスなく真ん中(芯)を狙う。
  */
 export const STANDARD_PLAY = Object.freeze({ reactMs: 500, hitRate: 0.8, justRate: 0.7, passesPerPress: 2, spread: true });
-export const SKILLED_PLAY = Object.freeze({ reactMs: 500, hitRate: 1, justRate: 0.7, passesPerPress: 2, spread: false });
+export const SKILLED_PLAY = Object.freeze({ reactMs: 500, hitRate: 0.98, justRate: 0.7, passesPerPress: 2, spread: false });
+
+/** 誤差関数(Abramowitz-Stegun 7.1.26。誤差 1.5e-7 以下)。 @param {number} x */
+function erf(x) {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return x >= 0 ? y : -y;
+}
+
+/**
+ * 押すタイミングのぶれ(D-381):印の位置のずれが正規分布(標準偏差 sigma。ゲージに対する割合)。
+ * くせのない命中範囲の幅 w0 で、命中の割合が hitRate になる sigma を決める。幅 w で押したときの命中の割合を返す関数。
+ * hitRate が 1 以上なら、いつも命中。
+ * @param {number} hitRate @param {number} w0
+ */
+function hitChance(hitRate, w0) {
+  if (hitRate >= 1) return () => 1;
+  // erf(w0 / 2 / (sigma√2)) = hitRate となる sigma を 2 分探索で求める。
+  let lo = 1e-6;
+  let hi = 1;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (erf(w0 / 2 / (mid * Math.SQRT2)) > hitRate) lo = mid;
+    else hi = mid;
+  }
+  const sigma = (lo + hi) / 2;
+  return (w) => erf(w / 2 / (sigma * Math.SQRT2));
+}
 
 /** テストだけで使う、シードつきの小さな乱数(mulberry32)。遊び方の命中・外れを決める(ゲームの乱数の系統には触らない)。 */
 function playRng(seed) {
@@ -101,13 +128,15 @@ export function fightOnce(content, g, items, fishId, seed, options = {}) {
   const effs = [];
   let lastTap = -Infinity;
   let taps = 0;
+  // 遊び方の命中の割合は、くせのない命中範囲の幅(式の値)で hitRate。狭い・広い命中範囲では、ぶれのぶん変わる(D-381)。
+  const chance = std ? hitChance(std.hitRate, fishZoneWidth(game.cast.kind === "boss" ? "boss" : "strong", g)) : null;
   while (game.phase === PHASES.MINIGAME) {
     const s = fightSweepMs(game);
     const z = game.fight.zone;
     taps += 1;
     // n 回に 1 回は、命中範囲のすぐ外を狙う(ゲージの外に出るなら反対側)。
-    const off = std ? rand() >= std.hitRate : options.missEvery && taps % options.missEvery === 0;
     const w = z.end - z.start;
+    const off = std ? rand() >= chance(w) : options.missEvery && taps % options.missEvery === 0;
     const aim = std?.spread ? z.start + w * (0.02 + 0.96 * rand()) : (z.start + z.end) / 2;
     const c = !off ? aim : z.end + w * 0.15 <= 1 ? z.end + w * 0.15 : z.start - w * 0.15;
     const t = Math.max(game.phaseMs, lastTap + MIN_TAP_GAP_MS - 1e-6);
@@ -237,6 +266,19 @@ export function grownItems(content, g, fishId, seed, options = {}) {
   for (const k of extraIdx) improve(k);
   // (3) 6 枠を 1 周、見直す。
   for (let k = 0; k < slots.length; k++) improve(k);
+  // (4) 防御のある魚(防御の壁:D-381)では、貫通を 1 つずつ足しても差が出にくいので、
+  //     各枠で貫通(と連撃・貫)のレベルが一番高い候補から始める道も比べ、良いほうを選ぶ。
+  if ((content.byId.get(fishId)?.minigame?.defense ?? 0) > 0) {
+    const penLv = (it) => it.skills.reduce((a, x) => a + (x.id === "penetration" ? x.level : x.id === "combo-pen" ? x.level / 2 : 0), 0);
+    const greedy = { slots: [...slots], score: current };
+    for (let k = 0; k < slots.length; k++) {
+      const best = [...candidates[k]].sort((a, b) => penLv(b) - penLv(a) || b.value - a.value)[0];
+      slots[k] = best && penLv(best) > 0 ? best : slots[k];
+    }
+    current = score(content, g, pick(slots), fishId, play);
+    for (let k = 0; k < slots.length; k++) improve(k);
+    if (greedy.score <= current) return pick(greedy.slots);
+  }
   return pick(slots);
 }
 
