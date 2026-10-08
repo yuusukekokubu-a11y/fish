@@ -113,6 +113,16 @@
         border-radius: 8px;
         background: rgba(0, 0, 0, 0.45);
       }
+      .section-title {
+        margin-top: 28px;
+      }
+      /* 背景は、ゲームと同じ幅(390px)で見たいので、横の余白(16px)の外まで使う。 */
+      .bg-stage {
+        display: flex;
+        justify-content: center;
+        padding: 8px 0;
+        margin: 0 -16px;
+      }
       .back {
         display: inline-flex;
         align-items: center;
@@ -141,6 +151,15 @@
       </div>
       <div class="stage" id="stage"></div>
       <p class="note" id="dpr-note"></p>
+      <h1 class="section-title">背景の見本(港・昼)</h1>
+      <p class="note">港の背景を、ゲームと同じ 1 ドット 3px(幅 130 ドット = 390px)で描いたものです。動きはありません。ゲームにはまだ使っていません。「ゲームの位置」で、水面・竿・ウキ・魚・ゲージの位置を重ねて、邪魔にならないかを見られます。</p>
+      <div class="controls">
+        <div>
+          <div class="control-label">重ね方</div>
+          <div class="choices" id="guide-choices"></div>
+        </div>
+      </div>
+      <div class="bg-stage" id="bg-stage"></div>
       <p class="problems" id="problems" hidden></p>
       <a class="back" href="../../?debug">← ゲーム(?debug)に戻る</a>
     </main>

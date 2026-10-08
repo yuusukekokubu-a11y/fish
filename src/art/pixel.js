@@ -1,5 +1,5 @@
 // @ts-check
-// ドット絵のデータの形と、描く部品(D-360〜D-364)。
+// ドット絵のデータの形と、描く部品(D-360〜D-364・D-383)。
 // - 1 枚の絵:幅・高さ・パレット(色の一覧)・マスごとの色番号の並び。色番号 0 は透明。
 // - 並びは、1 行を 1 つの文字列にして、1 マスを 1 文字(PIXEL_CHARS の位置が色番号)で書く。
 // - 描くときは、1 マスを「整数の数の画素」の正方形で塗る(補間なし。縦横比が崩れない)。左右反転もできる。
@@ -9,8 +9,8 @@
 /** 色番号を書く文字(0 = 透明、1〜61 = パレットの色)。 */
 export const PIXEL_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-/** 粗さ(幅)ごとのパレットの色数の上限(透明を除く:D-364)。 */
-export const PALETTE_LIMITS = Object.freeze({ 32: 16, 64: 24, 128: 48 });
+/** 粗さ(幅)ごとのパレットの色数の上限(透明を除く:D-364)。130 は背景(D-383)。 */
+export const PALETTE_LIMITS = Object.freeze({ 32: 16, 64: 24, 128: 48, 130: 32 });
 
 /**
  * ドット絵 1 枚。
@@ -21,6 +21,7 @@ export const PALETTE_LIMITS = Object.freeze({ 32: 16, 64: 24, 128: 48 });
  * @property {number} height 高さ(マス)
  * @property {readonly string[]} palette 色の一覧(#rrggbb)。palette[0] は透明の印("")
  * @property {readonly string[]} rows マスの並び(height 行、各行 width 文字)
+ * @property {"fish" | "background"} [kind] 種類。background は全面を塗る(透明のマスがなくてよい:D-383)。省くと fish
  */
 
 /** 文字 → 色番号(表にない文字は -1)。 @param {string} ch */
@@ -31,7 +32,8 @@ export function colorIndex(ch) {
 /**
  * 絵の点検。問題の一覧を返す(なければ空)。
  * 幅 × 高さ = マスの数、色番号がパレットの範囲内、パレットの色数が上限以内(32 は 16 色・64 は 24 色・128 は 48 色)、
- * 透明の使い方(palette[0] は透明の印 ""、ほかは #rrggbb で、透明でない色が 1 つ以上・透明のマスが 1 つ以上)、
+ * 透明の使い方(palette[0] は透明の印 ""、ほかは #rrggbb で、透明でない色が 1 つ以上・透明のマスが 1 つ以上。
+ * 背景は逆に、透明のマスがない:D-383)、
  * 使っていない色がない。
  * @param {PixelArt} art @returns {string[]}
  */
@@ -51,7 +53,7 @@ export function checkArt(art) {
     if (!/^#[0-9a-f]{6}$/.test(c)) problems.push(`${art.id}:色 ${i + 1} の形「${c}」`);
   });
   const colors = palette.length - 1;
-  const limit = PALETTE_LIMITS[/** @type {32 | 64 | 128} */ (width)];
+  const limit = PALETTE_LIMITS[/** @type {32 | 64 | 128 | 130} */ (width)];
   if (limit !== undefined && colors > limit) problems.push(`${art.id}:色数 ${colors} が上限 ${limit} をこえる`);
   if (colors > PIXEL_CHARS.length - 1) problems.push(`${art.id}:色数 ${colors} は文字で書けない`);
   const used = new Set();
@@ -65,7 +67,9 @@ export function checkArt(art) {
       used.add(i);
     }
   }
-  if (!used.has(0)) problems.push(`${art.id}:透明のマスがない(背景は透明にする)`);
+  if (art.kind === "background") {
+    if (used.has(0)) problems.push(`${art.id}:背景に透明のマスがある(全面を塗る)`);
+  } else if (!used.has(0)) problems.push(`${art.id}:透明のマスがない(背景は透明にする)`);
   for (let i = 1; i < palette.length; i++) if (!used.has(i)) problems.push(`${art.id}:色 ${i}(${palette[i]})を使っていない`);
   return [...new Set(problems)];
 }
