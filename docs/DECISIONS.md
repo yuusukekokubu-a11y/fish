@@ -3,7 +3,7 @@
 このプロジェクトで決めたことを、決めた順に D 番号つきで残します。
 一度書いた決定は消しません。変えるときは新しい D 番号を足し、「置き換えた番号」に古い番号を書きます。
 今も有効な決定だけの一覧は [ACTIVE_DECISIONS.md](ACTIVE_DECISIONS.md) にあります。決定を足す・変えるたびに、一覧も直します。
-このファイルには D-310 以降の今有効な決定を書きます。D-001〜D-092 は [decisions/vol1.md](decisions/vol1.md)(第 1 巻)、D-093〜D-130 は [decisions/vol2.md](decisions/vol2.md)(第 2 巻)、D-132〜D-164 は [decisions/vol3.md](decisions/vol3.md)(第 3 巻)、D-167〜D-212 は [decisions/vol4.md](decisions/vol4.md)(第 4 巻)、D-214〜D-262 は [decisions/vol5.md](decisions/vol5.md)(第 5 巻)、D-263〜D-309 は [decisions/vol6.md](decisions/vol6.md)(第 6 巻)にあります(D-133)。
+このファイルには D-310 以降の今有効な決定を書きます。D-003〜D-092 は [decisions/vol1.md](decisions/vol1.md)(第 1 巻)、D-093〜D-130 は [decisions/vol2.md](decisions/vol2.md)(第 2 巻)、D-132〜D-164 は [decisions/vol3.md](decisions/vol3.md)(第 3 巻)、D-167〜D-212 は [decisions/vol4.md](decisions/vol4.md)(第 4 巻)、D-214〜D-262 は [decisions/vol5.md](decisions/vol5.md)(第 5 巻)、D-263〜D-309 は [decisions/vol6.md](decisions/vol6.md)(第 6 巻)にあります(D-133)。
 置き換えられた決定・取り下げた決定・完了した一度きりの段取りは、元の文のまま [decisions/archive.md](decisions/archive.md) に移してあります(D-110)。D 番号の通し番号は、これらのファイルを合わせて数えます。
 このファイルが 700 行をこえたら、古いほうの番号をまとめて次の巻(`decisions/vol7.md` など)へ移します(D-133)。
 
@@ -565,3 +565,18 @@
   - バージョンは 0.32.0。保存の版は 7 のまま。
 - 理由:依頼の決まりを守りつつ、細部をそろえるため。
 - 置き換えた番号:なし
+
+## D-378 開発のサイクルを見直す(相談は Code と直接・依頼文と報告 Issue はやめる)
+
+- 日付:2026-10-08
+- 決定(オーナーの決定):
+  - 開発はオーナーと Code の 2 者で進める。方針の相談(壁打ち)は Code との会話で行い、依頼文は作らない。相談で決まったことを、Code がそのまま記録して実装する。
+  - 流れ:相談 → 確かめ → 実装 → PR → 報告。
+    - 確かめ:数値の調整を伴う案は、実装の前に Code が軽いシミュレーションで見通しを出す。両立しない条件が見つかったら、作る前に相談に戻す。
+    - 実装:1 つの話題で 1 つの PR。
+    - PR:オーナーが取り込む。取り込みの条件は、これまでどおり GitHub のテスト(`ci-result`)が通ること。
+  - 報告 Issue はやめる。報告は会話で短く行い、PR の本文に「変えたこと・測った数字・試し方」を書く。
+  - 決定の記録(DECISIONS・ACTIVE_DECISIONS)は Code に任せる(オーナーは確認しない)。ACTIVE_DECISIONS を「今の決まりの要約」として読みやすく保つ。D 番号の記録は短く書く。
+  - 途中だった「ヌシの調整・仕切り直し」の作業は捨てて、main(PR #65)の時点に戻した。ゲームバランスと設計思想は、相談で見直す(土台は `docs/BALANCE_REVIEW.md`)。
+- 理由:依頼文の条件が、作り始めてから両立しないとわかって仕切り直すことが続いた。報告 Issue と文書の更新も重かった。
+- 置き換えた番号:D-001・D-002・D-004・D-031

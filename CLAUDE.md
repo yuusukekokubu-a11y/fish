@@ -5,19 +5,25 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 ## 1. 作業の始めに読む順番
 
 1. `docs/ACTIVE_DECISIONS.md`(今有効な決定の一覧)
-2. 必要な番号だけ `docs/DECISIONS.md`(D-310 以降)、`docs/decisions/vol1.md`(D-001〜D-092)、`docs/decisions/vol2.md`(D-093〜D-130)、`docs/decisions/vol3.md`(D-132〜D-164)、`docs/decisions/vol4.md`(D-167〜D-212)、`docs/decisions/vol5.md`(D-214〜D-262)、`docs/decisions/vol6.md`(D-263〜D-309)で、くわしい理由を読む(D-133)。置き換えられた古い決定・完了した段取りは `docs/decisions/archive.md`(D-110)
+2. 必要な番号だけ `docs/DECISIONS.md`(D-310 以降)、`docs/decisions/vol1.md`(D-003〜D-092)、`docs/decisions/vol2.md`(D-093〜D-130)、`docs/decisions/vol3.md`(D-132〜D-164)、`docs/decisions/vol4.md`(D-167〜D-212)、`docs/decisions/vol5.md`(D-214〜D-262)、`docs/decisions/vol6.md`(D-263〜D-309)で、くわしい理由を読む(D-133)。置き換えられた古い決定・完了した段取りは `docs/decisions/archive.md`(D-110)
 3. `docs/SPEC.md`(何をするか)と `docs/DESIGN.md`(どう作るか)
 
-## 2. 依頼の進め方
+## 2. 進め方(D-378)
 
-- 1 つの依頼で 1 つの PR を作る(D-001)。
-- 依頼の【0】にある決定は、作業の最初に `docs/DECISIONS.md` に D 番号で記録し、`docs/ACTIVE_DECISIONS.md` も直す(D-004)。
-- 実装中に細部を決めたときは、自分で決めて DECISIONS に記録し、報告の「実装中に決めたこと」に書く(D-004)。
+オーナーと Code の 2 者で進める。相談(壁打ち)は Code との会話で行い、依頼文は作らない。
+
+1. 相談:オーナーと会話で方針を決める。決まったことは、作業の最初に `docs/DECISIONS.md` に D 番号で記録し、`docs/ACTIVE_DECISIONS.md` も直す。
+2. 確かめ:数値の調整を伴う案は、実装の前に軽いシミュレーションで見通しを出す。両立しない条件が見つかったら、作る前に相談に戻す(数値を勝手に決めて進めない)。
+3. 実装:1 つの話題で 1 つの PR。実装中に細部を決めたときは、自分で決めて DECISIONS に記録し、報告で伝える。
+4. PR:オーナーが取り込む。
+5. 報告:会話で短く報告する(報告 Issue は作らない)。
+
+- 決定の記録は Code に任せられている(オーナーは確認しない)。ACTIVE_DECISIONS は「今の決まりの要約」として読みやすく保ち、D 番号の記録は短く書く(決定・理由・置き換え)。
 - 決定を足す・変えるたびに ACTIVE_DECISIONS を直す。置き換えた古い決定は、全文を `docs/decisions/archive.md` へ移す(D-110)。新しい決定は `docs/DECISIONS.md` の最後に足す。700 行をこえたら、古いほうの番号をまとめて次の巻(`docs/decisions/vol2.md` など)へ移す(D-133)。
-- オーナーのスクリーンショットは Code に届かないことがある。依頼文の文章を正とする。
+- オーナーのスクリーンショットは Code に届かないことがある。会話の文章を正とする。
 - 文章は平易な日本語で書き、専門用語に短い説明を付ける。英語は単語だけ(D-007)。
 - ファイルは 800 行以内が目安。超えるなら分けるか、理由を DESIGN の「800 行を超えるファイル」に書く(D-006)。
-- `docs/ROADMAP.md` と `docs/REQUESTS.md` も、依頼の状況に合わせて直す。
+- `docs/ROADMAP.md` と `docs/REQUESTS.md` も、作業の状況に合わせて直す。
 
 ## 3. テストの回し方(D-005・D-026)
 
@@ -51,7 +57,7 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 
 ## 3.5 バージョン(D-085・D-091)
 
-- 依頼ごとに、`src/version.js` の `VERSION` の真ん中の数を 1 上げる(例:0.6.0 → 0.7.0)。同じ依頼の直しだけなら最後の数を上げる。
+- 機能や数値を変える PR ごとに、`src/version.js` の `VERSION` の真ん中の数を 1 上げる(例:0.6.0 → 0.7.0)。同じ話題の直しだけなら最後の数を上げる。文書だけの PR は上げない。
 - `BUILD` は `dev` のままにする。公開の処理が、公開用のファイルにだけ commit の頭 7 文字を書き込む。
 - 計算本体(`src/core/`)から `src/version.js` を読まない。
 
@@ -67,13 +73,9 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 - 速いテストと関係するテストが手元で通るか。
 - PR の本文は `.github/pull_request_template.md` に沿って書く。
 
-## 6. 報告 Issue
+## 6. 報告(D-378)
 
-- 取り込みごとに報告 Issue を 1 つ発行する。識別子は Issue 番号だけ(D-002)。
-- 報告 Issue は、PR がオーナーに取り込まれてから発行する。取り込み後の main のテストの結果も書く(D-031)。
-- ひな形は `.github/ISSUE_TEMPLATE/report.md`。全部の項目を埋める(該当なしなら「なし」と書く)。
-- 別の報告や PR を指すときは番号で書く。
-- URL は前後に半角スペースを置くか、独立した行に書く(日本語の文字が URL にくっつくのを防ぐため)。
-- 「`#9`」のように、番号への自動のリンクにしたくない文字の例はバッククォート(`)で囲む。
-- 「所要時間の内訳」に、実装・手元のテスト・GitHub のテストの待ちの時間を書く。
-- 「番号の現況」に、この報告の番号・依頼名・最新の決定番号・作業中の依頼・持ち越している決定メモを書く。
+- 報告 Issue は作らない。報告は会話で短く行う。
+- PR の本文は `.github/pull_request_template.md` に沿って書く:変えたこと・測った数字・試し方。
+- 取り込まれたら、main のテスト(GitHub の `ci-result`)の結果を確かめて、会話で一言伝える。
+- 別の PR を指すときは番号で書く。URL は前後に半角スペースを置くか、独立した行に書く。

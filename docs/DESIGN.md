@@ -77,7 +77,6 @@
 | `scripts/` | 開発用の小さなスクリプト(配信、GitHub のテストの判定、重いテストの実行、公開用のバージョンと署名の鍵の書き込み)。 |
 | `.github/workflows/ci.yml` | GitHub のテストの設定。 |
 | `.github/workflows/pages.yml` | GitHub Pages への公開の設定(D-052)。 |
-| `.github/ISSUE_TEMPLATE/` | 報告 Issue のひな形。 |
 | `docs/` | 決定・仕様・設計・予定・要望の文書(README の「docs の地図」を参照)。決定は `docs/DECISIONS.md`(今有効なもの)と `docs/decisions/archive.md`(置き換えられた・取り下げた・完了した段取りの決定)に分ける(D-110)。 |
 | `CLAUDE.md` | Code の作業手順書。 |
 
