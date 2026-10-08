@@ -48,13 +48,14 @@ test("帯の判定:芯は中心からの距離 0.3 以下(ちょうどを含む)
   assert.equal(band(0.3999), null);
 });
 
-test("帯は命中範囲の幅に比例する(ルアーで広がると帯も広がる)。芯は最小の幅でも画面の 3% 以上。芯と縁は重ならず、通常が残る", () => {
+test("帯は命中範囲の幅に比例する(ルアーで広がると帯も広がる)。芯はふつうの魚の最小の幅でも画面の 3% 以上。芯と縁は重ならず、通常が残る", () => {
   const wide = { start: 0.35, end: 0.65 }; // 幅 0.3(1.5 倍)
   assert.equal(zoneBand(0.545, wide, SK), "core", "0.045 / 0.15 = 0.3");
   assert.equal(zoneBand(0.5451, wide, SK), "normal");
   assert.equal(zoneBand(0.6125, wide, SK), "edge", "0.1125 / 0.15 = 0.75");
   // 芯の幅 = 命中範囲の幅 × 芯の割合。最小の幅(10%)でも 3%。
-  assert.ok(DEFAULT_CONFIG.minigame.minZoneWidth * SK.coreRatio >= 0.03 - 1e-12);
+  // ふつうの魚の最小の幅(式の下限 10%)で 3% 以上。くせ「狭い命中範囲」のヌシ(6%)は、芯も狭くなる(難しさのくせ:D-381)。
+  assert.ok(DEFAULT_CONFIG.formula.zoneMin * SK.coreRatio >= 0.03 - 1e-12);
   assert.ok(SK.coreRatio < SK.edgeRatio, "重ならない");
   assert.ok(SK.edgeRatio - SK.coreRatio > 0.3, "通常の帯が残る");
   const tiny = { start: 0.45, end: 0.55 };

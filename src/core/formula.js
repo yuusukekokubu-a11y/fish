@@ -29,6 +29,10 @@ import { DEFAULT_CONFIG } from "./config.js";
  * @property {number} sweepStepMs
  * @property {number} zoneWidth 強い魚の命中範囲の幅(g=0 の値。1 段ごとに zoneStep ずつ狭く。限界で止まる)
  * @property {number} zoneStep
+ * @property {number} zoneMin ふつうの魚の命中範囲の幅の下限(くせのあるヌシは、これより狭くなることがある:D-381)
+ * @property {number} sweepMinMs ふつうの魚の印の速さの下限
+ * @property {{ byArea: readonly string[], narrow: { zoneScale: number, hpScale: number }, wall: { floor: number, margin: number, penPerLevel: number, levelAt: number, levelFirst: number, levelStep: number, hpScale: number } }} quirks
+ *   ヌシのくせ(D-379・D-381):釣り場の番号ごとのくせと、くせごとの数
  * @property {number} bossStageOffset ヌシの印の速さと幅は、強い魚のこの段だけ先の値
  * @property {number} craftMin 製作の必要数(g=1)
  * @property {number} craftMax 製作の必要数の行き着く先
@@ -171,18 +175,18 @@ export function fishTimeLimitMs(kind, g, f) {
 export function fishSweepMs(kind, g, f, limits = DEFAULT_CONFIG.minigame) {
   const c = conf(f);
   const n = stageNumber(g) + (kind === "boss" ? c.bossStageOffset : 0);
-  return Math.max(limits.minSweepMs, c.sweepMs - c.sweepStepMs * n);
+  return Math.max(limits.minSweepMs, c.sweepMinMs ?? 0, c.sweepMs - c.sweepStepMs * n);
 }
 
 /**
- * 命中範囲の幅(ゲージ全体を 1)。段が進むほど狭くなり、限界(minZoneWidth)で止まる。千分率で計算して丸める。
+ * 命中範囲の幅(ゲージに対する割合)。段が進むほど狭くなり、限界(zoneMin)で止まる。0.001 刻み。
  * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f] @param {{ minZoneWidth: number }} [limits]
  */
 export function fishZoneWidth(kind, g, f, limits = DEFAULT_CONFIG.minigame) {
   const c = conf(f);
   const n = stageNumber(g) + (kind === "boss" ? c.bossStageOffset : 0);
   const permille = Math.round(c.zoneWidth * 1000) - Math.round(c.zoneStep * 1000) * n;
-  return Math.max(limits.minZoneWidth, permille / 1000);
+  return Math.max(limits.minZoneWidth, c.zoneMin ?? 0, permille / 1000);
 }
 
 /**
@@ -190,13 +194,58 @@ export function fishZoneWidth(kind, g, f, limits = DEFAULT_CONFIG.minigame) {
  * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
  */
 export function fishMinigame(kind, g, f) {
+  const c = conf(f);
+  const quirks = fishQuirks(kind, g, c);
+  const q = c.quirks;
+  let zoneWidth = fishZoneWidth(kind, g, c);
+  let defense = fishDefense(kind, g, c);
+  let hpScale = 1;
+  for (const id of quirks) {
+    if (id === "narrow") {
+      // 狭い命中範囲:幅 × zoneScale(安全の下限 minigame.minZoneWidth で止める)。
+      zoneWidth = Math.max(DEFAULT_CONFIG.minigame.minZoneWidth, Math.round(zoneWidth * q.narrow.zoneScale * 1000) / 1000);
+      hpScale *= q.narrow.hpScale;
+    } else if (id === "wall") {
+      // 防御の壁:max(floor, ふつうの貫通 + margin)。貫通なしでは 100% 以上(1 命中 1 ダメージ)、目安の装備でも margin が残る。
+      defense = Math.round(Math.max(q.wall.floor, typicalPenetration(g, c) + q.wall.margin) * 1000) / 1000;
+      hpScale *= q.wall.hpScale;
+    }
+  }
+  const hp = fishHp(kind, g, c);
   return {
-    sweepMs: fishSweepMs(kind, g, f),
-    zoneWidth: fishZoneWidth(kind, g, f),
-    hp: fishHp(kind, g, f),
-    timeLimitMs: fishTimeLimitMs(kind, g, f),
-    defense: fishDefense(kind, g, f),
+    sweepMs: fishSweepMs(kind, g, c),
+    zoneWidth,
+    hp: hpScale === 1 ? hp : round2(hp * hpScale),
+    timeLimitMs: fishTimeLimitMs(kind, g, c),
+    defense,
   };
+}
+
+/**
+ * ヌシのくせ(D-379・D-381)の一覧。ヌシだけ。釣り場の番号 k のくせ(quirks.byArea[k])と、4・5 体目は 1 つ前の釣り場のくせも重ねる。
+ * 空の文字列は「くせなし」(港)。表にない釣り場(k が長さ以上)は、くせなし。
+ * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
+ * @returns {string[]}
+ */
+export function fishQuirks(kind, g, f) {
+  const c = conf(f);
+  if (kind !== "boss" || !c.quirks) return [];
+  const k = Math.floor((stageNumber(g) - 1) / c.stagesPerGround);
+  const s = stagePosition(g, c);
+  const ids = [c.quirks.byArea[k], s >= 4 && k >= 1 ? c.quirks.byArea[k - 1] : ""].filter(Boolean);
+  return [...new Set(ids)];
+}
+
+/**
+ * 目安の引く回数 P(g) の装備が持つ、ふつうの貫通(逓減のあと)。防御の壁が前提にする値(D-381)。
+ * 貫通のレベル = min(最大 2 + g, levelFirst + levelStep ×(g − levelAt))。シミュレーションの中央値(川の入口で Lv9、1 体ごとに +2)に合わせた。
+ * @param {number} g @param {FormulaConfig} [f]
+ */
+export function typicalPenetration(g, f) {
+  const c = conf(f);
+  const w = c.quirks.wall;
+  const level = Math.max(0, Math.min(2 + stageNumber(g), w.levelFirst + w.levelStep * (g - w.levelAt)));
+  return softCurve(w.penPerLevel * level, c.penetrationCurve);
 }
 
 /**

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../src/core/config.js";
+import { fishQuirks } from "../src/core/formula.js";
 import {
   availableFish,
   checkContent,
@@ -78,9 +79,10 @@ test("ヌシの体力は同じ段階の強い魚より多く、制限時間は�
   for (const { stage, craft, boss } of STAGE_LIST) {
     const s = FISH_LIST.find((f) => f.id === craft.scale).minigame;
     const b = FISH_LIST.find((f) => f.id === boss).minigame;
-    // 体力は 2 倍より上。防御は、いまはどちらも 0(D-380)。制限時間はヌシのほうが長い。
-    assert.ok(b.hp > 2 * s.hp, `段階 ${stage}`);
-    assert.ok(b.defense === 0 && s.defense === 0, `段階 ${stage} の防御`);
+    // 体力は 2 倍より上(くせのあるヌシは補正で下がるので 1.5 倍より上)。強い魚の防御は 0。ヌシの防御は防御の壁のくせだけ(D-381)。
+    assert.ok(b.hp > (fishQuirks("boss", stage).length > 0 ? 1.5 : 2) * s.hp, `段階 ${stage}`);
+    assert.equal(s.defense, 0, `段階 ${stage} の強い魚の防御`);
+    assert.equal(b.defense > 0, fishQuirks("boss", stage).includes("wall"), `段階 ${stage} のヌシの防御`);
     assert.ok(b.timeLimitMs > s.timeLimitMs, `段階 ${stage} の制限時間`);
     assert.ok(b.sweepMs <= s.sweepMs && b.zoneWidth <= s.zoneWidth);
     assert.deepEqual(effectiveMinigame({ minigame: b }, LIMITS), { ...b }, "限界で直されない");
@@ -117,10 +119,11 @@ test("全部の強い魚が、限界(幅 10% 以上・端から端 0.45 秒以�
 test("限界の境界:ちょうどの値はそのまま、こえた値は限界に直す", () => {
   const make = (sweepMs, zoneWidth) => ({ minigame: { sweepMs, zoneWidth, hp: 3, timeLimitMs: 9000 } });
   const pick = (m) => ({ sweepMs: m.sweepMs, zoneWidth: m.zoneWidth });
-  assert.deepEqual(pick(effectiveMinigame(make(450, 0.1), LIMITS)), { sweepMs: 450, zoneWidth: 0.1 });
-  assert.deepEqual(pick(effectiveMinigame(make(449, 0.0999), LIMITS)), { sweepMs: 450, zoneWidth: 0.1 });
-  assert.deepEqual(pick(effectiveMinigame(make(100, 0), LIMITS)), { sweepMs: 450, zoneWidth: 0.1 });
-  assert.deepEqual(pick(effectiveMinigame(make(451, 0.1001), LIMITS)), { sweepMs: 451, zoneWidth: 0.1001 });
+  // 安全の下限(0.3 秒・5%)。ふつうの魚は式の下限(0.45 秒・10%)で止まり、くせのあるヌシだけがその下に入る(D-381)。
+  assert.deepEqual(pick(effectiveMinigame(make(300, 0.05), LIMITS)), { sweepMs: 300, zoneWidth: 0.05 });
+  assert.deepEqual(pick(effectiveMinigame(make(299, 0.0499), LIMITS)), { sweepMs: 300, zoneWidth: 0.05 });
+  assert.deepEqual(pick(effectiveMinigame(make(100, 0), LIMITS)), { sweepMs: 300, zoneWidth: 0.05 });
+  assert.deepEqual(pick(effectiveMinigame(make(301, 0.0501), LIMITS)), { sweepMs: 301, zoneWidth: 0.0501 });
   assert.equal(effectiveMinigame(make(100, 0), LIMITS).hp, 3, "体力と制限時間はそのまま");
   assert.equal(effectiveMinigame({ minigame: null }, LIMITS), null);
 });

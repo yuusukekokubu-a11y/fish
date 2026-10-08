@@ -8,7 +8,7 @@ import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { defendedDamage, effectiveDefense, effectiveStats } from "../src/core/combat.js";
 import { DEFAULT_CONTENT, FISH_KINDS } from "../src/core/fish.js";
 import { createGame, PHASES, tap, update } from "../src/core/fishing.js";
-import { fishDefense, softCurve } from "../src/core/formula.js";
+import { fishDefense, fishMinigame, fishQuirks, softCurve, typicalPenetration } from "../src/core/formula.js";
 import { emptyGear } from "../src/core/gear.js";
 import { decodeSaveCode, encodeSaveCode } from "../src/core/savecode.js";
 import { maxLevel, SKILL_ROWS } from "../src/core/skills.js";
@@ -74,12 +74,17 @@ test("クリティカルの段数を重ねても、実効防御 100% 以上な�
   assert.equal(r.damage, Math.max(1, Math.round(r.rawDamage * (1 - r.effDefense))));
 });
 
-test("防御は、いまはどの魚も 0%(D-380:川からの「防御の壁」のくせとして戻す)。弱い魚はミニゲームがない", () => {
+test("防御は、くせ「防御の壁」のヌシだけ(川から:D-381)。強い魚と、壁のないヌシは 0%。弱い魚はミニゲームがない", () => {
   for (const f of DEFAULT_CONTENT.fish) {
     if (f.kind === FISH_KINDS.WEAK) assert.equal(f.minigame, null);
-    else assert.equal(f.minigame.defense, 0, f.id);
+    else if (f.kind === FISH_KINDS.STRONG) assert.equal(f.minigame.defense, 0, f.id);
+    else assert.equal(f.minigame.defense > 1, fishQuirks("boss", f.stage).includes("wall"), f.id);
   }
-  for (let g = 1; g <= 100; g++) for (const kind of /** @type {const} */ (["weak", "strong", "boss"])) assert.equal(fishDefense(kind, g), 0);
+  // 壁 = max(102%, ふつうの貫通 + 20%)。ふつうの貫通は、川の入口(g=11)で Lv9、1 体ごとに +2(最大 2 + g)。
+  assert.equal(fishMinigame("boss", 11).defense, Math.round(Math.max(1.02, typicalPenetration(11) + 0.2) * 1000) / 1000);
+  assert.ok(Math.abs(typicalPenetration(11) - softCurve(0.9, DEFAULT_CONFIG.formula.penetrationCurve)) < 1e-12);
+  assert.ok(Math.abs(typicalPenetration(30) - softCurve(3.2, DEFAULT_CONFIG.formula.penetrationCurve)) < 1e-12, "最大 2 + g で止まる");
+  for (let g = 1; g <= 100; g++) assert.equal(fishDefense("boss", g) + fishDefense("strong", g), 0, "くせの前の防御は 0");
 });
 
 test("連撃・貫:連撃の段数ごとに貫通を足す(最大 10 段、ミスで 0 に戻る)", () => {

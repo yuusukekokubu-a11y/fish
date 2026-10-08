@@ -18,8 +18,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   minigame: Object.freeze({
     zoneMargin: 0.08, // 命中範囲をゲージの端から離す幅
     // 絶対に当たらない状態にしないための限界(D-036・D-048)。
-    minZoneWidth: 0.1, // 命中範囲の幅は、ゲージの 10% より狭くしない
-    minSweepMs: 450, // 印は、端から端まで 0.45 秒より速く動かさない
+    // ふつうの魚は、式の下限(formula.zoneMin 10%・sweepMinMs 0.45 秒)で止まる。ヌシのくせ(D-381)は、ここまで狭く・速くしてよい。
+    minZoneWidth: 0.05, // 命中範囲の幅は、ゲージの 5% より狭くしない
+    minSweepMs: 300, // 印は、端から端まで 0.3 秒より速く動かさない
   }),
   // 装備なしの「戦闘の数値の表」(D-071・D-078・D-080)。装備はこれを書き換えて渡す。
   combat: Object.freeze({
@@ -60,7 +61,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     maxMissHeal: 1000000,
     maxZoneWidthBonus: 1000000,
     maxPenetration: 1000000,
-    // ルアーで広げた命中範囲の幅の上限(ゲージの 70%:D-181)。下限は minigame.minZoneWidth(10%)。
+    // ルアーで広げた命中範囲の幅の上限(ゲージの 70%:D-181)。下限は minigame.minZoneWidth(5%)。
     maxZoneWidth: 0.7,
     maxTimeLimitBonusMs: 3600000,
     // 合わせの輪の下限(スマホで反応できる範囲と、連打を通用させないための早すぎの区間)。
@@ -103,11 +104,11 @@ export const DEFAULT_CONFIG = Object.freeze({
     // 体力:強い魚 10 + 10g(20・30・40 …)。
     hpBase: 10,
     hpPerStage: 10,
-    // ヌシの体力 = 76 × g^0.64 × 1.12^g を上から 2 けた(D-380)。目安の引く回数 P(g) の装備で、ふつうの遊び方が 80% 勝つ体力に、
+    // ヌシの体力 = 77 × g^0.77 × 1.14^g を上から 2 けた(D-380・D-381)。目安の引く回数 P(g) の装備で、ふつうの遊び方が 80% 勝つ体力に、
     // シミュレーションで合わせ、式との差(±2 割)を見込んで全体を 0.9 倍にした(g=1〜30。g=31 からは、釣り場を足すときに合わせ直す)。
-    bossHpBase: 75.8,
-    bossHpPower: 0.6435,
-    bossHpGrowth: 1.1187,
+    bossHpBase: 77.3,
+    bossHpPower: 0.7685,
+    bossHpGrowth: 1.1412,
     // 目安の引く回数 P(g) = 20 × 6^((g − 1) ÷ 29) を四捨五入(g=1 で 20 回、g=30 で 120 回:D-379)。
     targetPullsFirst: 20,
     targetPullsGrowth: 1.06375,
@@ -122,7 +123,18 @@ export const DEFAULT_CONFIG = Object.freeze({
     sweepStepMs: 100,
     zoneWidth: 0.25,
     zoneStep: 0.03,
+    zoneMin: 0.1,
+    sweepMinMs: 450,
     bossStageOffset: 1,
+    // ヌシのくせ(D-379・D-381):釣り場の番号 k(港 0・磯 1・川 2 …)ごとに 1 つ。その釣り場のヌシ全部に付き、4・5 体目は 1 つ前の釣り場のくせも重ねる。
+    // narrow:命中範囲 × zoneScale(対策はルアー・芯と縁)。wall:防御 = max(floor, ふつうの貫通 + margin)(対策は貫通)。
+    // ふつうの貫通 = 貫通 Lv min(2 + g, levelFirst + levelStep ×(g − levelAt))の値(目安の引く回数 P(g) の装備の中央値に合わせた)。
+    // hpScale:くせのあるヌシの体力に掛ける数(合う装備で、ふつう + P 回が 8 割勝つように合わせた)。
+    quirks: Object.freeze({
+      byArea: Object.freeze(["", "narrow", "wall"]),
+      narrow: Object.freeze({ zoneScale: 0.6, hpScale: 0.47 }),
+      wall: Object.freeze({ floor: 1.02, margin: 0.2, penPerLevel: 0.1, levelAt: 11, levelFirst: 9, levelStep: 2, hpScale: 0.4 }),
+    }),
     // 製作の鱗:3 + 7 ×(1 − e^(−(g−1)/8.7))を四捨五入(3・4・4・5・6 … 10)。進化はヌシの鱗 1。
     craftMin: 3,
     craftMax: 10,

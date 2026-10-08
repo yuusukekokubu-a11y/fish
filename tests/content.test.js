@@ -73,8 +73,9 @@ test("磯の 5 段階目を進化すると川が解放されて移り、川の�
   while (![PHASES.CASTING, PHASES.WAITING].includes(game.phase)) update(game, 16);
   assert.equal(challengeBoss(game), true);
   assert.equal(game.cast.fish.id, "nushi-yamame");
-  // 流れの確かめなので、装備なしでも倒せるよう、この戦いだけ制限時間を延ばす(ヌシの制限時間は短い:D-366)。
+  // 流れの確かめなので、装備なしでも倒せるよう、この戦いだけ制限時間を延ばし、防御の壁(川のくせ:D-381)を外す。
   game.fight.timeLimitMs = 60000;
+  game.cast = { ...game.cast, minigame: { ...game.cast.minigame, defense: 0 } };
   play(game, 60000, SKILLED);
   assert.equal(game.results.find((r) => r.fishId === "nushi-yamame").outcome, OUTCOMES.CAUGHT);
   assert.equal(evolveGameRod(game), true);

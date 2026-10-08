@@ -16,6 +16,8 @@ import {
   fishHp,
   fishMinigame,
   fishScales,
+  fishZoneWidth,
+  fishQuirks,
   fishSweepMs,
   fishTimeLimitMs,
   gradeFactor,
@@ -139,7 +141,7 @@ test("制限時間は強い魚 8 秒 + 4 秒 × log5(g)、ヌシ 20 秒 + 2 秒 
   assert.equal(fightTimeLimit(20000, { timeLimitBonusMs: -30000 }, limits), limits.minTimeLimitMs);
 });
 
-test("ヌシの体力は 76 × g^0.64 × 1.12^g を上から 2 けた(D-380)。g=1〜2 は 120 まで。強い魚の体力は 10 + 10g、防御はどの魚も 0", () => {
+test("ヌシの体力は 77 × g^0.77 × 1.14^g を上から 2 けた(D-380)。g=1〜2 は 120 まで。強い魚の体力は 10 + 10g、防御はどの魚も 0", () => {
   const f = DEFAULT_CONFIG.formula;
   for (let g = 1; g <= 100; g++) {
     const raw = f.bossHpBase * g ** f.bossHpPower * f.bossHpGrowth ** g;
@@ -148,7 +150,22 @@ test("ヌシの体力は 76 × g^0.64 × 1.12^g を上から 2 けた(D-380)。g
     assert.equal(fishDefense("boss", g) + fishDefense("strong", g), 0);
     if (g > 1) assert.ok(fishHp("boss", g) >= fishHp("boss", g - 1), `g=${g} は前より少なくない`);
   }
-  assert.deepEqual([1, 10, 30].map((g) => fishHp("boss", g)), [85, 1000, 20000]);
+  assert.deepEqual([1, 10, 30].map((g) => fishHp("boss", g)), [88, 1700, 55000]);
   // 目安の引く回数 P(g):g=1 で 20、g=30 で 120(D-379)。
   assert.deepEqual([1, 15, 30].map((g) => targetPulls(g)), [20, 48, 120]);
+});
+
+test("ヌシのくせ(D-381):港なし・磯は狭い命中範囲・川は防御の壁。4・5 体目は 1 つ前の釣り場のくせも重ねる", () => {
+  const q = (g) => fishQuirks("boss", g);
+  assert.deepEqual([1, 5].map(q), [[], []]);
+  assert.deepEqual([6, 8, 9, 10].map(q), [["narrow"], ["narrow"], ["narrow"], ["narrow"]], "港のくせはないので、磯の 4・5 体目も狭い命中範囲だけ");
+  assert.deepEqual([11, 13, 14, 15].map(q), [["wall"], ["wall"], ["wall", "narrow"], ["wall", "narrow"]]);
+  assert.deepEqual([16, 18, 19, 20].map(q), [[], [], ["wall"], ["wall"]], "沖のくせは次の作業(いまは前の釣り場の壁だけ)");
+  assert.deepEqual(fishQuirks("strong", 14), [], "強い魚にくせはない");
+  const f = DEFAULT_CONFIG.formula;
+  // 狭い命中範囲:幅 × 0.6・体力 × 0.47。防御の壁:体力 × 0.4。重なると両方を掛ける。
+  assert.equal(fishMinigame("boss", 8).zoneWidth, Math.round(fishZoneWidth("boss", 8) * f.quirks.narrow.zoneScale * 1000) / 1000);
+  assert.equal(fishMinigame("boss", 8).hp, round2(fishHp("boss", 8) * f.quirks.narrow.hpScale));
+  assert.equal(fishMinigame("boss", 14).hp, round2(fishHp("boss", 14) * f.quirks.wall.hpScale * f.quirks.narrow.hpScale));
+  assert.equal(fishMinigame("boss", 5).zoneWidth, fishZoneWidth("boss", 5), "くせのないヌシは式のまま");
 });

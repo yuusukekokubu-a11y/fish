@@ -64,7 +64,7 @@ test("抽選:能力は 10 個。レジェンドは各 1/10 前後、自動合わ
   assert.ok(Math.abs(auto / N - 0.005) < 0.001, `自動合わせ ${auto}`);
 });
 
-test("連鎖:連撃の段数ごとに命中範囲が +1/1.5/2/3% 広がる。ミスで戻る。ルアーと合わせて 70% まで、下限 10%", () => {
+test("連鎖:連撃の段数ごとに命中範囲が +1/1.5/2/3% 広がる。ミスで戻る。ルアーと合わせて 70% まで、下限 5%(安全の下限:D-381)", () => {
   for (const [rarity, per] of [["normal", 0.01], ["rare", 0.015], ["epic", 0.02], ["legend", 0.03]]) {
     const game = fightWith(10, wearing("chain", rarity, 10));
     const base = game.cast.minigame.zoneWidth;
@@ -89,7 +89,7 @@ test("連鎖:連撃の段数ごとに命中範囲が +1/1.5/2/3% 広がる。ミ
   assert.equal(chainZoneWidth(game, 0.2), DEFAULT_CONFIG.combatLimits.maxZoneWidth);
   game.combat = { ...game.combat, zoneWidthBonus: 0 };
   game.fight.combo = 1;
-  assert.equal(chainZoneWidth(game, 0.05), DEFAULT_CONFIG.minigame.minZoneWidth);
+  assert.equal(chainZoneWidth(game, 0.01), DEFAULT_CONFIG.minigame.minZoneWidth);
   // 付けていなければ null(前と同じ道)。
   assert.equal(chainZoneWidth(fightWith(10, null), 0.2), null);
 });
