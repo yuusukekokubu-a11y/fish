@@ -18,7 +18,7 @@ const norm = (stats) => {
   return rest;
 };
 
-test("基本の表:ダメージ 10・確率 10%・倍率 1.3(D-255)・回復 10・時間の増減 0・貫通 0・ジャスト倍率 3(D-256)", () => {
+test("基本の表:ダメージ 10・確率 10%・倍率 1.3(D-255)・回復 10・時間の増減 0・貫通 0・ジャスト倍率 2(D-256・D-407)", () => {
   assert.deepEqual(norm(BASE), {
     damage: 10,
     critChance: 0.1,
@@ -27,7 +27,7 @@ test("基本の表:ダメージ 10・確率 10%・倍率 1.3(D-255)・回復 10�
     timeLimitBonusMs: 0,
     zoneWidthBonus: 0,
     penetration: 0,
-    justMultiplier: 3,
+    justMultiplier: 2,
     markerSlow: 0,
     hookWiden: 0,
     coinBonus: 0,
@@ -45,7 +45,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     timeLimitBonusMs: 0,
     zoneWidthBonus: 0,
     penetration: 0,
-    justMultiplier: 3,
+    justMultiplier: 2,
     markerSlow: 0,
     hookWiden: 0,
     coinBonus: 0,
@@ -58,7 +58,7 @@ test("範囲外の値は境目に丸める(最小ダメージ 1・回復 0 以�
     timeLimitBonusMs: 0,
     zoneWidthBonus: 0,
     penetration: 0,
-    justMultiplier: 3,
+    justMultiplier: 2,
     markerSlow: 0,
     hookWiden: 0,
     coinBonus: 0,
@@ -182,7 +182,7 @@ test("範囲外の表でも戦闘は必ず終わる(制限時間は 1 秒より�
     timeLimitBonusMs: -LIMITS.maxTimeLimitBonusMs,
     zoneWidthBonus: 0,
     penetration: 0,
-    justMultiplier: 3,
+    justMultiplier: 2,
     markerSlow: 0,
     hookWiden: 0,
     coinBonus: 0,

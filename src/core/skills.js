@@ -161,9 +161,9 @@ export const SKILL_ROWS = Object.freeze([
     name: "ジャスト・ブースト",
     type: "growth",
     target: { kind: "trigger", when: "just", effect: "justMultiplier" },
-    perLevel: 0.3,
+    perLevel: 0.08,
     display: { label: "ジャストの初撃", scale: 1, unit: " 倍", sign: "+", when: "強い魚の" },
-    description: "強い魚をジャストで合わせたときの初撃が強くなる(ジャストの初撃 +0.3 倍/レベル)。",
+    description: "強い魚をジャストで合わせたときの初撃が強くなる(ジャストの初撃 +0.08 倍/レベル)。",
   },
   {
     id: "finisher",

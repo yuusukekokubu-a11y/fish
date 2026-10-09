@@ -33,7 +33,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     timeLimitBonusMs: 0, // 魚ごとの制限時間に足す時間
     zoneWidthBonus: 0, // 命中範囲の幅を広げる割合(%。ルアー:D-181)
     penetration: 0, // 貫通(魚の防御から引く割合。1 で 100%:D-235)
-    justMultiplier: 3, // ジャスト倍率:強い魚のジャストの初撃 = 1 命中の基本のダメージ × これ(D-256)
+    justMultiplier: 2, // ジャスト倍率:強い魚のジャストの初撃 = 1 命中の基本のダメージ × これ(D-256。3 → 2:D-407)
     markerSlow: 0, // 印の動きを遅くする割合(版 7 まではおもり:D-320。版 8 からはお守りの「静め」で使う:D-392)。印の速さ ×(1 − これ)。基準の 50% より遅くしない
     hookWiden: 0, // 合わせの成功帯とジャスト帯を広げる割合(浮き:D-320)
     coinBonus: 0, // 獲得ウロコインを増やす割合(おもり:D-320・D-392。豊漁と足し算)
@@ -150,7 +150,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     craftDecay: 8.7,
     evolveCount: 1,
     // 会心率・会心の倍率・貫通・ジャスト倍率の合計の逓減(D-255・D-257・D-260)。knee までは そのまま、こえた分は soft × ln(1 + こえた分 ÷ soft)。
-    // knee は、会心率 Lv7(0.1 + 0.15 × 7)・会心威力 Lv7(1.3 + 0.05 × 7)・貫通 Lv7(0.1 × 7)・ジャスト・ブースト Lv7(3 + 0.3 × 7)の値。
+    // knee は、会心率 Lv7(0.1 + 0.15 × 7)・会心威力 Lv7(1.3 + 0.05 × 7)・貫通 Lv7(0.1 × 7)・ジャスト・ブースト Lv7(3 + 0.3 × 7。D-407 で基本 2・+0.08 にしたので、いまは Lv38 で届く)の値。
     // soft は、1 レベルの増え方の約 3.3 レベル分(会心率 0.5・会心の倍率 0.25・貫通 0.25・ジャスト倍率 1)。
     critChanceCurve: Object.freeze({ knee: 1.15, soft: 0.5 }),
     critMultiplierCurve: Object.freeze({ knee: 1.65, soft: 0.25 }),
