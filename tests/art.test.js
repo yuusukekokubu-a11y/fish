@@ -9,6 +9,9 @@ import { BACKGROUNDS, BG_HORIZON } from "../src/art/bg/index.js";
 import { BG_MINATO, MINATO_HORIZON } from "../src/art/bg/minato.js";
 import { AREA_ROWS } from "../src/core/areas.js";
 import { ART_HORIZON, areaBackground, hasAreaArt } from "../src/ui/area_bg.js";
+import { areaOfFishStage, fishArt, hasFishArt } from "../src/ui/fish_art.js";
+import { FISH_MINATO } from "../src/art/fish/minato.js";
+import { FISH_ROWS } from "../src/core/fish.js";
 import { KURODAI } from "../src/art/fish/kurodai.js";
 import { artSize, checkArt, colorCount, drawArt, fitScale, PALETTE_LIMITS, PIXEL_CHARS } from "../src/art/pixel.js";
 import { ROOT } from "./helpers.js";
@@ -68,6 +71,29 @@ test("ゲームの背景(D-385):表の 6 つの釣り場には絵があり、あ
   assert.equal(ART_HORIZON, BG_HORIZON);
   assert.equal(areaBackground("minato"), null);
   assert.equal(areaBackground(null), null);
+});
+
+test("港の魚(D-386):弱い魚 5・強い魚 5 は 32 × 32 で 16 色まで、ヌシ 5 は飾りつきの 36 × 36 で 24 色まで。どれも点検に通る", () => {
+  const harbor = FISH_ROWS.filter((r) => r.stage <= 5);
+  assert.deepEqual(Object.keys(FISH_MINATO).sort(), harbor.map((r) => r.id).sort(), "港の魚 15 匹(ヌシを含む)が全部ある");
+  for (const r of harbor) {
+    const a = FISH_MINATO[r.id];
+    assert.equal(a.id, r.id);
+    assert.equal(a.name, r.name, r.id);
+    assert.deepEqual(checkArt(a), [], r.id);
+    if (r.kind === "boss") {
+      assert.deepEqual([a.width, a.height], [36, 36], r.id);
+      assert.ok(colorCount(a) <= 24, `${r.id}:${colorCount(a)} 色`);
+    } else {
+      assert.deepEqual([a.width, a.height], [32, 32], r.id);
+      assert.ok(colorCount(a) <= PALETTE_LIMITS[32], `${r.id}:${colorCount(a)} 色`);
+    }
+  }
+  // ゲームで使う:段階 → 釣り場。港は絵があり、まだ絵のない釣り場は丸い形。画面がないとき(テスト)は読まない。
+  assert.deepEqual([1, 5, 6, 30].map(areaOfFishStage), ["minato", "minato", "iso", "shinkai"]);
+  assert.equal(hasFishArt("minato"), true);
+  assert.equal(hasFishArt("iso"), false);
+  assert.equal(fishArt({ id: "aji", stage: 1 }), null);
 });
 
 test("背景の点検:背景は透明のマスがあると問題、魚は透明のマスがないと問題", () => {
@@ -183,7 +209,7 @@ test("ゲームを開くときは、絵のデータを読み込まない。背�
   const files = importGraph(entry, false);
   assert.ok(files.length > 10, "ゲームの読み込みをたどれている");
   assert.deepEqual(files.filter((f) => f.includes(art)), [], "開いたときに読むファイルに src/art がない");
-  // あとで読むのは、釣り場の背景の絵と、描く部品だけ(魚の絵・見本のページは読まない)。
+  // あとで読むのは、釣り場の背景の絵・釣り場ごとの魚の絵(D-386)と、描く部品だけ(見本の 3 つの粗さのクロダイ・見本のページは読まない)。
   const later = importGraph(entry, true).filter((f) => f.includes(art)).map((f) => f.slice(f.indexOf(art)).split("\\").join("/"));
   assert.deepEqual(later.sort(), [
     "src/art/bg/gaiyou.js",
@@ -192,6 +218,7 @@ test("ゲームを開くときは、絵のデータを読み込まない。背�
     "src/art/bg/minato.js",
     "src/art/bg/oki.js",
     "src/art/bg/shinkai.js",
+    "src/art/fish/minato.js",
     "src/art/pixel.js",
   ]);
   // 見本のページへのリンクは、デバッグ画面の 1 か所だけ。
