@@ -1,11 +1,11 @@
 // @ts-check
-// 降臨の画面(全画面:D-396・D-397・D-403)。ウロコパワー・呼んでいるキャラ(挑む)・4 キャラ(注入する・呼ぶ)・お守り(付ける)。
+// 降臨の画面(全画面:D-396・D-397・D-403・D-409)。ウロコパワー・4 キャラ(注入する・挑む。呼んでいる相手は残りの体力も)・お守り(付ける)。
 // 文字は kourin_view.js が作る。変えたら保存して、画面を作り直す。挑むとメイン画面に戻り、夜の戦いが始まる。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { equipCharm } from "../core/charms.js";
-import { challengeRaid, refreshCombat } from "../core/fishing.js";
-import { convertScales, injectPower, summonRaid } from "../core/kourin.js";
+import { refreshCombat, startRaid } from "../core/fishing.js";
+import { convertScales, injectPower } from "../core/kourin.js";
 import { kourinView } from "./kourin_view.js";
 import { button, el } from "./list_view.js";
 
@@ -56,50 +56,35 @@ export function mountKourin(container, ctx) {
   power.append(el("h2", "crate-name", view.power.text), el("p", "crate-price", view.power.scaleText), convert, el("p", "pull-note", view.power.note));
   container.append(power);
 
-  // 呼んでいるキャラ(挑む)。
-  if (view.raid) {
-    const r = view.raid;
-    const box = el("section", "crate-card kourin-card kourin-raid");
-    box.dataset.char = r.id;
-    const head = el("div", "crate-head");
-    head.append(el("h2", "crate-name", `${r.name} Lv${r.level}`), el("span", "kourin-tries", r.triesText));
-    const go = button("挑む", "primary-button kourin-challenge");
-    go.disabled = !r.canChallenge;
-    go.addEventListener("click", () => {
-      if (!challengeRaid(game)) return;
-      ctx.storage.save(game.progress);
-      ctx.backToMain();
-    });
-    box.append(head, bar(r.ratio, "hp"), el("p", "crate-price", `${r.hpText}・${r.stepsText}`), go, el("p", "pull-note", r.note));
-    container.append(box);
-  }
-
-  // 4 キャラ(注入する・呼ぶ)。
+  // 4 キャラ(注入する・挑む:D-409)。呼んでいる相手は、残りの体力と挑戦の回数。
   const list = el("section", "kourin-chars");
   for (const ch of view.chars) {
     const card = el("div", ch.current ? "crate-card kourin-card kourin-char current" : "crate-card kourin-card kourin-char");
     card.dataset.char = ch.id;
     const head = el("div", "crate-head");
-    head.append(el("h3", "crate-name", `${ch.name} ${ch.levelText}`), el("span", "kourin-quirk", ch.quirkText));
+    head.append(el("h3", "crate-name", `${ch.name} ${ch.levelText}`), el("span", "kourin-quirk", ch.current ? ch.triesText : ch.quirkText));
     card.append(head, el("p", "crate-price", `${ch.charmText}・${ch.clearedText}`));
-    if (ch.current) {
-      card.append(el("p", "pull-note", "いま呼んでいます"));
-    } else {
-      card.append(bar(ch.ratio, "gauge"), el("p", "crate-price", ch.fillText));
-      const row = el("div", "kourin-buttons");
+    if (ch.current) card.append(bar(ch.hpRatio, "hp"), el("p", "crate-price", `${ch.hpText}・${ch.stepsText}`));
+    else card.append(bar(ch.ratio, "gauge"), el("p", "crate-price", ch.fillText));
+    const row = el("div", "kourin-buttons");
+    if (!ch.current) {
       const inject = button(ch.injectLabel, "secondary-button kourin-inject");
       inject.disabled = !ch.canInject;
       inject.addEventListener("click", () => {
         if (injectPower(game.progress, game.content, ch.id, game.config.kourin) > 0) done(`${ch.name}にウロコパワーを注入しました`);
       });
-      const call = button("呼ぶ", "primary-button kourin-summon");
-      call.disabled = !ch.canSummon;
-      call.addEventListener("click", () => {
-        if (summonRaid(game.progress, ch.id, game.content, game.config)) done(`${ch.name}を呼びました`);
-      });
-      row.append(inject, call);
-      card.append(row);
+      row.append(inject);
     }
+    const go = button("挑む", "primary-button kourin-challenge");
+    go.disabled = !ch.canStart;
+    go.addEventListener("click", () => {
+      if (!startRaid(game, ch.id)) return;
+      ctx.storage.save(game.progress);
+      ctx.backToMain();
+    });
+    row.append(go);
+    card.append(row);
+    if (ch.startNote) card.append(el("p", "pull-note", ch.startNote));
     list.append(card);
   }
   container.append(list);

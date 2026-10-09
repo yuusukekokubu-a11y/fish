@@ -23,8 +23,7 @@
   background: var(--red);
   box-shadow: inset 0 3px 0 var(--red-hi), inset 0 -3px 0 #8a1f2e;
 }
-.kourin-challenge,
-.kourin-summon {
+.kourin-challenge {
   width: 100%;
   min-height: 44px;
   margin-top: 8px;
@@ -145,11 +144,15 @@
   min-width: 0;
   font-size: 14px;
 }
-.kourin-buttons .kourin-summon {
+.kourin-buttons .kourin-challenge {
   flex: none;
   width: auto;
   margin-top: 0;
   padding: 0 16px;
+}
+/* 呼んでいる相手は「挑む」だけなので、横いっぱい(D-409)。 */
+.kourin-char.current .kourin-buttons .kourin-challenge {
+  flex: 1;
 }
 .kourin-inject {
   min-height: 44px;

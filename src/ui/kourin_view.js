@@ -3,9 +3,9 @@
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { activeCharm, CHARM_ROWS, charmValue } from "../core/charms.js";
-import { canChallengeRaid } from "../core/fishing.js";
+import { canStartRaid, PHASES } from "../core/fishing.js";
 import { percentText } from "../core/gear.js";
-import { canSummon, fillOf, injectableOf, KOURIN_ROWS, kourinById, kourinOf, kourinUnlocked, needPower, raidLevel, raidMinigame, scaleOffers } from "../core/kourin.js";
+import { fillOf, injectableOf, KOURIN_ROWS, kourinById, kourinOf, kourinUnlocked, needPower, raidLevel, raidMinigame, scaleOffers } from "../core/kourin.js";
 import { formatCount } from "./format.js";
 
 /** くせの短い説明(キャラの行の quirk)。 */
@@ -39,6 +39,7 @@ export function kourinView(game) {
   const unlocked = kourinUnlocked(progress, content);
   const raid = k.raid;
   const raidRow = raid ? kourinById(raid.char) : undefined;
+  const castingOk = game.phase === PHASES.CASTING || game.phase === PHASES.WAITING;
   const bag = progress.charms;
   const worn = activeCharm(bag, c.charmK);
   const offers = scaleOffers(progress, content, c);
@@ -53,27 +54,8 @@ export function kourinView(game) {
       // 鱗をまとめてウロコパワーに替える(D-408)。竿の製作に要る分は残す。
       convertLabel: spare > 0 ? `鱗をウロコパワーに替える(+${formatCount(sparePower)})` : "鱗をウロコパワーに替える",
       canConvert: spare > 0,
-      note: `釣り上げで貯まる(弱い魚 ${c.weakPower}・強い魚とヌシ ${c.strongPower}。魚の段階が 1 上がるごとに ${c.growth} 倍)。強い魚の鱗の余りも替えて足せます(1 枚 ${c.scalePower}・段階ごとに ${c.growth} 倍。竿の製作に要る分は残す)。ねらう相手に注入し、要る量まで貯めると呼べます`,
+      note: `釣り上げで貯まる(弱い魚 ${c.weakPower}・強い魚とヌシ ${c.strongPower}。魚の段階が 1 上がるごとに ${c.growth} 倍)。強い魚の鱗の余りも替えて足せます(1 枚 ${c.scalePower}・段階ごとに ${c.growth} 倍。竿の製作に要る分は残す)。ねらう相手に注入し、要る量まで貯めると挑めます`,
     },
-    raid:
-      raid && raidRow
-        ? (() => {
-            const level = raidLevel(k, raidRow.id);
-            const maxHp = raidMinigame(raidRow, level, config).hp;
-            const challenge = canChallengeRaid(game);
-            return {
-              id: raidRow.id,
-              name: `降臨・${raidRow.name}`,
-              level,
-              ratio: raid.hp / maxHp,
-              hpText: `残り ${formatCount(raid.hp)} / ${formatCount(maxHp)}`,
-              stepsText: `報酬 ${raid.paid} / ${c.steps}`,
-              triesText: `挑戦 ${formatCount(raid.tries)} 回`,
-              canChallenge: challenge,
-              note: challenge ? "何回でも無料で挑めます。待っていた魚は、戦いのあとに続きから" : "投げる・待つの間だけ挑めます",
-            };
-          })()
-        : null,
     chars: KOURIN_ROWS.map((row) => {
       const level = raidLevel(k, row.id);
       const charm = CHARM_ROWS.find((x) => x.id === row.charm);
@@ -81,6 +63,20 @@ export function kourinView(game) {
       const fill = fillOf(k, row.id);
       const add = injectableOf(progress, content, row.id, c);
       const current = raid?.char === row.id;
+      const maxHp = raidMinigame(row, level, config).hp;
+      const canStart = canStartRaid(game, row.id);
+      // 挑めないときの理由(D-409)。
+      const startNote = canStart
+        ? current
+          ? "何回でも無料で挑めます。待っていた魚は、戦いのあとに続きから"
+          : "挑むと呼び出して、そのまま戦います(倒すまで何回でも無料で挑めます)"
+        : raid && !current
+          ? `${raidRow?.name ?? ""}を倒すまで、ほかの相手には挑めません`
+          : !current && fill.total < need
+            ? "要る量までウロコパワーを注入すると挑めます"
+            : castingOk
+              ? ""
+              : "投げる・待つの間だけ挑めます";
       return {
         id: row.id,
         name: row.name,
@@ -93,7 +89,13 @@ export function kourinView(game) {
         fillText: `ウロコパワー ${formatCount(current ? 0 : fill.total)} / ${formatCount(need)}`,
         injectLabel: add > 0 ? `注入する(+${formatCount(add)})` : "注入できるウロコパワーはありません",
         canInject: !current && add > 0,
-        canSummon: canSummon(progress, content, c, row.id),
+        // 呼んでいる相手は、残りの体力・報酬の区切り・挑戦の回数(D-409:挑むのボタンと同じカードに)。
+        hpRatio: current && raid ? raid.hp / maxHp : 1,
+        hpText: current && raid ? `残り ${formatCount(raid.hp)} / ${formatCount(maxHp)}` : "",
+        stepsText: current && raid ? `報酬 ${raid.paid} / ${c.steps}` : "",
+        triesText: current && raid ? `挑戦 ${formatCount(raid.tries)} 回` : "",
+        canStart,
+        startNote,
       };
     }),
     charms: CHARM_ROWS.filter((row) => (bag?.levels[row.id] ?? 0) > 0).map((row) => {

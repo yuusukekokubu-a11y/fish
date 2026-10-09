@@ -10,7 +10,7 @@ import { createEffects } from "../src/ui/effects.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { progressAt } from "./helpers.js";
 
-test("港では「港を越えると」。磯からはウロコパワー・替えられる鱗・4 キャラ(Lv・くせ・お守り・注入した量・注入する・呼ぶ。D-408)", () => {
+test("港では「港を越えると」。磯からはウロコパワー・替えられる鱗・4 キャラ(Lv・くせ・お守り・注入した量・注入する・挑む。D-408・D-409)", () => {
   assert.equal(kourinView(createGame(1, { progress: progressAt(3) })).unlocked, false);
   const stage = DEFAULT_CONTENT.stageByNumber.get(7);
   const kourin = { power: 500, fills: { kani: { total: 300, scales: 100 }, ika: { total: 240, scales: 0 } }, cleared: { kani: 2 }, raid: null };
@@ -18,9 +18,8 @@ test("港では「港を越えると」。磯からはウロコパワー・替�
   const v = kourinView(game);
   assert.equal(v.unlocked, true);
   assert.deepEqual([v.power.text, v.power.scaleText, v.power.convertLabel, v.power.canConvert], ["ウロコパワー 500", "替えられる鱗 3 枚(+1920)", "鱗をウロコパワーに替える(+1920)", true]);
-  assert.equal(v.raid, null);
   assert.deepEqual(
-    v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.fillText, c.injectLabel, c.canInject, c.canSummon]),
+    v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.fillText, c.injectLabel, c.canInject, c.canStart]),
     [
       ["疾風の大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", "ウロコパワー 0 / 240", "注入する(+240)", true, false],
       ["鉄壁の大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", "ウロコパワー 300 / 960", "注入する(+500)", true, false],
@@ -31,7 +30,7 @@ test("港では「港を越えると」。磯からはウロコパワー・替�
   assert.equal(v.chars[1].ratio, 300 / 960);
 });
 
-test("呼んでいるキャラ(残りの体力・報酬の区切り・挑戦の回数)と、お守り(レベル・効果・付けているか)", () => {
+test("呼んでいるキャラ(残りの体力・報酬の区切り・挑戦の回数。挑むのボタンは同じカードに:D-409)と、お守り(レベル・効果・付けているか)", () => {
   const game = createGame(1, {
     progress: progressAt(13, "none", {
       kourin: { power: 0, fills: {}, cleared: { tako: 4 }, raid: { char: "tako", hp: 1234, tries: 2, paid: 3 } },
@@ -39,8 +38,12 @@ test("呼んでいるキャラ(残りの体力・報酬の区切り・挑戦の�
     }),
   });
   const v = kourinView(game);
-  assert.deepEqual([v.raid?.name, v.raid?.level, v.raid?.stepsText, v.raid?.triesText, v.raid?.canChallenge], ["降臨・不死の大ダコ", 5, "報酬 3 / 10", "挑戦 2 回", true]);
-  assert.match(v.raid?.hpText ?? "", /^残り 1234 \/ /);
+  const tako = v.chars.find((c) => c.id === "tako");
+  assert.deepEqual([tako?.current, tako?.levelText, tako?.stepsText, tako?.triesText, tako?.canStart], [true, "Lv5", "報酬 3 / 10", "挑戦 2 回", true]);
+  assert.match(tako?.hpText ?? "", /^残り 1234 \/ /);
+  // ほかの相手は、呼んでいる相手を倒すまで挑めない。
+  const ebi = v.chars.find((c) => c.id === "ebi");
+  assert.deepEqual([ebi?.canStart, ebi?.startNote], [false, "不死の大ダコを倒すまで、ほかの相手には挑めません"]);
   assert.deepEqual(
     v.charms.map((c) => [c.name, c.levelText, c.effectText, c.equipped]),
     [

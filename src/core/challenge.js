@@ -7,7 +7,7 @@ import { refundBait } from "./bait.js";
 import { makeBossCast } from "./casts.js";
 import { charmEffect } from "./charms.js";
 import { PHASES, refreshCombat, reresolve, startFight } from "./fishing.js";
-import { kourinOf, makeRaidCast } from "./kourin.js";
+import { canSummon, kourinOf, makeRaidCast, summonRaid } from "./kourin.js";
 import { canChallengeStep, canCraft, canEvolve, COUNT_MAX, craftRod, currentStage, evolveRod } from "./rod.js";
 
 /** 今の段階の表の行(製作の鱗・ヌシ・進化の鱗)。 */
@@ -106,4 +106,22 @@ export function challengeRaid(/** @type {any} */ game) {
   game.autoHooked = false;
   startFight(game, null);
   return true;
+}
+
+/**
+ * 降臨の相手 id に挑めるか(D-409:呼ぶと挑むを 1 つにした)。投げる・待つの間だけ。
+ * 呼んでいる相手なら挑める。誰も呼んでいなければ、要る量まで注入した相手を呼んで、そのまま挑める。ほかの相手を呼んでいる間は挑めない。
+ */
+export function canStartRaid(/** @type {any} */ game, /** @type {string} */ id) {
+  const phaseOk = game.phase === PHASES.CASTING || game.phase === PHASES.WAITING;
+  const raid = kourinOf(game.progress).raid;
+  if (!phaseOk) return false;
+  return raid ? raid.char === id : canSummon(game.progress, game.content, game.config.kourin, id);
+}
+
+/** 降臨の相手 id に挑む(呼んでいなければ呼んでから:D-409)。挑めたら true。 */
+export function startRaid(/** @type {any} */ game, /** @type {string} */ id) {
+  if (!canStartRaid(game, id)) return false;
+  if (!kourinOf(game.progress).raid && !summonRaid(game.progress, id, game.content, game.config)) return false;
+  return challengeRaid(game);
 }
