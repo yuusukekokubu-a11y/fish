@@ -105,11 +105,11 @@ export function playPull(root, result, crateName, onClose, link = null, scrap = 
   const lid = el("div", "fx-crate-lid");
   lid.append(el("div", "fx-crate-latch"));
   box.append(el("div", "fx-beam"), lid, el("div", "fx-crate-body", crateName));
-  const rays = el("div", "fx-rays");
-  stage.append(rays, box);
+  stage.append(box);
   const flash = el("div", "fx-flash");
   const hint = el("div", "fx-hint", "タップで飛ばす");
-  overlay.append(stage, flash, hint);
+  // 光の筋は舞台(stage)の外に置く(舞台の中に置くと、舞台が縦に伸びて右にスクロールの棒が出る)。
+  overlay.append(el("div", "fx-rays"), stage, flash, hint);
   root.append(overlay);
 
   /** @type {ReturnType<typeof setTimeout>[]} */
@@ -122,6 +122,7 @@ export function playPull(root, result, crateName, onClose, link = null, scrap = 
     for (const t of timers) clearTimeout(t);
     overlay.classList.remove("flashing");
     stage.replaceChildren();
+    overlay.querySelector(".fx-rays")?.remove();
     const single = result.items.length === 1;
     const rank = RARITY_RANK[result.best] ?? 0;
     // 一番良いレア度がエピック以上なら、大きな見出しと紙吹雪。光の筋は結果の後ろで回り続ける。
