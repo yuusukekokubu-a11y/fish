@@ -1,4 +1,4 @@
-// 降臨(レイド風:D-396・D-397・D-403)の計算本体のテスト。
+// 降臨(レイド風:D-396・D-397・D-403・D-408)の計算本体のテスト。
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -11,15 +11,15 @@ import {
   addCatchPower,
   canSummon,
   catchPower,
+  convertScales,
+  injectableOf,
   injectPower,
   KOURIN_ROWS,
   kourinUnlocked,
   makeRaidCast,
   needPower,
-  planInject,
   raidMinigame,
   scaleOffers,
-  scaleRoomOf,
   summonRaid,
 } from "../src/core/kourin.js";
 import { decodeSave, encodeSave } from "../src/core/save.js";
@@ -73,9 +73,8 @@ test("解放は港を越えたら(磯の段階 6 から)。ウロコパワーは
   assert.equal(kourinUnlocked(progressAt(6), DEFAULT_CONTENT), true);
   assert.deepEqual([catchPower("weak", false, 1, C), catchPower("strong", false, 1, C), catchPower("boss", false, 1, C), catchPower("strong", true, 1, C)], [1, 5, 5, 1]);
   assert.deepEqual([catchPower("weak", false, 6, C), catchPower("strong", false, 8, C)], [32, 640], "段階 6 は 32 倍、段階 8 は 128 倍");
-  // 要る量:240 × 2^(レベル − 1)。鱗で入れられるのは半分まで。竿の段階には依らない。
+  // 要る量:240 × 2^(レベル − 1)。竿の段階には依らない。
   assert.deepEqual([needPower(1, C), needPower(3, C), needPower(8, C)], [240, 960, 30720]);
-  assert.equal(scaleRoomOf(3, C), 480);
   const p = progressAt(5);
   assert.equal(addCatchPower(p, DEFAULT_CONTENT, "strong", false, 5, C), 0, "港では貯まらない");
   assert.equal(p.kourin, undefined);
@@ -96,7 +95,7 @@ test("釣りの中でウロコパワーが貯まる:弱い魚を釣り上げる�
   assert.equal(game.progress.kourin.power, want);
 });
 
-test("注入する:鱗(1 枚の量が多い順・要る量の半分まで。最後の 1 枚はこえる分を切り捨て)から、残りを貯めたウロコパワーで。鱗はレベル基準で、低い段階ほど少ない(D-403)", () => {
+test("鱗をまとめてウロコパワーに替える(上限なし。竿の製作に要る分とヌシの鱗は残す)。1 枚 10 × 2^(段階 − 1)(D-408)", () => {
   const stage = DEFAULT_CONTENT.stageByNumber.get(8);
   const old = DEFAULT_CONTENT.stageByNumber.get(7).craft.scale;
   const older = DEFAULT_CONTENT.stageByNumber.get(5).craft.scale;
@@ -111,25 +110,36 @@ test("注入する:鱗(1 枚の量が多い順・要る量の半分まで。最�
     ],
   );
   assert.equal(scaleOffers({ ...p, rodStep: "crafted" }, DEFAULT_CONTENT, C)[0].count, stage.craft.count + 2, "製作済みなら今の段階の鱗も全部");
-  // Lv1 の相手(要る 240・鱗は 120 まで):段階 8 の鱗 1 枚で鱗の分は埋まる(切り捨て)。残りはウロコパワー。
-  p.kourin = { power: 1000, fills: {}, cleared: {}, raid: null };
-  assert.deepEqual(planInject(p, DEFAULT_CONTENT, "ebi", C), { take: [{ fishId: stage.craft.scale, count: 1 }], scales: 1, fromScales: 120, fromPower: 120 });
-  // Lv8 の相手(要る 30720・鱗は 15360 まで):鱗は全部(2 × 1280 + 3 × 640 + 160)、ウロコパワーも全部。
-  p.kourin.cleared.kani = 7;
-  const plan = planInject(p, DEFAULT_CONTENT, "kani", C);
-  assert.deepEqual([plan.scales, plan.fromScales, plan.fromPower], [6, 2560 + 1920 + 160, 1000]);
-  injectPower(p, DEFAULT_CONTENT, "kani", C);
-  assert.deepEqual(p.kourin.fills.kani, { total: 4640 + 1000, scales: 4640 });
-  assert.equal(p.kourin.power, 0);
+  assert.deepEqual(convertScales(p, DEFAULT_CONTENT, C), { scales: 6, power: 2560 + 1920 + 160 });
+  assert.equal(p.kourin.power, 4640);
   assert.equal(p.scales[stage.craft.scale], stage.craft.count, "製作の分は残る");
   assert.equal(p.scales[old], undefined);
   assert.equal(p.scales[stage.boss], 4, "ヌシの鱗はそのまま");
+  assert.deepEqual(convertScales(p, DEFAULT_CONTENT, C), { scales: 0, power: 0 }, "もう替えられる鱗はない");
+  // 港(未解放)では替えられない。
+  const harbor = progressAt(3, "crafted", { scales: { [DEFAULT_CONTENT.stageByNumber.get(3).craft.scale]: 5 } });
+  assert.deepEqual(convertScales(harbor, DEFAULT_CONTENT, C), { scales: 0, power: 0 });
+  assert.equal(harbor.kourin, undefined);
+});
+
+test("注入する:貯めたウロコパワーから、要る量まで(鱗の分の上限はない:D-408)。呼んでいる相手には注入しない", () => {
+  const p = progressAt(8, "none", { kourin: { power: 1000, fills: {}, cleared: {}, raid: null } });
+  // Lv1 の相手(要る 240)には 240 だけ。
+  assert.equal(injectableOf(p, DEFAULT_CONTENT, "ebi", C), 240);
+  assert.equal(injectPower(p, DEFAULT_CONTENT, "ebi", C), 240);
+  assert.deepEqual([p.kourin.fills.ebi, p.kourin.power], [{ total: 240, scales: 0 }, 760]);
+  assert.equal(injectPower(p, DEFAULT_CONTENT, "ebi", C), 0, "満たした相手には入らない");
+  assert.equal(canSummon(p, DEFAULT_CONTENT, C, "ebi"), true);
+  // Lv8 の相手(要る 30720)には、ある分を全部。前の決まりで鱗から入れた分(scales)は、記録としてそのまま残る。
+  p.kourin.cleared.kani = 7;
+  p.kourin.fills.kani = { total: 15360, scales: 15360 };
+  assert.equal(injectPower(p, DEFAULT_CONTENT, "kani", C), 760);
+  assert.deepEqual([p.kourin.fills.kani, p.kourin.power], [{ total: 16120, scales: 15360 }, 0]);
   assert.equal(canSummon(p, DEFAULT_CONTENT, C, "kani"), false, "要る量に届くまで呼べない");
-  // 鱗の分の上限に届いた相手には、鱗はもう入れない。
-  const q = progressAt(8, "crafted", { scales: { [stage.craft.scale]: 40 }, kourin: { power: 0, fills: { ebi: { total: 120, scales: 120 } }, cleared: {}, raid: null } });
-  assert.equal(planInject(q, DEFAULT_CONTENT, "ebi", C).scales, 0);
-  // 港(未解放)では注入できない。
-  assert.equal(planInject(progressAt(3, "crafted", { scales: { [DEFAULT_CONTENT.stageByNumber.get(3).craft.scale]: 5 } }), DEFAULT_CONTENT, "ebi", C).scales, 0);
+  // 呼んでいる相手・表にない相手・港(未解放)には注入しない。
+  const q = progressAt(8, "none", { kourin: { power: 500, fills: {}, cleared: {}, raid: { char: "tako", hp: 10, tries: 0, paid: 0 } } });
+  assert.deepEqual([injectableOf(q, DEFAULT_CONTENT, "tako", C), injectableOf(q, DEFAULT_CONTENT, "nope", C)], [0, 0]);
+  assert.equal(injectableOf(progressAt(3, "none", { kourin: { power: 500, fills: {}, cleared: {}, raid: null } }), DEFAULT_CONTENT, "ebi", C), 0);
 });
 
 test("呼ぶ:要る量まで注入した・呼んでいない・解放済みのとき。注入した分は使い切り、体力は段階のヌシ(キャラのくせの補正つき)× 6", () => {

@@ -1,6 +1,6 @@
 // @ts-check
 // 降臨(レイド風:D-396・D-397)。4 キャラ(疾風の大エビ・鉄壁の大ガニ・不死の大ダコ・刹那の大イカ)に、挑戦ごとのダメージを積み重ねて挑む。
-// - ウロコパワー(D-403):釣り上げで貯め(魚の段階で増える)、ねらう相手に注入する。強い魚の鱗の余りも注入できる(要る量の半分まで)。
+// - ウロコパワー(D-403・D-408):釣り上げで貯め(魚の段階で増える)、強い魚の鱗の余りも替えて足せる(上限なし)。貯めた分を、ねらう相手に注入する。
 //   相手ごとに、レベルに応じた量が要る。満たした相手を呼び、倒すまで何回でも無料で挑める。竿の段階には依らない。
 // - キャラごとにレベル 1 から。レベル n の体力 = 段階 n のヌシの体力(キャラのくせの補正つき)× hpRatio。
 // - 削った量の 10% ごとに区切りの報酬、討伐でそのキャラのお守り(レベル n を倒すとレベル n)。
@@ -46,7 +46,7 @@ export const KOURIN_COLOR = "#9b5cff";
  */
 
 /**
- * 相手ごとに注入した量。total は合計、scales はそのうち鱗から入れた分(D-403)。
+ * 相手ごとに注入した量。total は合計、scales はそのうち鱗から入れた分(D-403 の記録。D-408 から鱗はウロコパワーに替えてから注入するので、増えない。保存の形のため残す)。
  * @typedef {{ total: number, scales: number }} Fill
  */
 
@@ -117,11 +117,6 @@ export function needPower(level, c) {
   return Math.round(c.need * stageScale(level, c));
 }
 
-/** 要る量のうち、鱗で注入できる量。 @param {number} level @param {KourinConfig} c */
-export function scaleRoomOf(level, c) {
-  return Math.floor(needPower(level, c) * c.scaleShare);
-}
-
 /** 相手に注入した量(なければ 0)。 @param {KourinState} k @param {string} id @returns {Fill} */
 export function fillOf(k, id) {
   return k.fills[id] ?? { total: 0, scales: 0 };
@@ -149,7 +144,7 @@ export function addCatchPower(progress, content, kind, bait, stage, c) {
 }
 
 /**
- * 注入できる鱗(1 枚の量が多い順)。強い魚の鱗だけ。今の竿の段階の鱗は、未製作なら製作に要る分を残した余り。
+ * ウロコパワーに替えられる鱗(1 枚の量が多い順)。強い魚の鱗だけ。今の竿の段階の鱗は、未製作なら製作に要る分を残した余り。
  * 1 枚の量(each)は scalePower × growth^(鱗の段階 − 1)。
  * @param {any} progress @param {any} content @param {KourinConfig} c
  * @returns {{ fishId: string, stage: number, count: number, each: number }[]}
@@ -169,48 +164,46 @@ export function scaleOffers(progress, content, c) {
 }
 
 /**
- * 相手 id に注入する計画:まず鱗(1 枚の量が多い順、鱗で入れられる量まで。最後の 1 枚は、こえる分を切り捨てる)、
- * 残りを貯めているウロコパワーで。要る量まで。
- * @param {any} progress @param {any} content @param {string} id @param {KourinConfig} c
- * @returns {{ take: { fishId: string, count: number }[], scales: number, fromScales: number, fromPower: number }}
+ * 鱗をまとめてウロコパワーに替える(D-408。scaleOffers の全部。上限なし)。替えた鱗の枚数と増えたウロコパワーを返す。
+ * @param {any} progress @param {any} content @param {KourinConfig} c
+ * @returns {{ scales: number, power: number }}
  */
-export function planInject(progress, content, id, c) {
-  /** @type {{ fishId: string, count: number }[]} */
-  const take = [];
-  const none = { take, scales: 0, fromScales: 0, fromPower: 0 };
-  const k = kourinOf(progress);
-  if (!kourinUnlocked(progress, content) || !kourinById(id)) return none;
-  const level = raidLevel(k, id);
-  const fill = fillOf(k, id);
-  let room = Math.max(0, needPower(level, c) - fill.total);
-  let scaleRoom = Math.min(room, Math.max(0, scaleRoomOf(level, c) - fill.scales));
+export function convertScales(progress, content, c) {
+  if (!kourinUnlocked(progress, content)) return { scales: 0, power: 0 };
   let scales = 0;
-  let fromScales = 0;
+  let power = 0;
   for (const o of scaleOffers(progress, content, c)) {
-    if (scaleRoom <= 0) break;
-    const n = Math.min(o.count, Math.ceil(scaleRoom / o.each));
-    const add = Math.min(n * o.each, scaleRoom);
-    take.push({ fishId: o.fishId, count: n });
-    scales += n;
-    fromScales += add;
-    scaleRoom -= add;
+    progress.scales[o.fishId] -= o.count;
+    if (progress.scales[o.fishId] === 0) delete progress.scales[o.fishId];
+    scales += o.count;
+    power += o.count * o.each;
   }
-  room -= fromScales;
-  const fromPower = Math.min(k.power, room);
-  return { take, scales, fromScales, fromPower };
+  if (power > 0) {
+    const k = ensureKourin(progress);
+    k.power = addCount(k.power, power);
+  }
+  return { scales, power };
 }
 
-/** 相手 id に注入する(planInject のとおり)。注入した計画を返す。 @param {any} progress @param {any} content @param {string} id @param {KourinConfig} c */
+/**
+ * 相手 id に注入できる量(貯めているウロコパワーから、要る量まで:D-408)。
+ * @param {any} progress @param {any} content @param {string} id @param {KourinConfig} c
+ */
+export function injectableOf(progress, content, id, c) {
+  const k = kourinOf(progress);
+  if (!kourinUnlocked(progress, content) || !kourinById(id) || k.raid?.char === id) return 0;
+  return Math.min(k.power, Math.max(0, needPower(raidLevel(k, id), c) - fillOf(k, id).total));
+}
+
+/** 相手 id に注入する(injectableOf の量)。注入した量を返す。 @param {any} progress @param {any} content @param {string} id @param {KourinConfig} c */
 export function injectPower(progress, content, id, c) {
-  const plan = planInject(progress, content, id, c);
-  if (plan.fromScales + plan.fromPower === 0) return plan;
+  const add = injectableOf(progress, content, id, c);
+  if (add <= 0) return 0;
   const k = ensureKourin(progress);
-  for (const t of plan.take) progress.scales[t.fishId] -= t.count;
-  for (const t of plan.take) if (progress.scales[t.fishId] === 0) delete progress.scales[t.fishId];
   const fill = fillOf(k, id);
-  k.fills[id] = { total: fill.total + plan.fromScales + plan.fromPower, scales: fill.scales + plan.fromScales };
-  k.power -= plan.fromPower;
-  return plan;
+  k.fills[id] = { total: fill.total + add, scales: fill.scales };
+  k.power -= add;
+  return add;
 }
 
 /** 相手 id が要る量まで満たされているか。 @param {KourinState} k @param {string} id @param {KourinConfig} c */

@@ -10,22 +10,22 @@ import { createEffects } from "../src/ui/effects.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { progressAt } from "./helpers.js";
 
-test("港では「港を越えると」。磯からはウロコパワー・注入できる鱗・4 キャラ(Lv・くせ・お守り・注入した量・注入する・呼ぶ)", () => {
+test("港では「港を越えると」。磯からはウロコパワー・替えられる鱗・4 キャラ(Lv・くせ・お守り・注入した量・注入する・呼ぶ。D-408)", () => {
   assert.equal(kourinView(createGame(1, { progress: progressAt(3) })).unlocked, false);
   const stage = DEFAULT_CONTENT.stageByNumber.get(7);
   const kourin = { power: 500, fills: { kani: { total: 300, scales: 100 }, ika: { total: 240, scales: 0 } }, cleared: { kani: 2 }, raid: null };
   const game = createGame(1, { progress: progressAt(7, "crafted", { scales: { [stage.craft.scale]: 3 }, kourin }) });
   const v = kourinView(game);
   assert.equal(v.unlocked, true);
-  assert.deepEqual([v.power.text, v.power.scaleText], ["ウロコパワー 500", "注入できる鱗 3 枚"]);
+  assert.deepEqual([v.power.text, v.power.scaleText, v.power.convertLabel, v.power.canConvert], ["ウロコパワー 500", "替えられる鱗 3 枚(+1920)", "鱗をウロコパワーに替える(+1920)", true]);
   assert.equal(v.raid, null);
   assert.deepEqual(
-    v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.fillText, c.scaleText, c.injectLabel, c.canInject, c.canSummon]),
+    v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.fillText, c.injectLabel, c.canInject, c.canSummon]),
     [
-      ["疾風の大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", "ウロコパワー 0 / 240", "鱗から 0 / 120", "注入する(+240・鱗 1 枚)", true, false],
-      ["鉄壁の大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", "ウロコパワー 300 / 960", "鱗から 100 / 480", "注入する(+660・鱗 1 枚)", true, false],
-      ["不死の大ダコ", "Lv1", "自動回復", "倒すと 和らぎの守り", "まだ討伐していない", "ウロコパワー 0 / 240", "鱗から 0 / 120", "注入する(+240・鱗 1 枚)", true, false],
-      ["刹那の大イカ", "Lv1", "制限時間が短い", "倒すと 刻の守り", "まだ討伐していない", "ウロコパワー 240 / 240", "鱗から 0 / 120", "注入できるものはありません", false, true],
+      ["疾風の大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", "ウロコパワー 0 / 240", "注入する(+240)", true, false],
+      ["鉄壁の大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", "ウロコパワー 300 / 960", "注入する(+500)", true, false],
+      ["不死の大ダコ", "Lv1", "自動回復", "倒すと 和らぎの守り", "まだ討伐していない", "ウロコパワー 0 / 240", "注入する(+240)", true, false],
+      ["刹那の大イカ", "Lv1", "制限時間が短い", "倒すと 刻の守り", "まだ討伐していない", "ウロコパワー 240 / 240", "注入できるウロコパワーはありません", false, true],
     ],
   );
   assert.equal(v.chars[1].ratio, 300 / 960);

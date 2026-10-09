@@ -10,7 +10,7 @@ import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { DEFAULT_CONTENT, makeContent } from "../../src/core/fish.js";
 import { challengeRaid, createGame, currentMarker, fightSweepMs, PHASES, tap, update } from "../../src/core/fishing.js";
 import { fishMinigame, fishSweepMs, fishZoneWidth } from "../../src/core/formula.js";
-import { KOURIN_ROWS, needPower, raidMinigame } from "../../src/core/kourin.js";
+import { convertScales, KOURIN_ROWS, needPower, raidMinigame } from "../../src/core/kourin.js";
 import { grownItems, hitChance, MIN_TAP_GAP_MS, playRng, progressWith, STANDARD_PLAY, unlimitedContent } from "./builds.js";
 
 const CONTENT = DEFAULT_CONTENT;
@@ -79,7 +79,7 @@ test("降臨:4 キャラとも、目安の装備とふつうの遊び方で 2〜
   console.log(`降臨を倒すまでの挑戦の回数(中央値):\n${lines.join("\n")}`);
 });
 
-test("ウロコパワー(D-403):上手に釣り続けると、シミュレーションの 1 時間で、竿と同じレベルの相手に要る量の 1.5〜3.5 倍(実際の遊びで約 1 時間に 1 回)", () => {
+test("ウロコパワー(D-403・D-408):上手に釣り続けると、シミュレーションの 1 時間で、竿と同じレベルの相手に要る量の 1.5〜3.5 倍。鱗を替えた分も足すと 2.5〜5 倍(実際の遊びで約 1 時間に 1〜2 回)", () => {
   const lines = [];
   for (const g of [6, 8, 10, 13]) {
     const game = createGame(11, { progress: progressWith(g, []), content: CONTENT });
@@ -92,9 +92,13 @@ test("ウロコパワー(D-403):上手に釣り続けると、シミュレーシ
         if (Math.abs(currentMarker(game) - (z.start + z.end) / 2) < 0.03) tap(game);
       } else if (game.phase === PHASES.RESTING) tap(game);
     }
-    const ratio = (game.progress.kourin?.power ?? 0) / needPower(g, DEFAULT_CONFIG.kourin);
-    lines.push(`g=${g}:${ratio.toFixed(2)} 回分(弱い魚 ${game.counts.weak}・強い魚 ${game.counts.strong}・逃げた ${game.counts.escaped})`);
+    const need = needPower(g, DEFAULT_CONFIG.kourin);
+    const ratio = (game.progress.kourin?.power ?? 0) / need;
+    const converted = convertScales(game.progress, CONTENT, DEFAULT_CONFIG.kourin);
+    const total = (game.progress.kourin?.power ?? 0) / need;
+    lines.push(`g=${g}:釣り ${ratio.toFixed(2)} 回分・鱗 ${converted.scales} 枚を替えて 合計 ${total.toFixed(2)} 回分(弱い魚 ${game.counts.weak}・強い魚 ${game.counts.strong}・逃げた ${game.counts.escaped})`);
     assert.ok(ratio >= 1.5 && ratio <= 3.5, `g=${g}:${ratio}`);
+    assert.ok(total >= 2.5 && total <= 5, `g=${g}:合計 ${total}`);
   }
   console.log(`1 時間(シミュレーション)で貯まるウロコパワー(竿と同じレベルの相手に要る量の何回分か):\n${lines.join("\n")}`);
 });
