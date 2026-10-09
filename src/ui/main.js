@@ -48,6 +48,7 @@ import { defenseBadge, fightBadges, gaugeBands } from "./fight_view.js";
 import { playPull } from "./gacha_fx.js";
 import { glovePullView, retryLabel } from "./glove_view.js";
 import { drawScene } from "./draw.js";
+import { areaBackground } from "./area_bg.js";
 import { createPlayLogRecorder, loadPlayLog, PLAY_LOG_KEY, playLogKeyFor } from "./play_log_view.js";
 import {
   addGrazeEffects,
@@ -332,6 +333,9 @@ function main() {
   let colorFrom = sceneColors(game);
   let colorTo = colorFrom;
   let colorStart = 0;
+  // 釣り場の背景の絵(D-385):移ったら 0.5 秒で前の絵から重ねて切り替える。絵は、いまの釣り場の分だけ読む。
+  let artFrom = /** @type {string | null} */ (null);
+  let artTo = currentArea(game.progress, game.content).id;
 
   // 目次(ドロワー)と全画面(D-152・D-153)。どちらかが開いている間は、釣りを止める(D-134)。
   const app = document.getElementById("app");
@@ -503,6 +507,8 @@ function main() {
       colorFrom = mixColors(colorFrom, colorTo, (now - colorStart) / COLOR_FADE_MS);
       colorTo = target;
       colorStart = now;
+      artFrom = artTo;
+      artTo = currentArea(game.progress, game.content).id;
     }
     const rect = sceneSize;
     // 補正が − のときは、縮む輪と動く印を、その分だけ先の位置で描く(判定は押した時刻のまま:D-285)。
@@ -510,6 +516,7 @@ function main() {
     const viewMs = game.phaseMs + (game.phase === PHASES.BITE || game.phase === PHASES.MINIGAME ? lead : 0);
     const view = {
       colors: mixColors(colorFrom, colorTo, (now - colorStart) / COLOR_FADE_MS),
+      art: { from: areaBackground(artFrom), to: areaBackground(artTo), t: (now - colorStart) / COLOR_FADE_MS },
       phase: game.phase,
       progress: game.phase === PHASES.RESTING ? 0 : Math.min(1, viewMs / phaseDuration(game)),
       fish: game.phase === PHASES.RESULT && game.lastResult.fishId ? fishById(game.lastResult.fishId, game.content) : game.cast.fish,

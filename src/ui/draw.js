@@ -1,6 +1,7 @@
-// 画面の絵を、画像素材を使わずに簡素な図形で描く。
+// 画面の絵を描く。背景は釣り場のドット絵(D-385。まだ読んでいない・絵のない釣り場は色の段)、ほかは簡素な図形。
 
 import { PHASES } from "../core/fishing.js";
+import { ART_HORIZON } from "./area_bg.js";
 
 const COLORS = {
   skyTop: "#7ec8e3",
@@ -50,24 +51,65 @@ function paintBackground(ctx, w, h, waterY, colors) {
   ctx.fillRect(0, waterY, w, h - waterY);
 }
 
-// 空と海は、色と大きさが変わらない間は、描いた絵を取っておいて写すだけにする(毎回の色の重ね塗りは重い:D-284)。
-const background = { key: "", canvas: null };
+/**
+ * 背景の絵(1 マス = 1 画素の canvas:D-385)を、画面の幅に合わせて拡大して描く。水平線(ART_HORIZON 行目)を水面 waterY に合わせる。
+ * 絵が画面の上や下に届かないところは、絵のいちばん上・いちばん下の行を伸ばして埋める。補間はしない(ドットのまま)。
+ */
+function paintArt(ctx, w, h, waterY, image) {
+  const s = w / image.width;
+  const top = waterY - ART_HORIZON * s;
+  const bottom = top + image.height * s;
+  ctx.imageSmoothingEnabled = false;
+  if (top > 0) ctx.drawImage(image, 0, 0, image.width, 1, 0, 0, w, top + 1);
+  if (bottom < h) ctx.drawImage(image, 0, image.height - 1, image.width, 1, 0, bottom - 1, w, h - bottom + 1);
+  ctx.drawImage(image, 0, top, w, image.height * s);
+}
 
-function drawBackground(ctx, w, h, waterY, colors = null) {
-  const ratio = typeof ctx.getTransform === "function" ? Math.abs(ctx.getTransform().a) || 1 : 1;
-  const key = `${w}x${h}@${ratio}:${colors ? [...colors.sky, ...colors.sea].join(",") : ""}`;
-  if (typeof document === "undefined") return paintBackground(ctx, w, h, waterY, colors);
-  if (background.key !== key) {
-    const canvas = background.canvas ?? document.createElement("canvas");
+// 空と海は、色・絵と大きさが変わらない間は、描いた絵を取っておいて写すだけにする(毎回の色の重ね塗りは重い:D-284)。
+// 釣り場を移る間(0.5 秒)は、前と次の 2 枚を取っておいて重ねる(D-385)。
+/** @type {Map<string, HTMLCanvasElement>} */
+const layers = new Map();
+/** @type {WeakMap<HTMLCanvasElement, number>} */
+const imageIds = new WeakMap();
+let nextImageId = 1;
+
+/** 1 枚の背景(絵があれば絵、なければ色の段)を、取っておいた canvas で返す。 */
+function backgroundLayer(w, h, ratio, waterY, colors, image) {
+  if (image && !imageIds.has(image)) imageIds.set(image, nextImageId++);
+  const what = image ? `art${imageIds.get(image)}` : colors ? [...colors.sky, ...colors.sea].join(",") : "";
+  const key = `${w}x${h}@${ratio}:${what}`;
+  let canvas = layers.get(key);
+  if (!canvas) {
+    if (layers.size >= 4) layers.clear();
+    canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(w * ratio));
     canvas.height = Math.max(1, Math.round(h * ratio));
     const bg = canvas.getContext("2d");
     bg.setTransform(ratio, 0, 0, ratio, 0, 0);
-    paintBackground(bg, w, h, waterY, colors);
-    background.canvas = canvas;
-    background.key = key;
+    if (image) paintArt(bg, w, h, waterY, image);
+    else paintBackground(bg, w, h, waterY, colors);
+    layers.set(key, canvas);
   }
-  ctx.drawImage(background.canvas, 0, 0, w, h);
+  return canvas;
+}
+
+/**
+ * 空と海を描く。art は釣り場の背景の絵({ from, to, t }:to が いまの釣り場、from が前の釣り場、t は切り替えの進み 0〜1)。
+ * 絵がない(まだ読んでいない・表にない釣り場)ときは、colors の色の段で描く。
+ */
+function drawBackground(ctx, w, h, waterY, colors = null, art = null) {
+  if (typeof document === "undefined") return paintBackground(ctx, w, h, waterY, colors);
+  const ratio = typeof ctx.getTransform === "function" ? Math.abs(ctx.getTransform().a) || 1 : 1;
+  const to = backgroundLayer(w, h, ratio, waterY, colors, art?.to ?? null);
+  const t = art ? Math.min(1, Math.max(0, art.t)) : 1;
+  if (art?.from && t < 1) {
+    ctx.drawImage(backgroundLayer(w, h, ratio, waterY, colors, art.from), 0, 0, w, h);
+    ctx.globalAlpha = t;
+    ctx.drawImage(to, 0, 0, w, h);
+    ctx.globalAlpha = 1;
+    return;
+  }
+  ctx.drawImage(to, 0, 0, w, h);
 }
 
 /** 残りの割合(0〜1)を、細い横のバーで描く。 */
@@ -217,7 +259,7 @@ function drawCrate(ctx, x, y, size) {
  */
 export function drawScene(ctx, w, h, view, timeMs) {
   const waterY = h * 0.42;
-  drawBackground(ctx, w, h, waterY, view.colors ?? null);
+  drawBackground(ctx, w, h, waterY, view.colors ?? null, view.art ?? null);
 
   // 竿と糸。竿先は画面の下の真ん中から右上へ。
   const rodBase = { x: w * 0.82, y: h * 0.98 };
