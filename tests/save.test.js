@@ -40,11 +40,13 @@ function sample() {
 
 // 出会ったスキルの印(power=A・crit-rate=B・core=Q・edge=R → 2^0 + 2^1 + 2^16 + 2^17 を 36 進数で)。
 const SEEN_MASK = (2 ** 0 + 2 ** 1 + 2 ** 16 + 2 ** 17).toString(36);
-// 版 7 で足したグローブの 2 つの欄(判定 0 回・次の番号 1・装着なし・持ち物なし:D-335)。
-const GLOVES = "~0.1.~";
+// 版 7 で足したグローブの 2 つの欄(判定 0 回・次の番号 1・装着なし・欠片 0(版 12:D-410)・持ち物なし:D-335)。
+const GLOVES = "~0.1..0~";
 // 版 8 で足した降臨とお守りの 2 つの欄(版 10 の形:ウロコパワー 0・注入なし・呼び出しなし・お守りなし:D-392・D-397・D-403)。
 const KOURIN = "~0.......~.~";
 const TAIL = `${GLOVES}${KOURIN}`;
+// 版 11 までのグローブの頭(欠片の数がない形)。
+const OLD_GLOVES = "~0.1.~";
 
 /** 本文から、印の合ったコードを作る。 */
 const codeOf = (body) => `TSURI${SAVE_VERSION}-${body}-${checksum(body)}`;
@@ -65,12 +67,12 @@ const V2_BODY = `${V1_BODY}~000`;
 const V3_BODY = `${V2_BODY}~0.0.0`;
 
 test("版 8 の形:15 の欄(ウロコイン・竿・鱗・釣れた魚・ガチャ・装着・持ち物・ロック・餌と自動分解・釣り場・出会ったスキル・グローブ 2 つ・降臨・お守り)を 36 進数の数と記号で書く", () => {
-  assert.equal(SAVE_VERSION, 11);
+  assert.equal(SAVE_VERSION, 12);
   assert.equal(encodeSave(sample()), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "いちばん新しい釣り場にいるときは、釣り場の欄は空");
   const p = sample();
   p.gear.items[1].locked = true;
   assert.equal(encodeSave(p), `${V1_BODY}~010~0.0.0~~${SEEN_MASK}${TAIL}`, "ロックは持ち物の順に 1 個 1 字");
-  assert.match(encodeSaveCode(sample()), /^TSURI11-[0-9A-Za-z.,:~-]+-[0-9a-f]{8}$/);
+  assert.match(encodeSaveCode(sample()), /^TSURI12-[0-9A-Za-z.,:~-]+-[0-9a-f]{8}$/);
   // 古い釣り場(港)にいるとき:釣り場の id を書く(D-280)。
   const old = { ...sample(), rodStage: 7, area: "minato" };
   assert.equal(encodeSave(old).split("~")[9], "minato");
@@ -98,29 +100,31 @@ test("版 2(TSURI2)のコードと本文を読み、版 3 → 版 4 に読み替
   assert.deepEqual(r, { ok: true, progress: p });
   assert.ok(r.ok && !("bait" in r.progress) && !("useBait" in r.progress) && !("autoScrap" in r.progress));
   assert.deepEqual(parseSave(`TSURI2-${body2}-${checksum(body2)}`), p, "ブラウザに残った版 2 の保存データも読める");
-  assert.match(encodeSaveCode(p), /^TSURI11-/);
+  assert.match(encodeSaveCode(p), /^TSURI12-/);
   // 版 2 なのに 9 つの欄は拒否。
   assert.equal(decodeSaveCode(`TSURI2-${V2_BODY}~0.0.0-${checksum(`${V2_BODY}~0.0.0`)}`).error, "content");
 });
 
 test("版 1(TSURI1)のコードと本文を読み、版 2 → 版 3 → 版 4 と順に読み替える(ロックは全てなし。ほかは変わらない)", () => {
   assert.equal(UPGRADES[1](V1_BODY), `${V1_BODY}~000`);
-  assert.equal(upgradeSave(V1_BODY, 1), `${V1_BODY}~000~0.0.0~~${SEEN_MASK}${TAIL}`, "版 1 → 2 → … → 11");
+  assert.equal(upgradeSave(V1_BODY, 1), `${V1_BODY}~000~0.0.0~~${SEEN_MASK}${TAIL}`, "版 1 → 2 → … → 12");
   assert.equal(upgradeSave(`${V3_BODY}~`, 4), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "版 4 → 5:持ち物のスキルが出会ったスキルになる");
   assert.equal(UPGRADES[5](`${V3_BODY}~~${SEEN_MASK}`), `${V3_BODY}~~${SEEN_MASK}`, "版 5 → 6:本文は同じ(D-325)");
   assert.equal(UPGRADES[5](V3_BODY), null, "欄の数がちがう版 5 は読み替えない");
-  assert.equal(UPGRADES[6](`${V3_BODY}~~${SEEN_MASK}`), `${V3_BODY}~~${SEEN_MASK}${GLOVES}`, "版 6 → 7:グローブの欄を空で足す(D-335)");
+  assert.equal(UPGRADES[6](`${V3_BODY}~~${SEEN_MASK}`), `${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}`, "版 6 → 7:グローブの欄を空で足す(D-335)");
   assert.equal(UPGRADES[6](V3_BODY), null, "欄の数がちがう版 6 は読み替えない");
-  assert.equal(UPGRADES[7](`${V3_BODY}~~${SEEN_MASK}${GLOVES}`, DEFAULT_CONTENT, DEFAULT_CONFIG), `${V3_BODY}~~${SEEN_MASK}${GLOVES}~0...~.`, "版 7 → 8:糸・リール・ルアーだけなら、降臨とお守りの欄を空で足すだけ(D-392)");
-  assert.equal(UPGRADES[8](`${V3_BODY}~~${SEEN_MASK}${GLOVES}~0.nushi-kurodai.1.2~.`), `${V3_BODY}~~${SEEN_MASK}${GLOVES}~0.0.....~.`, "版 8 → 9:降臨の欄を空の形にする(D-397)");
+  assert.equal(UPGRADES[7](`${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}`, DEFAULT_CONTENT, DEFAULT_CONFIG), `${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}~0...~.`, "版 7 → 8:糸・リール・ルアーだけなら、降臨とお守りの欄を空で足すだけ(D-392)");
+  assert.equal(UPGRADES[8](`${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}~0.nushi-kurodai.1.2~.`), `${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}~0.0.....~.`, "版 8 → 9:降臨の欄を空の形にする(D-397)");
   assert.equal(UPGRADES[8](V3_BODY), null, "欄の数がちがう版 8 は読み替えない");
-  assert.equal(UPGRADES[9](`${V3_BODY}~~${SEEN_MASK}${GLOVES}~0.0.....~.`, DEFAULT_CONTENT, DEFAULT_CONFIG), `${V3_BODY}~~${SEEN_MASK}${GLOVES}~0.......~.`, "版 9 → 10:降臨の欄をウロコパワーの形にする(D-403)");
-  assert.equal(UPGRADES[10](`${V3_BODY}~~${SEEN_MASK}${GLOVES}~0.......~.`), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "版 10 → 11:図鑑の欄を空で足す(D-405)");
+  assert.equal(UPGRADES[9](`${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}~0.0.....~.`, DEFAULT_CONTENT, DEFAULT_CONFIG), `${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}~0.......~.`, "版 9 → 10:降臨の欄をウロコパワーの形にする(D-403)");
+  assert.equal(UPGRADES[10](`${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}~0.......~.`), `${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}${KOURIN}`, "版 10 → 11:図鑑の欄を空で足す(D-405)");
+  assert.equal(UPGRADES[11](`${V3_BODY}~~${SEEN_MASK}${OLD_GLOVES}${KOURIN}`), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "版 11 → 12:グローブの欠片 0 を足す(D-410)");
+  assert.equal(UPGRADES[11](`${V3_BODY}~~${SEEN_MASK}${TAIL}`), null, "欠片の数がもうある形は読み替えない");
   assert.equal(UPGRADES[10](V3_BODY), null, "欄の数がちがう版 10 は読み替えない");
   assert.equal(UPGRADES[9](V3_BODY, DEFAULT_CONTENT, DEFAULT_CONFIG), null, "欄の数がちがう版 9 は読み替えない");
-  assert.equal(upgradeSave(`${V3_BODY}~~${SEEN_MASK}${TAIL}`, 11), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "今の版はそのまま");
+  assert.equal(upgradeSave(`${V3_BODY}~~${SEEN_MASK}${TAIL}`, 12), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "今の版はそのまま");
   assert.equal(upgradeSave(V1_BODY, 0), null);
-  assert.equal(upgradeSave(V1_BODY, 12), null);
+  assert.equal(upgradeSave(V1_BODY, 13), null);
   assert.equal(UPGRADES[1]("1~2"), null, "欄の数がちがう版 1 は読み替えない");
   const r = decodeSaveCode(`TSURI1-${V1_BODY}-${checksum(V1_BODY)}`);
   assert.deepEqual(r, { ok: true, progress: sample() });
@@ -128,7 +132,7 @@ test("版 1(TSURI1)のコードと本文を読み、版 2 → 版 3 → 版 4 �
   // ブラウザに残った版 1 の保存データも読める(次に保存するときは版 4)。
   assert.deepEqual(parseSave(`TSURI1-${V1_BODY}-${checksum(V1_BODY)}`), sample());
   // 読み替えたものを書くと版 4。
-  assert.match(encodeSaveCode(r.ok ? r.progress : sample()), /^TSURI11-/);
+  assert.match(encodeSaveCode(r.ok ? r.progress : sample()), /^TSURI12-/);
 });
 
 test("版 3(TSURI3)を版 4 に読み替える:釣り場は竿の段階の釣り場、頭打ち型は Lv1、港の最後の「進化済み」は磯の段階 1(D-280)", () => {
@@ -207,7 +211,7 @@ test("空・切れた・1 文字ちがう・ちがう形・ちがう版のコー
   assert.equal(decodeSaveCode("hello").error, "format");
   assert.equal(decodeSaveCode("TSURI3-abc").error, "format");
   const body = encodeSave(sample());
-  for (const v of [0, 12, 13]) assert.equal(decodeSaveCode(`TSURI${v}-${body}-${checksum(body)}`).error, "version", `版 ${v}`);
+  for (const v of [0, 13, 14]) assert.equal(decodeSaveCode(`TSURI${v}-${body}-${checksum(body)}`).error, "version", `版 ${v}`);
   assert.equal(decodeSaveCode("TSURI1-" + "a".repeat(60000) + "-00000000").error, "format");
 });
 
@@ -450,7 +454,7 @@ test("版 10 の降臨とお守りの欄(D-397・D-403):往復で元に戻る。
 });
 
 test("版 9 → 10(D-403):ゲージの割合 × いちばん低いレベルの相手に要る量が、貯めているウロコパワーになる。呼んでいるキャラはそのまま", () => {
-  const v9 = (k) => [...encodeSave(sample()).split("~").slice(0, 13), k, "."].join("~");
+  const v9 = (k) => { const parts = encodeSave(sample()).split("~"); parts[11] = "0.1."; return [...parts.slice(0, 13), k, "."].join("~"); };
   // ゲージ 150 点(半分)・倒したレベル 大エビ 2・大ガニ 3・大ダコ 1・大イカ 4 → いちばん低い次のレベルは 2(大ダコ)。
   const r = decodeSave(upgradeSave(v9(`${(150 * 64).toString(36)}.0.2,3,1,4....`), 9) ?? "");
   assert.ok(r.ok);
@@ -470,9 +474,9 @@ test("互換の正解データ(compat_save_v8.json):保存の版 8 の署名な�
     const want = toV10(toV9(c.progress));
     assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: want }, c.name);
     assert.deepEqual(parseSave(c.code), want, `${c.name}:ブラウザの保存としても読める`);
-    assert.match(encodeSaveCode(want), /^TSURI11-/, `${c.name}:書き出しは今の版`);
+    assert.match(encodeSaveCode(want), /^TSURI12-/, `${c.name}:書き出しは今の版`);
     assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: want, signed: true, keyId: "dev", warning: null }, c.name);
-    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-11-/, `${c.name}:署名つきの書き出しは今の版`);
+    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-12-/, `${c.name}:署名つきの書き出しは今の版`);
   }
   for (const c of fixture.rejected) {
     const r = decodeSaveCode(c.code);
@@ -521,6 +525,24 @@ test("互換の正解データ(compat_save_v11.json):保存の版 11 の署名�
   const { CURRENT_KEY } = await import("../src/ui/save_sign.js");
   const fixture = JSON.parse(readText("tests/fixtures/compat_save_v11.json"));
   assert.equal(fixture.version, 11);
+  for (const c of fixture.cases) {
+    assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: c.progress }, c.name);
+    assert.deepEqual(parseSave(c.code), c.progress, `${c.name}:ブラウザの保存としても読める`);
+    if (fixture.version === SAVE_VERSION) assert.equal(encodeSaveCode(c.progress), c.code, `${c.name}:書き出しも同じ`);
+    assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
+    if (fixture.version === SAVE_VERSION) assert.equal(await signSaveCode(c.progress, CURRENT_KEY), c.signed, `${c.name}:署名つきの書き出しも同じ`);
+  }
+  for (const c of fixture.rejected) {
+    const r = decodeSaveCode(c.code);
+    assert.deepEqual([r.ok, r.ok ? "" : r.error], [false, c.error], c.name);
+  }
+});
+
+test("互換の正解データ(compat_save_v12.json):保存の版 12 の署名なしと署名つきのコードが、読めて決まった結果になる(D-410)", async () => {
+  const { readSaveCode, signSaveCode } = await import("../src/core/signed_code.js");
+  const { CURRENT_KEY } = await import("../src/ui/save_sign.js");
+  const fixture = JSON.parse(readText("tests/fixtures/compat_save_v12.json"));
+  assert.equal(fixture.version, 12);
   for (const c of fixture.cases) {
     assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: c.progress }, c.name);
     assert.deepEqual(parseSave(c.code), c.progress, `${c.name}:ブラウザの保存としても読める`);

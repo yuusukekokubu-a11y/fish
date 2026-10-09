@@ -2,7 +2,8 @@
 // グローブ(特殊枠:D-332〜D-335)。釣れるクレートからだけ出る、ルールを変える能力を 1 つ持つ装備。
 // - 能力の表(GLOVE_ABILITY_ROWS)とレア度の表(GLOVE_RARITY_ROWS)は、保存に表の番号を書くので、行は並べ替えず、足すのは最後に。
 // - 効果の大きさはレア度で固定(ばらつきなし)。対応段階は「グレード + レア度の延長」まで。それより上の魚・ヌシには効かない。
-// - 乱数は、グローブ用の系統(ガチャの種と、釣れるクレートの判定の回数から作る)。魚・ミニゲーム・クリティカル・ガチャの系統とは混ぜない。
+// - 分解するとグローブの欠片 1 個。欠片を config.glove.fragmentsPerCrate 個(5 個)集めると、グローブのクレートを 1 回開けられる(D-410)。
+// - 乱数は、グローブ用の系統(ガチャの種と、釣れるクレートの判定の回数から作る。欠片のクレートは、別の塩と次の個体の番号から)。魚・ミニゲーム・クリティカル・ガチャの系統とは混ぜない。
 //   投ごとに 1 回、判定の乱数を引く(条件を満たさなくても引く)。手に入ったときは、同じ回の乱数の続きでレア度 → 能力を決める。
 // 画面に関係しない計算だけを置く。JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
@@ -17,7 +18,6 @@ import { createRng } from "./rng.js";
  * @property {string} color 画面の色(装備のレア度と同じ)
  * @property {number} rate 排出率(千分率)
  * @property {number} extend 対応段階の延長(グレードに足す)
- * @property {number} refundRate 分解で戻るウロコイン(グレードのクレートの価格に対する割合)
  */
 
 /**
@@ -39,17 +39,18 @@ import { createRng } from "./rng.js";
 
 /**
  * グローブの持ち物(保存する)。rolls は釣れるクレートの判定の回数(グローブ用の系統で、次に使う番号)。
- * @typedef {{ items: Glove[], equipped: number | null, nextId: number, rolls: number }} GloveBag
+ * fragments はグローブの欠片の数(D-410。なければ 0)。
+ * @typedef {{ items: Glove[], equipped: number | null, nextId: number, rolls: number, fragments?: number }} GloveBag
  */
 
 const colorOf = (/** @type {string} */ id) => RARITY_ROWS.find((r) => r.id === id)?.color ?? "#ffffff";
 
 /** @type {readonly GloveRarity[]} */
 export const GLOVE_RARITY_ROWS = Object.freeze([
-  { id: "normal", name: "ノーマル", color: colorOf("normal"), rate: 500, extend: 0, refundRate: 0.1 },
-  { id: "rare", name: "レア", color: colorOf("rare"), rate: 300, extend: 1, refundRate: 0.12 },
-  { id: "epic", name: "エピック", color: colorOf("epic"), rate: 150, extend: 2, refundRate: 0.15 },
-  { id: "legend", name: "レジェンド", color: colorOf("legend"), rate: 50, extend: 3, refundRate: 0.2 },
+  { id: "normal", name: "ノーマル", color: colorOf("normal"), rate: 500, extend: 0 },
+  { id: "rare", name: "レア", color: colorOf("rare"), rate: 300, extend: 1 },
+  { id: "epic", name: "エピック", color: colorOf("epic"), rate: 150, extend: 2 },
+  { id: "legend", name: "レジェンド", color: colorOf("legend"), rate: 50, extend: 3 },
 ]);
 
 const pct = (/** @type {number} */ x) => `${Math.round(x * 1000) / 10}%`;
@@ -158,6 +159,8 @@ export const GLOVE_ABILITY_ROWS = Object.freeze([
 
 /** 釣れるクレートの判定の種を、ガチャの種とずらすための数。 */
 const GLOVE_SEED_SALT = 0x5be0cd19;
+/** 欠片のクレートの種を、釣れるクレートの種とずらすための数(D-410)。 */
+const FRAGMENT_SEED_SALT = 0x1f83d9ab;
 
 /** 空のグローブの持ち物。 @returns {GloveBag} */
 export function emptyGloves() {
@@ -166,12 +169,13 @@ export function emptyGloves() {
 
 /** 複製する。 @param {GloveBag} bag @returns {GloveBag} */
 export function copyGloves(bag) {
-  return { items: bag.items.map((g) => ({ ...g })), equipped: bag.equipped, nextId: bag.nextId, rolls: bag.rolls };
+  const out = { items: bag.items.map((g) => ({ ...g })), equipped: bag.equipped, nextId: bag.nextId, rolls: bag.rolls };
+  return (bag.fragments ?? 0) > 0 ? { ...out, fragments: bag.fragments } : out;
 }
 
-/** 既定の形(持ち物なし・装着なし・番号 1・判定 0 回)か。保存では、既定のときは progress.gloves を持たない。 @param {GloveBag} bag */
+/** 既定の形(持ち物なし・装着なし・番号 1・判定 0 回・欠片 0)か。保存では、既定のときは progress.gloves を持たない。 @param {GloveBag} bag */
 export function isEmptyGloves(bag) {
-  return bag.items.length === 0 && bag.equipped === null && bag.nextId === 1 && bag.rolls === 0;
+  return bag.items.length === 0 && bag.equipped === null && bag.nextId === 1 && bag.rolls === 0 && (bag.fragments ?? 0) === 0;
 }
 
 /** @param {string} id @param {readonly GloveAbility[]} [rows] */
@@ -299,26 +303,39 @@ export function unequipGlove(bag) {
 }
 
 /**
- * 分解で戻るウロコイン:グレードのクレートの価格 × レア度の割合(切り捨て、1 以上)。
- * @param {Glove} glove @param {readonly { grade: number, price: number }[]} crates
+ * 分解する(D-410)。ロック中は分解しない。装着中なら外す。グローブの欠片が 1 個増える。増えた欠片の数を返す(分解できなければ 0)。
+ * @param {GloveBag} bag @param {number} id
  */
-export function gloveRefund(glove, crates) {
-  const crate = crates.find((c) => c.grade === glove.grade);
-  const rarity = gloveRarityById(glove.rarity);
-  if (!crate || !rarity) return 1;
-  return Math.max(1, Math.floor(crate.price * rarity.refundRate));
-}
-
-/**
- * 分解する。ロック中は分解しない。装着中なら外す。戻ったウロコインを返す(分解できなければ 0)。
- * @param {GloveBag} bag @param {number} id @param {readonly { grade: number, price: number }[]} crates
- */
-export function dismantleGlove(bag, id, crates) {
+export function dismantleGlove(bag, id) {
   const glove = bag.items.find((g) => g.id === id);
   if (!glove || glove.locked) return 0;
   bag.items = bag.items.filter((g) => g.id !== id);
   if (bag.equipped === id) bag.equipped = null;
-  return gloveRefund(glove, crates);
+  bag.fragments = (bag.fragments ?? 0) + 1;
+  return 1;
+}
+
+/**
+ * 欠片のクレートを開けられるか(欠片が need 個以上・保管に空き)。 @param {GloveBag} bag @param {number} need @param {number} max
+ */
+export function canOpenFragmentCrate(bag, need, max) {
+  return (bag.fragments ?? 0) >= need && bag.items.length < max;
+}
+
+/**
+ * 欠片 need 個で、グローブのクレートを開ける(D-410。グレードは grade = いまの竿の段階)。足したグローブを返す。開けられなければ null。
+ * 乱数は、欠片の塩と次の個体の番号から作る(釣れるクレートの判定の系統とは混ぜない)。
+ * @param {GloveBag} bag @param {number} seed @param {number} grade @param {number} need @param {number} max
+ */
+export function openFragmentCrate(bag, seed, grade, need, max) {
+  if (!canOpenFragmentCrate(bag, need, max)) return null;
+  const rng = createRng(drawSeed((seed ^ FRAGMENT_SEED_SALT) >>> 0, bag.nextId));
+  /** @type {Glove} */
+  const glove = { id: bag.nextId, ...drawGlove(rng, grade) };
+  bag.nextId += 1;
+  bag.items.push(glove);
+  bag.fragments = (bag.fragments ?? 0) - need;
+  return glove;
 }
 
 /** ロックを付ける・外す。 @param {GloveBag} bag @param {number} id @param {boolean} locked */

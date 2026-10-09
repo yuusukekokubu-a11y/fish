@@ -2,14 +2,13 @@
 // 装備の画面の中のグローブ(特殊枠:D-332)。装着の枠(6 枠とは見た目を分ける)、持ち物の一覧、詳細のシート。
 // - 保管がいっぱいのときだけ、枠に小さな「いっぱい」(釣れるクレートが出ない理由の説明は置かない:D-333)。
 // - 詳細:能力の名前と一文の説明、効果、レア度、グレードと対応段階。付け替えの差は 1 行。付ける・外す・分解・ロック。
+// - 分解するとグローブの欠片 1 個。一覧の上に欠片の数と「グローブのクレートを開ける」(欠片 5 個で 1 回:D-410)。
 // 数と文字は glove_view.js が作る。操作は計算本体(glove.js)の関数を呼ぶ。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
-import { dismantleGlove, equipGlove, setGloveLocked, unequipGlove } from "../core/glove.js";
+import { dismantleGlove, equipGlove, openFragmentCrate, setGloveLocked, unequipGlove } from "../core/glove.js";
 import { ensureGloveBag } from "../core/glove_play.js";
-import { addCount } from "../core/rod.js";
-import { formatCount } from "./format.js";
-import { gloveRows, gloveSpace, gloveSwapText } from "./glove_view.js";
+import { fragmentView, gloveRows, gloveSpace, gloveSwapText } from "./glove_view.js";
 import { button, el } from "./list_view.js";
 import { confirmSheet, openSheet } from "./sheet.js";
 
@@ -65,6 +64,23 @@ export function gloveSlot(ctx, crates, showList) {
  */
 export function gloveList(ctx, crates) {
   const box = el("div", "item-list glove-list");
+  // グローブの欠片と、欠片のクレート(D-410)。開けたら、出たグローブの詳細を開く。
+  const frag = fragmentView(ctx.game);
+  const fragBox = el("div", "glove-fragments");
+  const open = button(frag.label, "primary-button glove-fragment-open");
+  open.disabled = !frag.canOpen;
+  open.addEventListener("click", () => {
+    const { game } = ctx;
+    const c = /** @type {any} */ (game.config).glove;
+    const glove = openFragmentCrate(ensureGloveBag(game.progress), Number(game.progress.gear.seed), game.progress.rodStage, c.fragmentsPerCrate, c.max);
+    if (!glove) return;
+    ctx.onGearChanged();
+    ctx.rerender();
+    const v = gloveRows(game, crates).find((r) => r.id === glove.id);
+    if (v) openGloveSheet(ctx, v, crates);
+  });
+  fragBox.append(el("p", "glove-fragment-count", frag.text), open, el("p", "pull-note", frag.note));
+  box.append(fragBox);
   const rows = gloveRows(ctx.game, crates);
   if (rows.length === 0) box.append(el("p", "screen-empty", "グローブがありません"));
   for (const v of rows) {
@@ -87,9 +103,9 @@ export function gloveList(ctx, crates) {
 
 /**
  * グローブ 1 個の詳細のシート。
- * @param {ScreenContext} ctx @param {GloveView} v @param {Crates} crates
+ * @param {ScreenContext} ctx @param {GloveView} v @param {Crates} _crates(分解がウロコインだったころの名残:D-410 から使わない)
  */
-export function openGloveSheet(ctx, v, crates) {
+export function openGloveSheet(ctx, v, _crates) {
   const { game } = ctx;
   openSheet(
     ctx.app,
@@ -123,18 +139,17 @@ export function openGloveSheet(ctx, v, crates) {
         close();
         ctx.rerender();
       });
-      const scrap = button(v.locked ? "分解(ロック中)" : `分解 +${formatCount(v.refund)}`, "secondary-button item-small item-dismantle");
+      const scrap = button(v.locked ? "分解(ロック中)" : "分解 +欠片 1", "secondary-button item-small item-dismantle");
       scrap.disabled = v.locked;
       scrap.addEventListener("click", () => {
         if (v.locked) return;
         const run = () => {
-          const coins = dismantleGlove(ensureGloveBag(game.progress), v.id, crates);
-          game.progress.coins = addCount(game.progress.coins, coins);
+          dismantleGlove(ensureGloveBag(game.progress), v.id);
           ctx.onGearChanged();
           ctx.rerender();
         };
         close();
-        confirmSheet(ctx.app, v.equipped ? "装着中のグローブを分解します" : "グローブを分解します", [v.name, `+${formatCount(v.refund)} ウロコイン`], "分解する", run);
+        confirmSheet(ctx.app, v.equipped ? "装着中のグローブを分解します" : "グローブを分解します", [v.name, "+グローブの欠片 1 個"], "分解する", run);
       });
       const lock = button(v.locked ? "🔒 外す" : "🔒 ロック", "secondary-button item-small item-lock-toggle");
       lock.setAttribute("aria-pressed", String(v.locked));
