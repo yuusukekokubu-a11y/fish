@@ -193,6 +193,8 @@ test("保存とセーブコード:魚 300 種類の鱗を全部・全部釣っ�
       raid: { char: KOURIN_ROWS.at(-1).id, hp: SAFE, tries: SAFE, paid: DEFAULT_CONFIG.kourin.steps - 1 },
     },
     charms: { levels: Object.fromEntries(CHARM_ROWS.map((c) => [c.id, SAFE])), equipped: CHARM_ROWS.at(-1).id },
+    // 図鑑(版 11:D-405):全部の魚に記録(数は最大・最小と最大は範囲の両端)。
+    dex: Object.fromEntries(BIG.fish.map((f) => [f.id, { count: SAFE, min: 800, max: 1250 }])),
   };
   const code = encodeSaveCode(p, BIG);
   assert.deepEqual(decodeSaveCode(code, BIG), { ok: true, progress: p });

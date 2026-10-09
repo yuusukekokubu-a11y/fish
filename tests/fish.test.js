@@ -168,7 +168,8 @@ test("重みは段階ごとに 2 倍で、境界の値で正しく選ぶ", () =>
 
 test("表の行は項目名つきで、数値を持たない(数値は式から:D-136・D-225)", () => {
   for (const row of FISH_ROWS) {
-    assert.deepEqual(Object.keys(row), ["id", "name", "kind", "stage", "color", "size"], row.id);
+    // cm は標準の大きさ(図鑑:D-405)。見た目と同じく、魚ごとに決める事実の数。
+    assert.deepEqual(Object.keys(row), ["id", "name", "kind", "stage", "color", "size", "cm"], row.id);
     assert.ok(["weak", "strong", "boss"].includes(row.kind), row.id);
     assert.ok(!Object.values(row).some((v) => typeof v === "object"), `${row.id} に数の表がない`);
   }

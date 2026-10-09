@@ -16,6 +16,7 @@ import { canSummon } from "../core/kourin.js";
 import { inventoryWarning } from "./gear_view.js";
 import { mountList } from "./list_view.js";
 import { materialsView, statusView } from "./screen_views.js";
+import { dexView } from "./dex_view.js";
 import { mountSettings } from "./settings.js";
 import { mountShop } from "./shop_screen.js";
 import { mountSkills } from "./skill_screen.js";
@@ -33,6 +34,8 @@ import { mountSkills } from "./skill_screen.js";
 /** @type {readonly Screen[]} */
 export const SCREENS = Object.freeze([
   { id: "areas", title: "釣り場", note: "釣り場を移る", mount: mountAreas },
+  // 魚の図鑑(D-405):釣った数・大きさ・冠。
+  { id: "dex", title: "図鑑", note: "釣った魚と大きさの記録", mount: mountList(dexView) },
   // 降臨(D-396):満タンで呼べるときに「!」。
   { id: "kourin", title: "降臨", note: "ウロコパワーを注入して挑む", mount: mountKourin, badge: (game) => (canSummon(game.progress, game.content, game.config.kourin) ? "warn" : null) },
   { id: "equipment", title: "装備", note: "付け替え・分解・ロック", mount: mountEquipment, badge: (game) => inventoryWarning(game).level },

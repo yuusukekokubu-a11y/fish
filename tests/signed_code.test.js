@@ -32,9 +32,9 @@ function bigProgress() {
 test("書き出すと TSURI5-(鍵の番号)-(保存の版)-(本文)-(署名 22 文字)。読むと元に戻る(往復)", async () => {
   for (const c of JSON.parse(readText("tests/fixtures/compat_v4.json")).cases) {
     const code = await signSaveCode(c.progress, DEV);
-    assert.match(code, /^TSURI5-dev-10-[0-9A-Za-z.,:~-]+-[A-Za-z0-9_-]{22}$/);
+    assert.match(code, /^TSURI5-dev-11-[0-9A-Za-z.,:~-]+-[A-Za-z0-9_-]{22}$/);
     // 本文は、これまでの本文(TSURI4 の形)のまま。
-    assert.ok(code.includes(`-10-${encodeSaveCode(c.progress).slice(8, -9)}-`), c.name);
+    assert.ok(code.includes(`-11-${encodeSaveCode(c.progress).slice(8, -9)}-`), c.name);
     assert.deepEqual(await readSaveCode(code, { keys: [DEV] }), { ok: true, progress: asCurrentTable(c.progress), signed: true, keyId: "dev", warning: null }, c.name);
   }
 });
@@ -44,7 +44,7 @@ test("1 文字でも変えると読めない。本文と署名のどこを変え
   p.coins = 12345;
   const code = await signSaveCode(p, DEV);
   const before = structuredClone(p);
-  const bodyStart = "TSURI5-dev-10-".length;
+  const bodyStart = "TSURI5-dev-11-".length;
   const sigStart = code.length - SIGNATURE_LENGTH;
   const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:~-_";
   for (let i = 0; i < code.length; i++) {
@@ -138,9 +138,9 @@ test("互換の正解データ(compat_v5.json):仮の鍵(dev)の署名つきの�
     // 中身は保存の版 4。版 5 の読み替えで、持ち物のスキルが出会ったスキルになる(D-300)。
     const expected = asCurrentTable(withSeen(c.progress));
     assert.deepEqual(await readSaveCode(c.code, { keys: [DEV] }), { ok: true, progress: expected, signed: true, keyId: "dev", warning: null }, c.name);
-    // 書き出すと今の保存の版(TSURI5-dev-10-:D-403)になり、読み直すと同じ。
+    // 書き出すと今の保存の版(TSURI5-dev-11-:D-403)になり、読み直すと同じ。
     const again = await signSaveCode(expected, DEV);
-    assert.match(again, /^TSURI5-dev-10-/);
+    assert.match(again, /^TSURI5-dev-11-/);
     assert.deepEqual((await readSaveCode(again, { keys: [DEV] })).progress, expected, c.name);
   }
   for (const c of fixture.rejected) {
