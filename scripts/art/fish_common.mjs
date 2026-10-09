@@ -138,7 +138,7 @@ export function renderFish(spec) {
       if (!at(x - 1, y) || !at(x + 1, y) || !at(x, y - 1) || !at(x, y + 1)) out[y][x] = spec.outlineOf?.(grid[y][x], out[y][x]) ?? "outline";
     }
   }
-  // 目:瞳(1 か 2 マス四方)、まわりの輪、光の点。
+  // 目:瞳(1〜3 マス四方)、まわりの輪、光の点。
   if (spec.eye) {
     const ex = Math.round(ox + spec.eye.u * L - 0.5);
     const ey = Math.round(oy + spec.eye.v * L * vs - 0.5);
@@ -147,26 +147,8 @@ export function renderFish(spec) {
       if (at(x, y)) out[y][x] = c;
     };
     if (s >= 2) {
-      for (const [dx, dy] of [
-        [-1, -1],
-        [0, -1],
-        [1, -1],
-        [2, -1],
-        [-1, 0],
-        [2, 0],
-        [-1, 1],
-        [2, 1],
-        [-1, 2],
-        [0, 2],
-        [1, 2],
-        [2, 2],
-      ]) set(ex + dx, ey + dy, "eyeRing");
-      for (const [dx, dy] of [
-        [0, 0],
-        [1, 0],
-        [0, 1],
-        [1, 1],
-      ]) set(ex + dx, ey + dy, "pupil");
+      // s × s の瞳と、そのまわりの 1 マスの輪(メバルのような大きな目は s = 3)。
+      for (let dy = -1; dy <= s; dy++) for (let dx = -1; dx <= s; dx++) set(ex + dx, ey + dy, dx < 0 || dy < 0 || dx >= s || dy >= s ? "eyeRing" : "pupil");
       set(ex, ey, "eyeHi");
     } else {
       for (const [dx, dy] of [
@@ -274,4 +256,44 @@ export function encode(grid, id, name) {
 /** 書き出す行(1 枚)。 */
 export function artLines(a) {
   return `  ${JSON.stringify(a.id)}: Object.freeze({\n    id: ${JSON.stringify(a.id)},\n    name: ${JSON.stringify(a.name)},\n    width: ${a.width},\n    height: ${a.height},\n    palette: Object.freeze(${JSON.stringify(a.palette)}),\n    rows: Object.freeze([\n${a.rows.map((r) => `      ${JSON.stringify(r)},`).join("\n")}\n    ]),\n  }),`;
+}
+
+/** ヌシの冠の色(どの釣り場も同じ:金の冠、赤と青の宝石、光の点)。 */
+export const GOLD = Object.freeze({ gold: "#f2c43c", goldDark: "#b8862a", jewel: "#e63946", jewel2: "#3a86ff", sparkle: "#fff3b0" });
+
+/**
+ * 釣り場の魚の絵を描いて、src/art/fish/<file> に書き出す(D-386)。
+ * fish:魚の並び(弱い魚 → 強い魚の順)。それぞれ renderFish の spec、または { id, name, grid〔色の並び〕}。
+ * bosses:[強い魚の id, 縁の色(魚の表のヌシの色), 冠の列] の並び。
+ * @param {{ file: string, constName: string, areaName: string, script: string, decision: string, fish: any[], bosses: [string, string, number][] }} o
+ */
+export async function writeFishModule(o) {
+  const { writeFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { dirname, join } = await import("node:path");
+  const grids = new Map();
+  for (const f of o.fish) grids.set(f.id, { name: f.name, grid: f.grid ?? toColors(renderFish(f), f.colors, f.id) });
+  const arts = o.fish.map((f) => encode(grids.get(f.id).grid, f.id, f.name));
+  for (const [id, glow, crownU] of o.bosses) {
+    const f = grids.get(id);
+    arts.push(encode(decorateBoss(f.grid, { ...GOLD, glow, crownU }), `nushi-${id}`, `ヌシ・${f.name}`));
+  }
+  for (const a of arts) {
+    const colors = a.palette.length - 1;
+    const limit = a.width === N ? 16 : 24;
+    if (colors > limit) throw new Error(`${a.id}:色数 ${colors} が ${limit} をこえる`);
+  }
+  const lines = [
+    "// @ts-check",
+    `// ${o.areaName}の魚のドット絵(弱い魚 5・強い魚 5 は 32 × 32 マス、ヌシ 5 は飾りつきの 36 × 36 マス:${o.decision})。`,
+    `// ${o.script} が書き出す(手で直さない)。色番号 0 は透明。1 行 = 1 つの文字列、1 マス = 1 文字。`,
+    "",
+    '/** @type {Readonly<Record<string, import("../pixel.js").PixelArt>>} */',
+    `export const ${o.constName} = Object.freeze({`,
+    ...arts.map(artLines),
+    "});",
+    "",
+  ];
+  writeFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../src/art/fish", o.file), lines.join("\n"));
+  console.log(arts.map((a) => `${a.id}:${a.palette.length - 1} 色`).join("、"));
 }

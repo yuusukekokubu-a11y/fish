@@ -3,13 +3,8 @@
 // 形と色は、実在の魚の特徴(一般的な図鑑の知識)から決めた。特定のゲームの絵や画像は参照しない。画像生成 AI は使わない。
 // 書き出すのは src/art/fish/minato.js(手で直さない)。使い方:node scripts/art/fish_minato.mjs
 
-import { writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import { KURODAI } from "../../src/art/fish/kurodai.js";
-import { artLines, decorateBoss, encode, N, renderFish, toColors } from "./fish_common.mjs";
-
-const OUT = join(dirname(fileURLToPath(import.meta.url)), "../../src/art/fish/minato.js");
+import { writeFishModule } from "./fish_common.mjs";
 
 /** どの魚にも使う目と口の色。 */
 const EYE = { pupil: "#14161c", eyeRing: "#d9dde0", eyeHi: "#ffffff", mouth: "#3a2a2a" };
@@ -354,55 +349,26 @@ const BURI = {
 };
 
 // ---- 書き出し ----
-const WEAK = [AJI, IWASHI, SABA, KISU, KAWAHAGI];
-const STRONG = [SUZUKI, HIRAME, WARASA, BURI];
-
 /** クロダイ(見本の 32 マス)を、色の並びに戻す。 */
 const kuro = KURODAI.find((a) => a.width === 32);
-const kuroColors = kuro.rows.map((r) => [...r].map((ch) => {
+const kuroGrid = kuro.rows.map((r) => [...r].map((ch) => {
   const i = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(ch);
   return i > 0 ? kuro.palette[i] : null;
 }));
 
-const fishColors = new Map();
-for (const s of [...WEAK, ...STRONG]) fishColors.set(s.id, { name: s.name, grid: toColors(renderFish(s), s.colors, s.id) });
-fishColors.set("kurodai", { name: "クロダイ", grid: kuroColors });
-
 // ヌシの飾り:縁は、ヌシの色(魚の表の色)。冠は金。冠は頭の上(目のあたりの列)。
-const BOSS = [
-  ["kurodai", "#9c4f1c", 6],
-  ["suzuki", "#9d2f17", 5],
-  ["hirame", "#8a6a3f", 7],
-  ["warasa", "#5a63c8", 5],
-  ["buri", "#2f3e9e", 6],
-];
-const GOLD = { gold: "#f2c43c", goldDark: "#b8862a", jewel: "#e63946", jewel2: "#3a86ff", sparkle: "#fff3b0" };
-
-const arts = [];
-for (const s of [...WEAK.map((w) => w.id), "kurodai", ...STRONG.map((w) => w.id)]) {
-  const f = fishColors.get(s);
-  arts.push(encode(f.grid, s, f.name));
-}
-for (const [id, glow, crownU] of BOSS) {
-  const f = fishColors.get(id);
-  arts.push(encode(decorateBoss(f.grid, { ...GOLD, glow, crownU }), `nushi-${id}`, `ヌシ・${f.name}`));
-}
-for (const a of arts) {
-  const colors = a.palette.length - 1;
-  const limit = a.width === N ? 16 : 24;
-  if (colors > limit) throw new Error(`${a.id}:色数 ${colors} が ${limit} をこえる`);
-}
-
-const lines = [
-  "// @ts-check",
-  "// 港の魚のドット絵(弱い魚 5・強い魚 5 は 32 × 32 マス、ヌシ 5 は飾りつきの 36 × 36 マス:D-386)。",
-  "// scripts/art/fish_minato.mjs が書き出す(手で直さない)。色番号 0 は透明。1 行 = 1 つの文字列、1 マス = 1 文字。",
-  "",
-  '/** @type {Readonly<Record<string, import("../pixel.js").PixelArt>>} */',
-  "export const FISH_MINATO = Object.freeze({",
-  ...arts.map(artLines),
-  "});",
-  "",
-];
-writeFileSync(OUT, lines.join("\n"));
-console.log(arts.map((a) => `${a.id}:${a.palette.length - 1} 色`).join("、"));
+await writeFishModule({
+  file: "minato.js",
+  constName: "FISH_MINATO",
+  areaName: "港",
+  script: "scripts/art/fish_minato.mjs",
+  decision: "D-386",
+  fish: [AJI, IWASHI, SABA, KISU, KAWAHAGI, { id: "kurodai", name: "クロダイ", grid: kuroGrid }, SUZUKI, HIRAME, WARASA, BURI],
+  bosses: [
+    ["kurodai", "#9c4f1c", 6],
+    ["suzuki", "#9d2f17", 5],
+    ["hirame", "#8a6a3f", 7],
+    ["warasa", "#5a63c8", 5],
+    ["buri", "#2f3e9e", 6],
+  ],
+});
