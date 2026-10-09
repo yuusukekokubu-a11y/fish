@@ -1,4 +1,4 @@
-/* クレートの画面と、引く演出の見た目(D-121・D-162):クレートのカード・10 連の注意・引く演出。screens.css から分けた(D-368)。index.html から読む。 */
+/* クレートの画面と、引く演出の見た目(D-121・D-162・D-398):クレートのカード・10 連の注意・引く演出。色と箱の縁は theme.css の変数。screens.css から分けた(D-368)。index.html から読む。 */
 
 /* クレートの画面(D-162)。 */
 .crate-list {
@@ -8,8 +8,9 @@
 }
 .crate-card {
   padding: 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
+  border: var(--px) solid var(--ink);
+  background: var(--panel);
+  box-shadow: var(--bevel);
 }
 .crate-head {
   display: flex;
@@ -38,7 +39,7 @@
 .detail-title {
   margin: 8px 0 4px;
   font-size: 14px;
-  opacity: 0.8;
+  color: var(--muted);
 }
 .gacha-message {
   min-height: 1.4em;
@@ -48,7 +49,7 @@
 
 .pull-note {
   margin: 6px 2px 0;
-  color: #ffd166;
+  color: var(--muted);
   font-size: 14px;
 }
 
@@ -61,7 +62,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(2, 16, 26, 0.97);
+  background: rgba(20, 10, 4, 0.97);
   overflow: hidden;
 }
 .fx-stage {
@@ -82,17 +83,19 @@
 }
 .fx-crate-lid {
   height: 28px;
-  border-radius: 8px 8px 2px 2px;
+  border: var(--px) solid var(--ink);
+  border-bottom: 0;
   background: #8d5a2b;
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: inset var(--px) var(--px) 0 #b57a3e, inset 0 -4px 0 rgba(0, 0, 0, 0.25);
 }
 .fx-crate-body {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 88px;
-  border-radius: 2px 2px 8px 8px;
+  border: var(--px) solid var(--ink);
   background: #a86b35;
+  box-shadow: inset var(--px) var(--px) 0 #c8884a, inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 #7a4a22;
   color: #fff3e0;
   font-size: 13px;
   font-weight: bold;
@@ -153,9 +156,9 @@
 }
 .fx-card {
   padding: 8px;
-  border: 2px solid var(--rarity);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  border: var(--px) solid var(--ink);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 2px var(--rarity), var(--bevel);
   font-size: 14px;
   animation: fx-pop 0.25s ease-out;
 }
@@ -163,11 +166,10 @@
   padding: 16px;
   font-size: 16px;
   text-align: center;
-  box-shadow: 0 0 24px var(--rarity);
+  box-shadow: inset 0 0 0 2px var(--rarity), var(--bevel), 0 0 24px var(--rarity);
 }
 .fx-card.best {
-  box-shadow: 0 0 16px var(--rarity);
-  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 2px var(--rarity), var(--bevel), 0 0 16px var(--rarity);
 }
 @keyframes fx-pop {
   0% { transform: scale(0.6); opacity: 0; }
@@ -182,7 +184,7 @@
   font-weight: bold;
 }
 .fx-better {
-  color: #8bd17c;
+  color: var(--green);
   font-weight: bold;
 }
 .fx-name {
@@ -193,10 +195,10 @@
   min-height: 48px;
   margin-top: 6px;
   padding: 0 24px;
-  border: 0;
-  border-radius: 10px;
-  background: #ffd166;
-  color: #3d2c00;
+  border: var(--px) solid var(--ink);
+  background: var(--gold);
+  color: var(--gold-ink);
+  box-shadow: var(--bevel-gold), 0 var(--px) 0 var(--ink);
   font: inherit;
   font-size: 15px;
   font-weight: bold;
@@ -205,5 +207,5 @@
   position: absolute;
   bottom: calc(env(safe-area-inset-bottom) + 16px);
   font-size: 14px;
-  opacity: 0.6;
+  color: var(--muted);
 }

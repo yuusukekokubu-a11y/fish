@@ -1,4 +1,4 @@
-/* スキルの画面の見た目(D-179・D-217・D-239):1 行の表示・次のレベルの増分・グループ。screens.css から分けた(D-368)。index.html から読む。 */
+/* スキルの画面の見た目(D-179・D-217・D-239・D-398):1 行の表示・次のレベルの増分・グループ。色と箱の縁は theme.css の変数。index.html から読む。 */
 
 /* スキルの画面(D-179)。1 行に 名前・Lv/最大・MAX の印、細い棒、今の効果。 */
 .skill-row {
@@ -16,32 +16,34 @@
 }
 .skill-max {
   padding: 1px 6px;
-  border-radius: 6px;
-  background: #ffd54f;
-  color: #062a3d;
+  border: 2px solid var(--ink);
+  background: var(--gold);
+  color: var(--gold-ink);
   font-size: 14px;
   font-weight: bold;
 }
+/* レベルの棒:へこんだ溝に、水色の目盛り。 */
 .skill-bar {
   display: block;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.15);
+  height: 8px;
+  border: 2px solid var(--ink);
+  background: var(--well);
   overflow: hidden;
 }
 .skill-bar-fill {
   display: block;
   height: 100%;
   background: #4fc3f7;
+  box-shadow: inset 0 2px 0 #a6e4ff;
 }
 .skill-effect {
   font-size: 14px;
-  opacity: 0.85;
+  color: var(--muted);
 }
 /* 次のレベルでの増分(D-239)。 */
 .skill-next {
   font-size: 14px;
-  color: #8be9fd;
+  color: var(--info);
 }
 
 /* スキルの画面のグループ(D-217)。見出しを押すと閉じる・開く。 */
@@ -64,6 +66,7 @@
 .skill-group-head::after {
   content: "▾";
   margin-left: 8px;
+  color: var(--gold);
 }
 .skill-group-head[aria-expanded="false"]::after {
   content: "▸";
@@ -71,5 +74,5 @@
 .skill-group-count {
   margin-left: auto;
   font-size: 15px;
-  opacity: 0.85;
+  color: var(--muted);
 }

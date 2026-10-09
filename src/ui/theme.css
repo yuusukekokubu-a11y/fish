@@ -1,0 +1,95 @@
+/* 見た目の土台(D-398)。全部の画面で使う色・1 ドットの太さ・箱の縁(べベル)を、ここ 1 か所に置く。index.html がいちばん先に読む。
+   方向は「荒めで可愛いドット絵」(D-372)に合わせる:
+   - 地は木の茶色(釣り小屋・道具箱)。木目は小さなドット絵の模様を敷く(--grain)。
+   - 枠とボタンは角を丸めず、外側に黒い縁(--ink)、内側は左上を明るく・右下を暗く(--bevel:ドット絵の箱)。
+   - 強調は金(--gold)、降臨は紫(--purple)、注意は赤(--red)、釣り場の札は水色(--tag)。
+   - 書体はふつうの書体(system-ui)。 */
+:root {
+  /* 1 ドットの太さ(魚の絵の 1 マス 3px に合わせる:D-372)。 */
+  --px: 3px;
+  /* 木の色。ink は縁取り、bg は壁(暗い板)、panel は箱の面、hi/lo はべベルの明るい側と暗い側、well はへこみ(入力欄・空き枠・ゲージの溝)。 */
+  --ink: #2a1608;
+  --bg: #4b2e17;
+  --panel: #6e4626;
+  --panel-hi: #9c6b3c;
+  --panel-lo: #4a2c14;
+  --well: #3a2210;
+  --well-hi: #5a3a1e;
+  /* 文字。 */
+  --text: #fff4dc;
+  --muted: #dcc29a;
+  --faint: #b89a74;
+  /* 強調の色。 */
+  --gold: #ffd166;
+  --gold-hi: #fff1b8;
+  --gold-lo: #c4902a;
+  --gold-ink: #3a2a00;
+  --red: #e84a5f;
+  --red-hi: #ff8fa3;
+  --green: #5cc98a;
+  --purple: #9b5cff;
+  --purple-hi: #c9a6ff;
+  --purple-lo: #5a2fa0;
+  --tag: #8fd3c7;
+  --tag-ink: #0d3a33;
+  --info: #bfe9ff;
+  /* べベル(箱の内側の光と影)。border と組で使う:border: var(--px) solid var(--ink); box-shadow: var(--bevel)。 */
+  --bevel: inset var(--px) var(--px) 0 var(--panel-hi), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--panel-lo);
+  --bevel-gold: inset var(--px) var(--px) 0 var(--gold-hi), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--gold-lo);
+  --bevel-sunk: inset var(--px) var(--px) 0 rgba(0, 0, 0, 0.45), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--well-hi);
+  --bevel-purple: inset var(--px) var(--px) 0 var(--purple-hi), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--purple-lo);
+  /* 木目(48 × 24 マスのドット絵。長さのちがう暗い線と明るい線を半透明で描いているので、どの茶色の上にも敷ける)。1 マス = --px。 */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 24' shape-rendering='crispEdges'%3E%3Cg fill='%23000' fill-opacity='.17'%3E%3Cpath d='M0 2h14v1H0zM20 5h22v1H20zM6 9h13v1H6zM30 9h18v1H30zM0 13h9v1H0zM24 13h12v1H24zM12 17h18v1H12zM36 21h12v1H36zM2 21h4v1H2zM44 2h4v1h-4z'/%3E%3C/g%3E%3Cg fill='%23fff' fill-opacity='.08'%3E%3Cpath d='M16 3h8v1h-8zM0 7h10v1H0zM40 11h8v1h-8zM14 15h8v1h-8zM30 19h9v1h-9zM8 23h7v1H8zM26 1h6v1h-6z'/%3E%3C/g%3E%3C/svg%3E");
+  --grain-size: calc(48 * var(--px)) calc(24 * var(--px));
+  /* 板のつなぎ目(壁:横に並んだ板。1 枚 48px、つなぎ目 3px)。 */
+  --seams: repeating-linear-gradient(180deg, transparent 0 45px, rgba(0, 0, 0, 0.32) 45px 48px);
+  /* ウロコインの印(9 × 9 マスのドット絵のコイン)。 */
+  --coin: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9' shape-rendering='crispEdges'%3E%3Cpath fill='%232a1608' d='M2 0h5v1h1v1h1v5h-1v1h-1v1h-5v-1h-1v-1h-1v-5h1v-1h1z'/%3E%3Cpath fill='%23c4902a' d='M2 1h5v1h1v5h-1v1h-5v-1h-1v-5h1z'/%3E%3Cpath fill='%23ffd166' d='M2 1h4v1h1v4h-1v1h-4v-1h-1v-4h1z'/%3E%3Cpath fill='%23fff1b8' d='M2 2h1v1h-1zM3 1h2v1h-2z'/%3E%3Cpath fill='%23c4902a' d='M4 3h1v3h-1z'/%3E%3C/svg%3E");
+}
+
+/* 面の種類。壁(wall)は暗い板とつなぎ目、箱(plank)は木目つきの面。どちらも木目は拡大してドットのまま(補間しない)。 */
+.wall {
+  background-color: var(--bg);
+  background-image: var(--seams), var(--grain);
+  background-size: auto, var(--grain-size);
+  image-rendering: pixelated;
+}
+.plank {
+  background-color: var(--panel);
+  background-image: var(--grain);
+  background-size: var(--grain-size);
+  image-rendering: pixelated;
+}
+
+/* ウロコインの印(文字の前に置く)。 */
+.px-coin {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  vertical-align: -3px;
+  background: var(--coin) center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+/* 釘(板の下の両すみの小さな点)。箱の ::before と ::after に 1 つずつ置く。 */
+.nailed {
+  position: relative;
+}
+.nailed::before,
+.nailed::after {
+  content: "";
+  position: absolute;
+  bottom: 8px;
+  width: 6px;
+  height: 6px;
+  background: var(--faint);
+  box-shadow: inset -2px -2px 0 var(--ink);
+  pointer-events: none;
+}
+.nailed::before {
+  left: 8px;
+}
+.nailed::after {
+  right: 8px;
+}
