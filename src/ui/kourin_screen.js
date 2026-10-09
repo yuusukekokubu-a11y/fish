@@ -5,7 +5,7 @@
 
 import { equipCharm } from "../core/charms.js";
 import { challengeRaid, refreshCombat } from "../core/fishing.js";
-import { injectPower, summonRaid } from "../core/kourin.js";
+import { convertScales, injectPower, summonRaid } from "../core/kourin.js";
 import { kourinView } from "./kourin_view.js";
 import { button, el } from "./list_view.js";
 
@@ -47,7 +47,13 @@ export function mountKourin(container, ctx) {
 
   // 貯めているウロコパワー。
   const power = el("section", "crate-card kourin-card kourin-gauge");
-  power.append(el("h2", "crate-name", view.power.text), el("p", "crate-price", view.power.scaleText), el("p", "pull-note", view.power.note));
+  const convert = button(view.power.convertLabel, "secondary-button kourin-convert");
+  convert.disabled = !view.power.canConvert;
+  convert.addEventListener("click", () => {
+    const r = convertScales(game.progress, game.content, game.config.kourin);
+    if (r.power > 0) done(`鱗 ${r.scales} 枚をウロコパワーに替えました`);
+  });
+  power.append(el("h2", "crate-name", view.power.text), el("p", "crate-price", view.power.scaleText), convert, el("p", "pull-note", view.power.note));
   container.append(power);
 
   // 呼んでいるキャラ(挑む)。
@@ -79,13 +85,12 @@ export function mountKourin(container, ctx) {
     if (ch.current) {
       card.append(el("p", "pull-note", "いま呼んでいます"));
     } else {
-      card.append(bar(ch.ratio, "gauge"), el("p", "crate-price", `${ch.fillText}・${ch.scaleText}`));
+      card.append(bar(ch.ratio, "gauge"), el("p", "crate-price", ch.fillText));
       const row = el("div", "kourin-buttons");
       const inject = button(ch.injectLabel, "secondary-button kourin-inject");
       inject.disabled = !ch.canInject;
       inject.addEventListener("click", () => {
-        const r = injectPower(game.progress, game.content, ch.id, game.config.kourin);
-        if (r.fromScales + r.fromPower > 0) done(`${ch.name}にウロコパワーを注入しました`);
+        if (injectPower(game.progress, game.content, ch.id, game.config.kourin) > 0) done(`${ch.name}にウロコパワーを注入しました`);
       });
       const call = button("呼ぶ", "primary-button kourin-summon");
       call.disabled = !ch.canSummon;
