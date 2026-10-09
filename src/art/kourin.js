@@ -6,7 +6,7 @@
 export const KOURIN_CHARS = Object.freeze({
   ebi: Object.freeze({
     id: "kourin-ebi",
-    name: "降臨・大エビ",
+    name: "降臨・疾風の大エビ",
     width: 64,
     height: 64,
     palette: Object.freeze(["","#14161c","#3a0f12","#8a2616","#5b2fa8","#a8321e","#6c3aa4","#b23a22","#c2401f","#7a44d8","#de5530","#9b5cff","#ec7040","#b46cf0","#f58a4a","#f2c43c","#7fe6ff","#ffc890","#f0dcff","#fff0d8","#ffffff"]),
@@ -79,7 +79,7 @@ export const KOURIN_CHARS = Object.freeze({
   }),
   kani: Object.freeze({
     id: "kourin-kani",
-    name: "降臨・大ガニ",
+    name: "降臨・鉄壁の大ガニ",
     width: 64,
     height: 64,
     palette: Object.freeze(["","#2a0c0c","#14161c","#3c1612","#6e1a14","#5b2fa8","#a82a1e","#6c3aa4","#7a44d8","#d4482e","#9b5cff","#b87a58","#b46cf0","#f07a52","#e8b48a","#f2c43c","#7fe6ff","#ffd2b8","#f0dcff","#ffffff"]),
@@ -152,7 +152,7 @@ export const KOURIN_CHARS = Object.freeze({
   }),
   tako: Object.freeze({
     id: "kourin-tako",
-    name: "降臨・大ダコ",
+    name: "降臨・不死の大ダコ",
     width: 64,
     height: 64,
     palette: Object.freeze(["","#1a0a14","#2a0c22","#6e2444","#5b2fa8","#843050","#6c3aa4","#a8445e","#7a44d8","#9b5cff","#d06a78","#b46cf0","#c48a90","#f2a2a0","#f2c43c","#7fe6ff","#f6d4c4","#f0dcff","#fff4e0","#ffffff"]),
@@ -225,7 +225,7 @@ export const KOURIN_CHARS = Object.freeze({
   }),
   ika: Object.freeze({
     id: "kourin-ika",
-    name: "降臨・大イカ",
+    name: "降臨・刹那の大イカ",
     width: 64,
     height: 64,
     palette: Object.freeze(["","#241028","#3a1830","#7a2a30","#5b2fa8","#6c3aa4","#7a44d8","#c0503c","#9b5cff","#a8708a","#b07890","#b46cf0","#e0b050","#dcaab6","#f2c43c","#7fe6ff","#ecc4cc","#f4dede","#f0dcff","#ffffff"]),

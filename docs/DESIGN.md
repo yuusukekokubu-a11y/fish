@@ -273,7 +273,7 @@
 - 計算は `src/core/kourin.js`。ゲージは `finish` の釣り上げで `addCatchGauge`(港では貯まらない)。降臨の投は `makeRaidCast`(`kind` は boss、`raid: { char, level }`、`minigame.startHp` に残りの体力)。挑むのは `challengeRaid`(`challenge.js`。ヌシ戦と同じく `pendingCast` に待っていた魚を取っておき、挑戦の回数を進めてから `startFight`)。
 - 戦いの終わりは `fishing.js` の `finish` が `finishRaid` に回し、`settleRaid` が残りの体力を保存して、越えた区切りの報酬を払う。結果は `{ fishId: null, kind: "boss", raid: { char, level, defeated, damage, hpLeft, maxHp, rewards } }`(魚の報酬・図鑑・数・遊びの記録には入れない)。
 - 降臨の体力:`raidMinigame` が `fishMinigame("boss", レベル, 表, [キャラのくせ])` の体力 × `hpRatio`。防御の壁は下限を置かず、ふつうの貫通 + margin(川より前のレベルでも削れるように)。
-- 画面:`kourin_view.js`(文字)・`kourin_screen.js`(画面の部品)・`kourin.css`。戦いの見た目は `kourin_fx.js`(夜にするか `raidNight`・文 `raidMessage`・報酬の文字 `addRaidEffects`)。`main.js` は背景の絵を `{ id, night }` で持ち、夜に変わるときも 0.5 秒で重ねる。
+- 画面:`kourin_view.js`(文字)・`kourin_screen.js`(画面の部品)・`kourin.css`。戦いの見た目は `kourin_fx.js`(夜にするか `raidNight`・文 `raidMessage`・報酬の文字 `addRaidEffects`・挑戦の終わりの報酬の一覧 `raidResultView`(中身)と `openRaidResult`(シート。`sheet.js` の `openSheet` に閉じたときの呼び出しを足した):D-402)。`main.js` は背景の絵を `{ id, night }` で持ち、夜に変わるときも 0.5 秒で重ねる。
 - 数の確かめ:`tests/slow/kourin.test.js`(4 キャラを倒すまでの回数・ゲージの速さ)。
 
 ### 目次と全画面の作り、画面を足す手順(D-152〜D-155・D-161〜D-164)

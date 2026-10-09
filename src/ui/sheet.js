@@ -8,15 +8,21 @@ import { button, el } from "./list_view.js";
 /**
  * シートを開く。build で中身を作り、閉じる関数を受け取る。返り値も閉じる関数。
  * @param {HTMLElement} root 画面全体 @param {(panel: HTMLElement, close: () => void) => void} build
- * @param {string} [className]
+ * @param {string} [className] @param {() => void} [onClose] 閉じたあとに呼ぶ(外側のタップで閉じたときも)
  */
-export function openSheet(root, build, className = "") {
+export function openSheet(root, build, className = "", onClose = undefined) {
   const backdrop = el("div", "sheet-backdrop");
   const panel = el("div", `sheet ${className}`.trim());
   panel.setAttribute("role", "dialog");
   backdrop.append(panel);
   root.append(backdrop);
-  const close = () => backdrop.remove();
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    backdrop.remove();
+    onClose?.();
+  };
   backdrop.addEventListener("pointerdown", (event) => event.stopPropagation());
   backdrop.addEventListener("click", (event) => {
     event.stopPropagation();

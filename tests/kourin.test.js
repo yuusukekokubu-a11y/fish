@@ -42,14 +42,14 @@ function finishFight(game, aimHit) {
   }
 }
 
-test("降臨の表:4 キャラ(大エビ・大ガニ・大ダコ・大イカ)とくせ・お守りは 1 対 1。お守りの表と効く場所(D-396)", () => {
+test("降臨の表:4 キャラ(疾風の大エビ・鉄壁の大ガニ・不死の大ダコ・刹那の大イカ)とくせ・お守りは 1 対 1。お守りの表と効く場所(D-396)", () => {
   assert.deepEqual(
     KOURIN_ROWS.map((r) => [r.id, r.name, r.quirk, r.charm]),
     [
-      ["ebi", "大エビ", "fast", "shizume"],
-      ["kani", "大ガニ", "wall", "yaburi"],
-      ["tako", "大ダコ", "regen", "yawaragi"],
-      ["ika", "大イカ", "short", "toki"],
+      ["ebi", "疾風の大エビ", "fast", "shizume"],
+      ["kani", "鉄壁の大ガニ", "wall", "yaburi"],
+      ["tako", "不死の大ダコ", "regen", "yawaragi"],
+      ["ika", "刹那の大イカ", "short", "toki"],
     ],
   );
   assert.deepEqual(new Set(KOURIN_ROWS.map((r) => r.charm)).size, CHARM_ROWS.length);

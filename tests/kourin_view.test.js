@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createGame } from "../src/core/fishing.js";
 import { kourinView, charmEffectText } from "../src/ui/kourin_view.js";
-import { addRaidEffects, raidMessage, raidNight, rewardText } from "../src/ui/kourin_fx.js";
+import { addRaidEffects, raidMessage, raidNight, raidResultView, rewardText } from "../src/ui/kourin_fx.js";
 import { createEffects } from "../src/ui/effects.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { progressAt } from "./helpers.js";
@@ -24,10 +24,10 @@ test("港では「港を越えると」。磯からはゲージ・納める鱗�
   assert.deepEqual(
     v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.canSummon]),
     [
-      ["大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", false],
-      ["大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", false],
-      ["大ダコ", "Lv1", "自動回復", "倒すと 和らぎの守り", "まだ討伐していない", false],
-      ["大イカ", "Lv1", "制限時間が短い", "倒すと 刻の守り", "まだ討伐していない", false],
+      ["疾風の大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", false],
+      ["鉄壁の大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", false],
+      ["不死の大ダコ", "Lv1", "自動回復", "倒すと 和らぎの守り", "まだ討伐していない", false],
+      ["刹那の大イカ", "Lv1", "制限時間が短い", "倒すと 刻の守り", "まだ討伐していない", false],
     ],
   );
 });
@@ -40,7 +40,7 @@ test("呼んでいるキャラ(残りの体力・報酬の区切り・挑戦の�
     }),
   });
   const v = kourinView(game);
-  assert.deepEqual([v.raid?.name, v.raid?.level, v.raid?.stepsText, v.raid?.triesText, v.raid?.canChallenge], ["降臨・大ダコ", 5, "報酬 3 / 10", "挑戦 2 回", true]);
+  assert.deepEqual([v.raid?.name, v.raid?.level, v.raid?.stepsText, v.raid?.triesText, v.raid?.canChallenge], ["降臨・不死の大ダコ", 5, "報酬 3 / 10", "挑戦 2 回", true]);
   assert.match(v.raid?.hpText ?? "", /^残り 1234 \/ /);
   assert.deepEqual(
     v.charms.map((c) => [c.name, c.levelText, c.effectText, c.equipped]),
@@ -56,12 +56,12 @@ test("呼んでいるキャラ(残りの体力・報酬の区切り・挑戦の�
 test("夜の背景は降臨の戦いと結果の間だけ。文と、区切りの報酬の文字", () => {
   const game = createGame(1, { progress: progressAt(13) });
   assert.equal(raidNight(game), false);
-  const fake = { cast: { raid: { char: "ebi", level: 3 }, fish: { name: "降臨・大エビ" } }, phase: "minigame", lastResult: null };
+  const fake = { cast: { raid: { char: "ebi", level: 3 }, fish: { name: "降臨・疾風の大エビ" } }, phase: "minigame", lastResult: null };
   assert.equal(raidNight(fake), true);
-  assert.equal(raidMessage(fake), "降臨・大エビ Lv3との勝負!");
+  assert.equal(raidMessage(fake), "降臨・疾風の大エビ Lv3との勝負!");
   const after = { ...fake, phase: "result", lastResult: { raid: { defeated: false, damage: 1500, hpLeft: 250, maxHp: 1000, rewards: [] } } };
   assert.equal(raidMessage(after), "1500 ダメージ!(残り 25%)");
-  assert.equal(raidMessage({ ...after, lastResult: { raid: { defeated: true, rewards: [] } } }), "降臨・大エビ Lv3を討伐した!");
+  assert.equal(raidMessage({ ...after, lastResult: { raid: { defeated: true, rewards: [] } } }), "降臨・疾風の大エビ Lv3を討伐した!");
   assert.equal(raidMessage(game), null);
   assert.equal(rewardText({ type: "coins", coins: 1200 }, DEFAULT_CONTENT), "+1200 ウロコイン");
   assert.equal(rewardText({ type: "charm", charm: "toki", level: 1, fresh: true }, DEFAULT_CONTENT), "刻の守りを授かった!");
@@ -71,4 +71,29 @@ test("夜の背景は降臨の戦いと結果の間だけ。文と、区切り�
   addRaidEffects(fx, { raid: { defeated: true, rewards: [{ type: "coins", coins: 5 }, { type: "charm", charm: "toki", level: 1, fresh: true }] } }, 0, DEFAULT_CONTENT);
   assert.equal(fx.banner.text, "討伐!");
   assert.deepEqual(fx.floats.map((f) => f.text), ["+5 ウロコイン", "刻の守りを授かった!"]);
+});
+
+test("降臨の報酬の一覧(挑戦の終わりのシート):名前と Lv・ダメージ・報酬ごとの行。報酬がなければ次の区切りまでの残り", () => {
+  const item = { id: 1, kind: "reel", rarity: "epic", grade: 1, effect: 0, skills: [] };
+  const v = raidResultView(
+    { char: "kani", level: 2, defeated: false, damage: 300, hpLeft: 700, maxHp: 1000, rewards: [
+      { step: 1, type: "coins", coins: 120 },
+      { step: 2, type: "item", item, scrapped: true, scrapCoins: 30 },
+      { step: 3, type: "coins", coins: 120, full: "gear" },
+    ] },
+    DEFAULT_CONTENT,
+    10,
+  );
+  assert.equal(v.title, "鉄壁の大ガニ Lv2に挑戦");
+  assert.equal(v.sub, "300 ダメージ(残り 70%)");
+  assert.deepEqual(v.rows.map((r) => r.tag), ["ウロコイン", "クレート", "ウロコイン"]);
+  assert.ok(v.rows[1].text.startsWith("★★★ ") && v.rows[1].text.endsWith("のリール"), v.rows[1].text);
+  assert.equal(v.rows[1].note, "自動分解 +30 ウロコイン");
+  assert.equal(v.rows[2].note, "装備の持ち物がいっぱいのため");
+  assert.equal(v.empty, "");
+  const none = raidResultView({ char: "ebi", level: 1, defeated: false, damage: 50, hpLeft: 650, maxHp: 1000, rewards: [] }, DEFAULT_CONTENT, 10);
+  assert.equal(none.empty, "今回の報酬はなし(次の報酬まで あと 5%)");
+  const win = raidResultView({ char: "ika", level: 3, defeated: true, damage: 90, hpLeft: 0, maxHp: 1000, rewards: [{ step: 10, type: "charm", charm: "toki", level: 3, fresh: false }] }, DEFAULT_CONTENT, 10);
+  assert.equal(win.title, "刹那の大イカ Lv3を討伐!");
+  assert.deepEqual([win.rows[0].tag, win.rows[0].text], ["お守り", "刻の守り が Lv3 に"]);
 });

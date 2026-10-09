@@ -30,10 +30,10 @@ import { noteSkillsSeen } from "./skills_seen.js";
 
 /** 降臨のキャラの表(並べ替えない。保存が表の番号を使う)。 @type {readonly KourinRow[]} */
 export const KOURIN_ROWS = Object.freeze([
-  Object.freeze({ id: "ebi", name: "大エビ", quirk: "fast", charm: "shizume" }),
-  Object.freeze({ id: "kani", name: "大ガニ", quirk: "wall", charm: "yaburi" }),
-  Object.freeze({ id: "tako", name: "大ダコ", quirk: "regen", charm: "yawaragi" }),
-  Object.freeze({ id: "ika", name: "大イカ", quirk: "short", charm: "toki" }),
+  Object.freeze({ id: "ebi", name: "疾風の大エビ", quirk: "fast", charm: "shizume" }),
+  Object.freeze({ id: "kani", name: "鉄壁の大ガニ", quirk: "wall", charm: "yaburi" }),
+  Object.freeze({ id: "tako", name: "不死の大ダコ", quirk: "regen", charm: "yawaragi" }),
+  Object.freeze({ id: "ika", name: "刹那の大イカ", quirk: "short", charm: "toki" }),
 ]);
 
 /** 降臨のキャラの色(絵がないとき・光の色)。 */
