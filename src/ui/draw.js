@@ -1,8 +1,10 @@
-// 画面の絵を描く。背景は釣り場のドット絵(D-385。まだ読んでいない・絵のない釣り場は色の段)、魚もドット絵(D-386。絵のない魚は丸い形)、ほかは簡素な図形。
+// 画面の絵を描く。背景は釣り場のドット絵(D-385。まだ読んでいない・絵のない釣り場は色の段)、魚もドット絵(D-386。絵のない魚は丸い形)。
+// 体力のバー・命中のゲージ・札は、ドット絵の箱(px_draw.js:D-398)。竿・糸・浮き・輪は簡素な図形。
 
 import { PHASES } from "../core/fishing.js";
 import { ART_HORIZON } from "./area_bg.js";
 import { BOSS_DOT, FISH_DOT } from "./fish_art.js";
+import { PX, PX_COLORS, pxBar, pxBox, pxLabel, pxText } from "./px_draw.js";
 
 const COLORS = {
   skyTop: "#7ec8e3",
@@ -13,9 +15,6 @@ const COLORS = {
   rod: "#5b3a1a",
   bobberTop: "#e63946",
   bobberBottom: "#ffffff",
-  gauge: "rgba(0,0,0,0.45)",
-  zone: "#52b788",
-  marker: "#ffffff",
 };
 
 /** 魚を、楕円の胴と三角の尾びれで描く。 */
@@ -140,86 +139,71 @@ function drawBackground(ctx, w, h, waterY, colors = null, art = null) {
   ctx.drawImage(to, 0, 0, w, h);
 }
 
-/** 残りの割合(0〜1)を、細い横のバーで描く。 */
-function drawTimeBar(ctx, x, y, width, ratio, color) {
-  ctx.fillStyle = "rgba(0,0,0,0.45)";
-  ctx.fillRect(x, y, width, 6);
-  ctx.fillStyle = color;
-  ctx.fillRect(x, y, width * Math.max(0, Math.min(1, ratio)), 6);
-}
-
 /**
- * ミニゲームのゲージ:命中範囲(緑)と、往復する印(白)。
- * 上に数値つきの体力のバー、下に制限時間の残りの細いバーを出す(D-092)。
+ * ミニゲームのゲージ(D-092・D-398):へこんだ溝に、命中範囲(緑)と往復する印(白。黒い縁つき)。
+ * 上に数値つきの体力のバー、下に制限時間の残りの細いバー。どれもドット絵の箱。
  */
 function drawGauge(ctx, w, h, view) {
-  const gx = w * 0.1;
-  const gw = w * 0.8;
-  const gy = h * 0.8;
-  const gh = 34;
-  ctx.fillStyle = COLORS.gauge;
-  ctx.fillRect(gx, gy, gw, gh);
-  ctx.fillStyle = COLORS.zone;
-  const zx = gx + gw * view.zone.start;
-  const zw = gw * (view.zone.end - view.zone.start);
-  ctx.fillRect(zx, gy, zw, gh);
+  const gx = Math.round(w * 0.08);
+  const gw = Math.round(w * 0.84);
+  const gy = Math.round(h * 0.8);
+  const gh = 36;
+  // 溝と命中範囲。
+  pxBox(ctx, gx, gy, gw, gh, { fill: PX_COLORS.well, hi: "#1d1006", lo: PX_COLORS.wellHi });
+  const ix = gx + PX;
+  const iw = gw - PX * 2;
+  const iy = gy + PX;
+  const ih = gh - PX * 2;
+  const zx = Math.round(ix + iw * view.zone.start);
+  const zw = Math.round(iw * (view.zone.end - view.zone.start));
+  ctx.fillStyle = PX_COLORS.green;
+  ctx.fillRect(zx, iy, zw, ih);
+  ctx.fillStyle = PX_COLORS.greenHi;
+  ctx.fillRect(zx, iy, zw, PX);
+  ctx.fillStyle = PX_COLORS.greenLo;
+  ctx.fillRect(zx, iy + ih - PX, zw, PX);
   // 芯・縁のスキルを付けているときだけ、命中範囲の中に帯を重ねる(芯は濃い緑、縁は両端の金色:D-209)。
   if (view.bands) {
     const half = zw / 2;
     if (view.bands.edge !== null) {
-      const ew = half * (1 - view.bands.edge);
-      ctx.fillStyle = "#e9c46a";
-      ctx.fillRect(zx, gy, ew, gh);
-      ctx.fillRect(zx + zw - ew, gy, ew, gh);
+      const ew = Math.round(half * (1 - view.bands.edge));
+      ctx.fillStyle = PX_COLORS.edge;
+      ctx.fillRect(zx, iy, ew, ih);
+      ctx.fillRect(zx + zw - ew, iy, ew, ih);
     }
     if (view.bands.core !== null) {
-      const cw = half * view.bands.core;
-      ctx.fillStyle = "#1b7a4e";
-      ctx.fillRect(zx + half - cw, gy, cw * 2, gh);
+      const cw = Math.round(half * view.bands.core);
+      ctx.fillStyle = PX_COLORS.core;
+      ctx.fillRect(zx + Math.round(half) - cw, iy, cw * 2, ih);
     }
   }
-  ctx.fillStyle = COLORS.marker;
-  ctx.fillRect(gx + gw * view.marker - 3, gy - 8, 6, gh + 16);
+  // 印:白い棒に黒い縁。溝から上下に少しはみ出す。
+  const mx = Math.round(ix + iw * view.marker);
+  ctx.fillStyle = PX_COLORS.ink;
+  ctx.fillRect(mx - 5, gy - 8, 10, gh + 16);
+  ctx.fillStyle = PX_COLORS.white;
+  ctx.fillRect(mx - 2, gy - 5, 4, gh + 10);
 
   // 体力:数値つきの横長のバー(D-092)。
-  const by = gy - 40;
-  const bh = 20;
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
-  ctx.fillRect(gx, by, gw, bh);
-  ctx.fillStyle = "#e63946";
-  ctx.fillRect(gx, by, gw * (view.maxHp > 0 ? view.hp / view.maxHp : 0), bh);
-  ctx.strokeStyle = "rgba(255,255,255,0.6)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(gx + 0.5, by + 0.5, gw - 1, bh - 1);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 14px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(`${view.hp} / ${view.maxHp}`, w / 2, by + 15);
-  drawTimeBar(ctx, gx, gy + gh + 10, gw, view.timeLeft, "#ffd166");
+  const bh = 24;
+  const by = gy - 14 - bh;
+  pxBar(ctx, gx, by, gw, bh, view.maxHp > 0 ? view.hp / view.maxHp : 0, { fill: PX_COLORS.red, hi: PX_COLORS.redHi, lo: PX_COLORS.redLo });
+  pxText(ctx, `${view.hp} / ${view.maxHp}`, Math.round(w / 2), by + 17, { font: "bold 14px system-ui, sans-serif" });
+  // 制限時間の残り:細い金の棒。
+  pxBar(ctx, gx, gy + gh + 8, gw, 12, view.timeLeft, { fill: PX_COLORS.gold, hi: PX_COLORS.goldHi, lo: PX_COLORS.goldLo });
 
   // 魚の防御(体力のバーの上。貫通があれば実効防御も。100% 以上は赤:D-235)。
+  let top = by - 8;
   if (view.defense) {
-    ctx.font = "bold 15px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillStyle = view.defense.high ? "#ff5a5f" : "#cfd8dc";
-    ctx.fillText(view.defense.text, w / 2, by - 30);
+    top -= 26;
+    pxLabel(ctx, view.defense.text, Math.round(w / 2), top, { align: "center", color: view.defense.high ? PX_COLORS.redHi : PX_COLORS.text });
   }
-
   // 連撃の段数(左)と、次の命中で効く条件の短い名前(右)。説明の文章は置かない(D-191)。
   const badges = view.badges;
-  if (badges) {
-    const ty = by - 10;
-    ctx.font = "bold 15px system-ui, sans-serif";
-    if (badges.combo) {
-      ctx.textAlign = "left";
-      ctx.fillStyle = "#ffd166";
-      ctx.fillText(badges.combo, gx, ty);
-    }
-    if (badges.labels.length > 0) {
-      ctx.textAlign = "right";
-      ctx.fillStyle = "#8be9fd";
-      ctx.fillText(badges.labels.join("・"), gx + gw, ty);
-    }
+  if (badges && (badges.combo || badges.labels.length > 0)) {
+    top -= 30;
+    if (badges.combo) pxLabel(ctx, badges.combo, gx, top, { align: "left", color: PX_COLORS.gold });
+    if (badges.labels.length > 0) pxLabel(ctx, badges.labels.join("・"), gx + gw, top, { align: "right", color: PX_COLORS.info });
   }
 }
 
@@ -251,34 +235,32 @@ function drawHookRing(ctx, bobber, hook) {
   const r = (ms) => ringRadius(ms, timing.ringMs);
   fillBand(ctx, bobber, r(timing.successStart), r(timing.ringMs), "rgba(82,183,136,0.45)");
   fillBand(ctx, bobber, r(timing.justStart), r(timing.justEnd), "rgba(255,209,102,0.85)");
-  // 釣れるクレートの輪は金色で太く、「クレート!」(D-333)。
-  ctx.strokeStyle = hook.gold ? "#ffd700" : "#ffffff";
-  ctx.lineWidth = hook.gold ? 7 : 4;
+  // 輪は黒い縁つきの白(釣れるクレートの輪は金色で太く、「クレート!」:D-333)。
+  const width = hook.gold ? 7 : 4;
+  ctx.strokeStyle = PX_COLORS.ink;
+  ctx.lineWidth = width + 4;
   ctx.beginPath();
   ctx.arc(bobber.x, bobber.y, r(t), 0, Math.PI * 2);
   ctx.stroke();
-  ctx.fillStyle = "#ffd166";
-  ctx.textAlign = "center";
+  ctx.strokeStyle = hook.gold ? PX_COLORS.gold : PX_COLORS.white;
+  ctx.lineWidth = width;
+  ctx.stroke();
   if (hook.gold) {
-    ctx.font = "bold 30px system-ui, sans-serif";
-    ctx.fillText("クレート!", bobber.x, bobber.y - RING_MAX - 8);
+    pxText(ctx, "クレート!", bobber.x, bobber.y - RING_MAX - 8, { color: PX_COLORS.gold, font: "bold 30px system-ui, sans-serif" });
     return;
   }
-  ctx.font = "bold 44px system-ui, sans-serif";
-  ctx.fillText("!", bobber.x, bobber.y - RING_MAX - 8);
+  pxText(ctx, "!", bobber.x, bobber.y - RING_MAX - 8, { color: PX_COLORS.gold, font: "bold 44px system-ui, sans-serif" });
 }
 
 /** 釣れるクレートの箱(巻き上げと結果で、魚の代わりに描く)。 */
 function drawCrate(ctx, x, y, size) {
-  ctx.fillStyle = "#8d5a2b";
-  ctx.fillRect(x - size, y - size * 0.7, size * 2, size * 1.4);
-  ctx.strokeStyle = "#ffd700";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(x - size, y - size * 0.7, size * 2, size * 1.4);
-  ctx.beginPath();
-  ctx.moveTo(x - size, y - size * 0.2);
-  ctx.lineTo(x + size, y - size * 0.2);
-  ctx.stroke();
+  const w = size * 2;
+  const lid = Math.round(size * 0.5);
+  pxBox(ctx, x - size, y - size * 0.7, w, lid + PX, { fill: "#8d5a2b", hi: "#b57a3e", lo: "#5e3a19" });
+  pxBox(ctx, x - size, y - size * 0.7 + lid, w, size * 1.4 - lid, { fill: "#a86b35", hi: "#c8884a", lo: "#7a4a22" });
+  // 金の帯(釣れるクレートの印)。
+  ctx.fillStyle = PX_COLORS.gold;
+  ctx.fillRect(Math.round(x - PX), Math.round(y - size * 0.7), PX * 2, Math.round(size * 1.4));
 }
 
 /**
@@ -338,12 +320,7 @@ export function drawScene(ctx, w, h, view, timeMs) {
 
   // 仕切り直しのストック(グローブ:D-334)。左上に小さく。
   if (view.retry && (view.phase === PHASES.CASTING || view.phase === PHASES.WAITING || view.phase === PHASES.BITE)) {
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
-    ctx.fillRect(8, 8, 128, 26);
-    ctx.fillStyle = "#8be9fd";
-    ctx.font = "bold 15px system-ui, sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(view.retry, 14, 27);
+    pxLabel(ctx, view.retry, 8, 60, { align: "left", color: PX_COLORS.info });
   }
 
   // 魚の色と大きさは、設定表(src/core/fish.js)の値を使う。

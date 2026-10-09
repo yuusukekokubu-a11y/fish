@@ -28,6 +28,7 @@
 | --- | --- |
 | `index.html` | 画面の入り口。見た目の枠と文字の置き場所(見た目は `src/ui/theme.css`・`main.css`:D-398)。 |
 | `src/ui/theme.css` | 見た目の土台(D-398)。色・1 ドットの太さ・箱の縁(べベル)・木目・コインの印を CSS の変数と小さな部品(`.wall`・`.plank`・`.px-coin`・`.nailed`)で 1 か所に置く。ほかの CSS はこの変数を使う。 |
+| `src/ui/px_draw.js` | 釣りの絵の中の「ドット絵の箱」(`pxBox`・`pxBar`・`pxLabel`・`pxText`)。theme.css と同じ色の値を持つ(canvas からは CSS の変数を読めない)。体力のバー・命中のゲージ・残り時間・札を draw.js がこれで描く(D-399)。 |
 | `src/ui/main.css` | 釣りのメイン画面(上の欄・釣りの絵の上の文とボタン・下の欄・目次)の見た目。index.html の `<style>` から分けた(D-398)。 |
 | `src/core/` | 計算本体(D-028)。画面に触らない。ブラウザなしでテストできる。 |
 | `src/core/config.js` | ゲームの数値(D-047・D-048・D-078・D-087)。待ち時間・ミニゲームの限界・戦闘の数値の基本の表(`combat`)と上限下限(`combatLimits`)・強い魚の出現率(`strongChance`)。 |
