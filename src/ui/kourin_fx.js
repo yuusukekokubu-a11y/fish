@@ -4,6 +4,7 @@
 
 import { charmName } from "../core/kourin.js";
 import { gloveName } from "../core/glove.js";
+import { addBurst } from "./effects.js";
 import { formatCount } from "./format.js";
 
 /** 夜の背景が読めないときの、夜の色の段(空・海)。 */
@@ -59,9 +60,13 @@ export function addRaidEffects(effects, result, now, content) {
   const r = result.raid;
   if (r.defeated) {
     effects.flash = { color: "155,92,255", start: now, ms: 700 };
-    effects.banner = { text: "討伐!", start: now, ms: 1800 };
+    effects.banner = { text: "討伐!", start: now, ms: 1800, color: "#d9c2ff" };
+    effects.shake = { start: now, ms: 500, amplitude: 10 };
+    // 紫と金の粒を大きく散らす(キャラは画面の真ん中あたり)。
+    addBurst(effects, 0.5, 0.42, now, { count: 24, colors: ["#9b5cff", "#c9a6ff", "#ffd166", "#ffffff"], speed: 280, size: 7, ms: 1100, gravity: 180 });
   } else {
     effects.flash = { color: "155,92,255", start: now, ms: 350 };
+    addBurst(effects, 0.5, 0.42, now, { count: 8, colors: ["#9b5cff", "#c9a6ff"], speed: 160, size: 5, ms: 600 });
   }
   r.rewards.forEach((/** @type {any} */ reward, /** @type {number} */ i) => {
     effects.floats.push({ text: rewardText(reward, content), start: now + i * 250, ms: 1800, y: 0.4 + i * 0.045, size: 20, color: "#d9c2ff" });

@@ -53,7 +53,7 @@
   font-size: 14px;
 }
 
-/* 引く演出(画面全体:D-121・D-162)。 */
+/* 引く演出(画面全体:D-121・D-162・D-401)。木のクレートが揺れて開き、光の筋・光の柱・紙吹雪でレア度を見せる。乱数は使わない。 */
 .fx-overlay {
   position: absolute;
   inset: 0;
@@ -66,6 +66,8 @@
   overflow: hidden;
 }
 .fx-stage {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -75,42 +77,137 @@
   padding: 0 12px;
   box-sizing: border-box;
   overflow-y: auto;
+  overflow-x: hidden;
 }
+/* 光の筋:一番良いレア度の色の放射。溜めの間はゆっくり、開いた後は明るく回る。 */
+.fx-rays {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180vmax;
+  height: 180vmax;
+  margin: -90vmax 0 0 -90vmax;
+  background: repeating-conic-gradient(from 0deg, var(--best) 0deg 9deg, transparent 9deg 24deg);
+  -webkit-mask: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.35) 30%, transparent 62%);
+  mask: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.35) 30%, transparent 62%);
+  opacity: 0;
+  animation: fx-rays-in 1.2s ease-in forwards, fx-spin 14s linear infinite;
+  pointer-events: none;
+}
+.fx-rays.result {
+  opacity: 0.22;
+  animation: fx-spin 18s linear infinite;
+}
+.fx-overlay[data-best="legend"] .fx-rays.result {
+  opacity: 0.4;
+}
+@keyframes fx-rays-in {
+  0% { opacity: 0; }
+  60% { opacity: 0.08; }
+  100% { opacity: 0.3; }
+}
+@keyframes fx-spin {
+  to { transform: rotate(360deg); }
+}
+/* 木のクレート:ふた(金具つき)と胴(板の縞)。 */
 .fx-crate {
   position: relative;
-  width: 150px;
-  height: 120px;
+  width: 160px;
+  height: 124px;
+  filter: drop-shadow(0 8px 0 rgba(0, 0, 0, 0.45));
 }
 .fx-crate-lid {
-  height: 28px;
+  position: relative;
+  z-index: 2;
+  height: 30px;
   border: var(--px) solid var(--ink);
-  border-bottom: 0;
-  background: #8d5a2b;
-  box-shadow: inset var(--px) var(--px) 0 #b57a3e, inset 0 -4px 0 rgba(0, 0, 0, 0.25);
+  background-color: #8d5a2b;
+  background-image: var(--grain);
+  background-size: var(--grain-size);
+  image-rendering: pixelated;
+  box-shadow: inset var(--px) var(--px) 0 #b57a3e, inset 0 calc(-1 * var(--px)) 0 #5a3414;
+  transform-origin: 8% 100%;
+}
+.fx-crate-latch {
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 22px;
+  height: 18px;
+  margin-left: -11px;
+  border: var(--px) solid var(--ink);
+  background: var(--gold);
+  box-shadow: inset 2px 2px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo);
 }
 .fx-crate-body {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 88px;
   border: var(--px) solid var(--ink);
-  background: #a86b35;
+  background-color: #a86b35;
+  background-image: linear-gradient(to bottom, transparent 0 28px, rgba(42, 22, 8, 0.45) 28px 31px, transparent 31px 58px, rgba(42, 22, 8, 0.45) 58px 61px, transparent 61px), var(--grain);
+  background-size: auto, var(--grain-size);
+  image-rendering: pixelated;
   box-shadow: inset var(--px) var(--px) 0 #c8884a, inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 #7a4a22;
   color: #fff3e0;
   font-size: 13px;
   font-weight: bold;
   text-align: center;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+/* 光の柱:開いたとき、ふたの下から上へ伸びる。 */
+.fx-beam {
+  position: absolute;
+  left: 50%;
+  bottom: 60px;
+  z-index: 0;
+  width: 60px;
+  height: 0;
+  margin-left: -30px;
+  background: linear-gradient(to top, var(--best), transparent);
+  -webkit-mask: linear-gradient(to right, transparent, #000 30%, #000 70%, transparent);
+  mask: linear-gradient(to right, transparent, #000 30%, #000 70%, transparent);
+  opacity: 0.9;
+  pointer-events: none;
 }
 .fx-crate.charging {
   animation: fx-charge 1.2s ease-in forwards;
 }
 @keyframes fx-charge {
   0% { transform: scale(1) rotate(0); }
-  30% { transform: scale(1.04) rotate(-3deg); }
-  50% { transform: scale(1.06) rotate(3deg); }
-  70% { transform: scale(1.1) rotate(-5deg); }
-  85% { transform: scale(1.14) rotate(6deg); }
-  100% { transform: scale(1.2) rotate(0); }
+  20% { transform: scale(1.02) rotate(-2deg); }
+  35% { transform: scale(1.04) rotate(2deg); }
+  50% { transform: scale(1.06) rotate(-4deg); }
+  62% { transform: scale(1.1) rotate(4deg); }
+  72% { transform: scale(1.12) rotate(-6deg); }
+  82% { transform: scale(1.16) rotate(7deg); }
+  90% { transform: scale(1.2) rotate(-5deg); }
+  100% { transform: scale(1.24) rotate(0); }
+}
+.fx-crate.open {
+  animation: fx-open 0.45s ease-out forwards;
+}
+.fx-crate.open .fx-crate-lid {
+  animation: fx-lid 0.45s ease-out forwards;
+}
+.fx-crate.open .fx-beam {
+  animation: fx-beam 0.45s ease-out forwards;
+}
+@keyframes fx-open {
+  0% { transform: scale(1.24); }
+  30% { transform: scale(1.34) translateY(6px); }
+  100% { transform: scale(1.24); }
+}
+@keyframes fx-lid {
+  0% { transform: rotate(0); }
+  100% { transform: rotate(-70deg) translateY(-12px); }
+}
+@keyframes fx-beam {
+  0% { height: 0; }
+  100% { height: 320px; }
 }
 .fx-flash {
   position: absolute;
@@ -130,19 +227,67 @@
   30% { opacity: var(--flash); }
   100% { opacity: 0.15; }
 }
+/* 揺れの間は少し大きくして、ずれても下の画面が見えないようにする。 */
 .fx-overlay.shake {
-  animation: fx-shake 0.45s linear;
+  inset: -12px;
+  animation: fx-shake 0.6s linear;
 }
 @keyframes fx-shake {
   0%, 100% { transform: translate(0, 0); }
-  20% { transform: translate(-8px, 4px); }
-  40% { transform: translate(7px, -5px); }
-  60% { transform: translate(-6px, -3px); }
-  80% { transform: translate(5px, 4px); }
+  15% { transform: translate(-10px, 6px); }
+  30% { transform: translate(9px, -7px); }
+  45% { transform: translate(-8px, -4px); }
+  60% { transform: translate(7px, 5px); }
+  75% { transform: translate(-4px, 2px); }
+  90% { transform: translate(3px, -2px); }
+}
+/* 紙吹雪(エピック以上):四角が上から降る。位置と間は、要素ごとの CSS の変数(gacha_fx.js が決まった並びで入れる)。 */
+.fx-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.fx-confetti i {
+  position: absolute;
+  top: -12px;
+  left: var(--x);
+  width: 9px;
+  height: 9px;
+  background: var(--c);
+  box-shadow: 1px 1px 0 var(--ink);
+  animation: fx-fall var(--dur) linear var(--delay) both;
+}
+@keyframes fx-fall {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translate(var(--dx), 110vh) rotate(var(--rot)); opacity: 0; }
+}
+/* 一番良いレア度の見出し(エピック以上)。 */
+.fx-best-title {
+  font-size: 32px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: var(--best);
+  text-shadow: 3px 3px 0 var(--ink), 0 0 18px var(--best);
+  animation: fx-slam 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+.fx-best-title.legend {
+  font-size: 40px;
+  animation: fx-slam 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both, fx-glow 1.2s ease-in-out 0.5s infinite alternate;
+}
+@keyframes fx-slam {
+  0% { transform: scale(3); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes fx-glow {
+  from { text-shadow: 3px 3px 0 var(--ink), 0 0 12px var(--best); }
+  to { text-shadow: 3px 3px 0 var(--ink), 0 0 32px var(--best), 0 0 48px #fff1b8; }
 }
 .fx-title {
   font-size: 20px;
   font-weight: bold;
+  text-shadow: 2px 2px 0 var(--ink);
 }
 .fx-list {
   display: grid;
@@ -154,13 +299,14 @@
   grid-template-columns: 1fr;
   max-width: 280px;
 }
+/* カード:1 枚ずつ順に跳ねて出る(--delay は gacha_fx.js が入れる)。 */
 .fx-card {
   padding: 8px;
   border: var(--px) solid var(--ink);
   background: var(--panel);
   box-shadow: inset 0 0 0 2px var(--rarity), var(--bevel);
   font-size: 14px;
-  animation: fx-pop 0.25s ease-out;
+  animation: fx-pop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) var(--delay, 0ms) both;
 }
 .fx-card.big {
   padding: 16px;
@@ -171,9 +317,16 @@
 .fx-card.best {
   box-shadow: inset 0 0 0 2px var(--rarity), var(--bevel), 0 0 16px var(--rarity);
 }
+.fx-card.legend {
+  animation: fx-pop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) var(--delay, 0ms) both, fx-pulse 1s ease-in-out calc(var(--delay, 0ms) + 0.35s) infinite alternate;
+}
 @keyframes fx-pop {
-  0% { transform: scale(0.6); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  0% { transform: scale(0.4) translateY(40px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes fx-pulse {
+  from { box-shadow: inset 0 0 0 2px var(--rarity), var(--bevel), 0 0 12px var(--rarity); }
+  to { box-shadow: inset 0 0 0 2px var(--rarity), var(--bevel), 0 0 30px var(--rarity), 0 0 44px var(--rarity); }
 }
 .fx-card-top {
   display: flex;
@@ -208,4 +361,5 @@
   bottom: calc(env(safe-area-inset-bottom) + 16px);
   font-size: 14px;
   color: var(--muted);
+  text-shadow: 1px 1px 0 var(--ink);
 }
