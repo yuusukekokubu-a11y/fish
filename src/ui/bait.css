@@ -1,4 +1,4 @@
-/* 店の画面・自動分解の設定・引いた結果の自動分解の一覧(D-263・D-266・D-269)。screens.css が 800 行に近いので分ける(D-006)。 */
+/* 店の画面・自動分解の設定・引いた結果の自動分解の一覧・釣り場の画面・設定の小物(D-263・D-266・D-269・D-272・D-398)。色と箱の縁は theme.css の変数。screens.css が 800 行に近いので分ける(D-006)。 */
 .shop-card {
   margin-top: 8px;
 }
@@ -16,8 +16,9 @@
 .auto-scrap {
   margin: 0 0 12px;
   padding: 8px 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
+  border: var(--px) solid var(--ink);
+  background: var(--panel);
+  box-shadow: var(--bevel);
 }
 .auto-scrap-row {
   display: flex;
@@ -35,20 +36,20 @@
 .auto-scrap-note {
   margin: 6px 2px 0;
   font-size: 14px;
-  opacity: 0.75;
+  color: var(--muted);
 }
 .fx-scrap {
   width: 100%;
   margin-top: 8px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid var(--ink);
+  background: var(--well);
 }
 .fx-scrap-title {
   min-height: 44px;
   padding: 0 12px;
   line-height: 44px;
   font-weight: bold;
-  color: #ffd166;
+  color: var(--gold);
   cursor: pointer;
 }
 .fx-scrap-list {
@@ -59,7 +60,7 @@
 .fx-empty {
   margin: 4px 0;
   font-size: 14px;
-  opacity: 0.8;
+  color: var(--muted);
 }
 /* 釣り場の画面と、折りたためるグループ(D-272・D-273)。 */
 .area-row {
@@ -72,11 +73,12 @@
   flex: none;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-sizing: border-box;
+  border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.25);
 }
 .area-swatch.locked {
-  background: repeating-linear-gradient(45deg, #2b3a44, #2b3a44 6px, #1d2930 6px, #1d2930 12px);
+  background: repeating-linear-gradient(45deg, var(--well), var(--well) 6px, var(--panel-lo) 6px, var(--panel-lo) 12px);
 }
 .area-text {
   display: flex;
@@ -88,13 +90,13 @@
 .area-progress,
 .area-note {
   font-size: 14px;
-  opacity: 0.8;
+  color: var(--muted);
 }
 .area-here {
   flex: none;
   font-size: 14px;
   font-weight: bold;
-  color: #ffd166;
+  color: var(--gold);
 }
 .group-head {
   display: flex;
@@ -115,6 +117,7 @@
 .group-mark::after {
   content: "▼";
   font-size: 14px;
+  color: var(--gold);
 }
 .group-head[aria-expanded="false"] .group-mark::after {
   content: "▶";
@@ -123,7 +126,7 @@
 .code-note {
   margin: 8px 2px 0;
   font-size: 14px;
-  opacity: 0.85;
+  color: var(--muted);
 }
 /* タイミング補正(D-285)。 */
 .timing-row {
@@ -147,7 +150,7 @@
 .timing-note {
   margin: 8px 2px;
   font-size: 14px;
-  opacity: 0.85;
+  color: var(--muted);
 }
 .timing-measure {
   min-height: 48px;
@@ -159,9 +162,9 @@
   width: 100%;
   height: 220px;
   margin: 8px 0;
-  border: 0;
-  border-radius: 12px;
-  background: #0b3954;
+  border: var(--px) solid var(--ink);
+  background: var(--well);
+  box-shadow: var(--bevel-sunk);
   touch-action: none;
   -webkit-touch-callout: none;
 }
@@ -184,7 +187,7 @@
   height: 27px;
   margin: -13.5px 0 0 -13.5px;
   border-radius: 50%;
-  background: #ffd166;
+  background: var(--gold);
 }
 .timing-status {
   font-size: 14px;
@@ -200,9 +203,9 @@
   display: inline-block;
   margin-left: 4px;
   padding: 0 4px;
-  border-radius: 4px;
-  background: #ffd166;
-  color: #1a1a1a;
+  border: 2px solid var(--ink);
+  background: var(--gold);
+  color: var(--gold-ink);
   font-size: 14px;
   font-weight: bold;
   line-height: 1.3;
@@ -219,10 +222,12 @@
   width: 100%;
   min-width: 0;
   padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 10px;
-  background: #0b3954;
-  color: #ffffff;
+  border: var(--px) solid var(--ink);
+  border-radius: 0;
+  background: var(--well);
+  color: var(--text);
+  box-shadow: var(--bevel-sunk);
+  font: inherit;
   font-size: 16px;
 }
 /* 「操作」メニューの中身。 */
@@ -243,7 +248,7 @@
   margin-left: 6px;
   font-size: 14px;
   font-weight: normal;
-  opacity: 0.8;
+  color: var(--muted);
 }
 .item-sheet .item-equip {
   width: 100%;

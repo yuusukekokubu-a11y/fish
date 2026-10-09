@@ -26,7 +26,9 @@
 
 | 置き場所 | 中身 |
 | --- | --- |
-| `index.html` | 画面の入り口。見た目の枠と文字の置き場所。 |
+| `index.html` | 画面の入り口。見た目の枠と文字の置き場所(見た目は `src/ui/theme.css`・`main.css`:D-398)。 |
+| `src/ui/theme.css` | 見た目の土台(D-398)。色・1 ドットの太さ・箱の縁(べベル)・木目・コインの印を CSS の変数と小さな部品(`.wall`・`.plank`・`.px-coin`・`.nailed`)で 1 か所に置く。ほかの CSS はこの変数を使う。 |
+| `src/ui/main.css` | 釣りのメイン画面(上の欄・釣りの絵の上の文とボタン・下の欄・目次)の見た目。index.html の `<style>` から分けた(D-398)。 |
 | `src/core/` | 計算本体(D-028)。画面に触らない。ブラウザなしでテストできる。 |
 | `src/core/config.js` | ゲームの数値(D-047・D-048・D-078・D-087)。待ち時間・ミニゲームの限界・戦闘の数値の基本の表(`combat`)と上限下限(`combatLimits`)・強い魚の出現率(`strongChance`)。 |
 | `src/core/combat.js` | 戦闘の数値の表の点検と丸め、クリティカルの規則の一覧、ダメージの計算、ジャストの初撃のダメージ(`strikeDamage`)、合わせの輪の判定、戦闘中の上乗せ(D-078〜D-080・D-087・D-088・D-256)。 |
@@ -280,7 +282,8 @@
 - 目次の履歴(D-173・D-179):開くと `history.pushState({ drawer: true })`。「戻る」で閉じる。✕や外側で閉じたときは `history.back()` で足した履歴を戻す。項目を押したときは、目次の履歴を画面の履歴に置き換える(`navigate(id, { replace: true })`)。
 - 履歴:移るたびに `history.pushState({ screen, depth }, "", "#id")`。ブラウザの「戻る」は `popstate` で 1 つ前の画面。バーの「←」は `history.go(-depth)` でメイン画面まで。再読み込みしたら、履歴を「メイン画面 → その画面」に作り直して開く。
 - 画面と外側のタップは `pointerdown` を下に伝えない(釣りの絵に届かない)。下から出るシート(`sheet.js`)も同じ。
-- 見た目は `src/ui/screens.css` と、分野ごとの CSS(`equip.css`・`crate.css`・`skills.css` など:D-368)。ボタンは 48px(丸いボタン 44px)以上、文字は 14px 以上、`env(safe-area-inset-*)` で端の余白を取る。
+- 見た目は `src/ui/theme.css`(土台:D-398)と `screens.css`、分野ごとの CSS(`equip.css`・`crate.css`・`skills.css` など:D-368)。ボタンは 48px(小さなボタン 44px)以上、文字は 14px 以上、`env(safe-area-inset-*)` で端の余白を取る。
+- 箱の書き方(D-398):`border: var(--px) solid var(--ink); background: var(--panel); box-shadow: var(--bevel);`(浮いた箱)。へこみは `background: var(--well); box-shadow: var(--bevel-sunk);`。主役のボタンは `--gold` と `--bevel-gold` に `0 var(--px) 0 var(--ink)` の影を足し、`:active` で `translateY(var(--px))`(押すと沈む)。レア度や降臨の色の輪は `inset 0 0 0 2px <色>` を bevel の前に重ねる。角は丸めない(`border-radius` を書かない)。新しい色を足すときは、まず theme.css の変数にする。
 
 **画面を 1 つ足す(例:図鑑)**
 

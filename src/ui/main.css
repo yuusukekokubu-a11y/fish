@@ -1,0 +1,308 @@
+/* 釣りのメイン画面の見た目(D-051・D-130・D-271・D-398)。上(数の欄)・真ん中(釣りの絵)・下(竿のボタン)の 3 段と、目次(ドロワー)。
+   色と箱の縁は theme.css の変数を使う。index.html の <style> から分けた(D-398)。 */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--ink);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 上(数)・真ん中(釣りの絵)・下(竿のボタン)の 3 段(D-051)。メニューは右から重ねて出す(D-130)。 */
+#app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  height: 100%;
+  height: 100dvh;
+  margin: 0 auto;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* 上の欄:木の板に、ウロコインと今要る鱗のへこんだ窓。2 段目は釣り場の札と竿の名前(D-272)。 */
+#hud {
+  padding: calc(env(safe-area-inset-top) + 8px) 10px 8px;
+  border-bottom: var(--px) solid var(--ink);
+  box-shadow: inset 0 calc(-1 * var(--px)) 0 var(--panel-lo);
+  font-size: 15px;
+}
+#hud-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.hud-coins,
+#need {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border: 2px solid var(--ink);
+  background: var(--well);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.45);
+}
+#need:empty {
+  display: none;
+}
+#hud b {
+  font-size: 19px;
+  color: var(--gold);
+}
+#hud-sub {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#area-name {
+  padding: 1px 8px;
+  border: 2px solid var(--ink);
+  background: var(--tag);
+  color: var(--tag-ink);
+  font-weight: bold;
+}
+#rod-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+/* 真ん中:釣りの絵。 */
+#stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  /* 合わせと命中の領域:ダブルタップの拡大・スクロール・長押しの選択とメニューを出さない(D-284)。 */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* 確かめ用の表示(?debug のときだけ:D-286)。押せない小さな文字で、左下の隅に。 */
+#perf {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  z-index: 25;
+  padding: 3px 6px;
+  border: 2px solid var(--ink);
+  background: rgba(42, 22, 8, 0.75);
+  color: #e9f5db;
+  font: 14px/1.3 ui-monospace, monospace;
+  white-space: pre;
+  pointer-events: none;
+}
+#perf[hidden] {
+  display: none;
+}
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+/* 場面の文(「待っています…」など):暗い板に載せて、背景の絵の上でも読めるようにする。空なら出さない。 */
+#message {
+  position: absolute;
+  top: 12%;
+  left: 50%;
+  width: max-content;
+  max-width: 88%;
+  padding: 6px 14px;
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  border: var(--px) solid var(--ink);
+  background: rgba(42, 22, 8, 0.82);
+  box-shadow: inset var(--px) var(--px) 0 rgba(255, 244, 220, 0.12);
+  text-align: center;
+  font-size: 20px;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+#message:empty {
+  display: none;
+}
+
+/* 下の欄:木の板と、大きな金のボタン(押すと沈む)。 */
+#footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 10px calc(env(safe-area-inset-bottom) + 6px);
+  border-top: var(--px) solid var(--ink);
+  box-shadow: inset 0 var(--px) 0 var(--panel-hi);
+}
+#upgrade {
+  width: 100%;
+  min-height: 50px;
+  border: var(--px) solid var(--ink);
+  background: var(--gold);
+  color: var(--gold-ink);
+  box-shadow: var(--bevel-gold), 0 var(--px) 0 var(--ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#upgrade:active:not(:disabled) {
+  transform: translateY(var(--px));
+  box-shadow: var(--bevel-gold);
+}
+#upgrade:disabled {
+  background: var(--well);
+  color: var(--faint);
+  box-shadow: var(--bevel-sunk);
+}
+#sub {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+/* 釣りの絵の上のボタン(餌:左上・目次:右上)。木の板の小さな箱。 */
+#bait-toggle,
+#menu-toggle {
+  position: absolute;
+  top: 8px;
+  z-index: 30;
+  border: var(--px) solid var(--ink);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--bevel), 0 var(--px) 0 var(--ink);
+  font: inherit;
+}
+#bait-toggle:active:not(:disabled),
+#menu-toggle:active {
+  transform: translateY(var(--px));
+  box-shadow: var(--bevel);
+}
+/* 餌のボタン(D-271):入っている状態は、色だけでなく「✓」でも分かる(文字は bait_view.js)。 */
+#bait-toggle {
+  left: 8px;
+  min-width: 88px;
+  min-height: 44px;
+  padding: 3px 10px;
+  font-size: 14px;
+  line-height: 1.25;
+  text-align: center;
+}
+#bait-toggle[hidden] {
+  display: none;
+}
+#bait-toggle[aria-pressed="true"] {
+  background: #1f6f86;
+  box-shadow: inset var(--px) var(--px) 0 #7bdff2, inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 #0f4252, 0 var(--px) 0 var(--ink);
+}
+#bait-toggle:disabled {
+  background: var(--well);
+  color: var(--faint);
+  box-shadow: var(--bevel-sunk);
+}
+#bait-toggle b {
+  display: block;
+  font-size: 15px;
+}
+#menu-toggle {
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  line-height: 1;
+}
+/* 払い戻しなどの知らせ(数秒で消える)。 */
+#notice {
+  position: absolute;
+  top: 36%;
+  left: 12px;
+  right: 12px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--ink);
+  white-space: pre-line;
+  pointer-events: none;
+}
+
+/* ドロワー(目次:D-130・D-134・D-152)。目次は上の数の欄の下から、右に出る。木の壁。 */
+.drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: none;
+  background: rgba(0, 0, 0, 0.45);
+}
+.drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  width: 70%;
+  max-width: 300px;
+  padding: 60px 0 calc(env(safe-area-inset-bottom) + 12px);
+  box-sizing: border-box;
+  border-left: var(--px) solid var(--ink);
+  background-color: var(--bg);
+  background-image: var(--seams), var(--grain);
+  background-size: auto, var(--grain-size);
+  image-rendering: pixelated;
+  box-shadow: inset var(--px) 0 0 var(--panel-hi), -4px 0 16px rgba(0, 0, 0, 0.5);
+  transform: translateX(105%);
+  transition: transform 0.2s ease-out;
+  visibility: hidden;
+  overflow-y: auto;
+}
+#app.menu-open .drawer-backdrop {
+  display: block;
+}
+#app.menu-open .drawer {
+  transform: translateX(0);
+  visibility: visible;
+}
+.drawer-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.drawer-item {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 18px;
+  border: 0;
+  border-bottom: 2px solid rgba(42, 22, 8, 0.6);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  font-weight: bold;
+  text-align: left;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+.drawer-item::before {
+  content: "▶";
+  margin-right: 10px;
+  color: var(--gold);
+  font-size: 12px;
+}
+.drawer-item:active {
+  background: rgba(0, 0, 0, 0.25);
+}
