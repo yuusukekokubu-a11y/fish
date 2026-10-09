@@ -1,7 +1,8 @@
 // @ts-check
 // ドット絵の見本のページ(D-362・D-364・D-383)。3 つの粗さのクロダイを、同じ表示の大きさで並べる。
 // その下に、釣り場ごとの魚(D-386〜D-391:ゲームと同じ大きさ。魚は 1 マス 3px、ヌシは 6px。釣り場は切り替え)。
-// 下に、背景の見本(6 つの釣り場・昼)を 1 ドット 3px(幅 390 CSS px)で出す。釣り場を切り替え、「ゲームの位置」で、水面・竿・ウキ・魚・ゲージの位置を重ねる。
+// ヌシは、金の冠と、降臨の紫の冠(D-392)を切り替える。
+// 下に、背景の見本(6 つの釣り場・昼と夜:D-392)を 1 ドット 3px(幅 390 CSS px)で出す。釣り場を切り替え、「ゲームの位置」で、水面・竿・ウキ・魚・ゲージの位置を重ねる。
 // - 大きさ:×1(幅 160 CSS px)・×2(320)・ゲームで使う大きさの想定 96・192。1 マス = 整数の画素の数なので、
 //   表示の幅は目安にいちばん近い値になる(粗さと画素比によって少しちがう。下に実際の値を出す)。
 // - 背景の色:明るい水色・濃い青・暗い藍(魚だけを置く)。
@@ -15,6 +16,19 @@ import { FISH_KAWA } from "./fish/kawa.js";
 import { FISH_OKI } from "./fish/oki.js";
 import { FISH_GAIYOU } from "./fish/gaiyou.js";
 import { FISH_SHINKAI } from "./fish/shinkai.js";
+import { FISH_ROWS } from "../core/fish.js";
+import { kourinPalette } from "../ui/fish_art.js";
+
+/** ヌシの冠の切り替え。 */
+const CROWN_CHOICES = [
+  { id: "gold", label: "金の冠" },
+  { id: "kourin", label: "降臨(紫の冠)" },
+];
+/** 背景の時間の切り替え。 */
+const TIME_CHOICES = [
+  { id: "day", label: "昼" },
+  { id: "night", label: "夜(降臨)" },
+];
 
 /** 魚の絵のある釣り場(切り替えの並び)。 */
 const FISH_AREAS = [
@@ -191,10 +205,12 @@ function main() {
   const bgStage = /** @type {HTMLElement} */ (document.getElementById("bg-stage"));
   const guideHost = /** @type {HTMLElement} */ (document.getElementById("guide-choices"));
   const areaHost = /** @type {HTMLElement} */ (document.getElementById("area-choices"));
-  const state = { size: "x1", bg: "blue", guide: "off", area: /** @type {string} */ (BACKGROUNDS[0].areaId), fishArea: "minato" };
+  const state = { size: "x1", bg: "blue", guide: "off", area: /** @type {string} */ (BACKGROUNDS[0].areaId), fishArea: "minato", crown: "gold", time: "day" };
+  const crownHost = /** @type {HTMLElement} */ (document.getElementById("crown-choices"));
+  const timeHost = /** @type {HTMLElement} */ (document.getElementById("time-choices"));
   const fishAreaHost = /** @type {HTMLElement} */ (document.getElementById("fish-area-choices"));
   const fishStage = /** @type {HTMLElement} */ (document.getElementById("fish-stage"));
-  const problems = [...KURODAI, ...FISH_AREAS.flatMap((f) => Object.values(f.arts)), ...BACKGROUNDS.map((b) => b.art)].flatMap((a) => checkArt(a));
+  const problems = [...KURODAI, ...FISH_AREAS.flatMap((f) => Object.values(f.arts)), ...BACKGROUNDS.flatMap((b) => [b.art, b.night])].flatMap((a) => checkArt(a));
   if (problems.length > 0) {
     problemsBox.hidden = false;
     problemsBox.textContent = `データの点検で問題があります:${problems.join("、")}`;
@@ -223,8 +239,14 @@ function main() {
       state.fishArea = id;
       render();
     });
+    choiceButtons(crownHost, CROWN_CHOICES, state.crown, (id) => {
+      state.crown = id;
+      render();
+    });
     fishStage.replaceChildren(
-      ...Object.values(fishArea.arts).map((art) => {
+      ...Object.values(fishArea.arts).map((base) => {
+        const glow = FISH_ROWS.find((r) => r.id === base.id)?.color;
+        const art = state.crown === "kourin" && base.width > 32 && glow ? { ...base, palette: kourinPalette(base.palette, glow) } : base;
         const box = document.createElement("figure");
         box.className = "sample fish";
         box.dataset.art = art.id;
@@ -240,7 +262,11 @@ function main() {
     );
     // 背景の見本:画面の幅をこえるときは、こえない最大の整数の画素で描く。
     const area = BACKGROUNDS.find((b) => b.areaId === state.area) ?? BACKGROUNDS[0];
-    bgStage.replaceChildren(backgroundBox(area.art, dpr, Math.max(130, bgStage.clientWidth), state.guide === "on"));
+    choiceButtons(timeHost, TIME_CHOICES, state.time, (id) => {
+      state.time = id;
+      render();
+    });
+    bgStage.replaceChildren(backgroundBox(state.time === "night" ? area.night : area.art, dpr, Math.max(130, bgStage.clientWidth), state.guide === "on"));
     choiceButtons(
       areaHost,
       BACKGROUNDS.map((b) => ({ id: b.areaId, label: b.art.name.replace("(昼)", "") })),

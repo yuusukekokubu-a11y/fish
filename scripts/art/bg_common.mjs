@@ -3,6 +3,7 @@
 // - 塗る:set・rect・bandFill(帯を点描でなじませる)・cloud(丸の集まりの雲)・flyingGull(飛ぶ鳥)
 // - 乱数:決まった種の小さな乱数(何度書き出しても同じ絵になる)
 // - 書き出し:使った色だけを明るさの順でパレットにし、src/art/bg/<id>.js に書く(手で直さない)
+// - 夜:同じ絵の色を夜の色に置き換え、月と星を足して、src/art/bg/<id>_night.js にも書く(降臨の戦いだけで使う:D-392)
 
 import { writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -135,6 +136,130 @@ export function writeBackground(o) {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, lines.join("\n"));
   console.log(`${o.id}:${palette.length - 1} 色`);
+  if (o.night !== false) writeNightBackground(o, o.night ?? {});
+}
+
+// ---- 夜の背景(降臨の戦いのときだけ使う:D-392) ----
+
+/** 夜でも明るいままの色(灯り)。名前 → 夜の色。表にない名前は、ふつうの夜の色にする。 */
+const NIGHT_LIGHTS = {
+  glass: "#ffe590",
+  window: "#ffd76a",
+  shipLight: "#ffd47e",
+  lure: "#fff3a8",
+  lureHalo: "#b39f55",
+  glow: "#8ff3e3",
+  glowMid: "#3fb3aa",
+  sun: "#f6f2d8",
+  sunHalo: "#5d6688",
+  glint: "#c9cfba",
+  glintMid: "#6f8c98",
+};
+/** 夜空の色(上の段 → 水平線の近く)。 */
+const NIGHT_SKY = ["#0a1230", "#111b3e", "#18244c", "#202d5a", "#2a3868", "#334276"];
+/** 月と星の色(夜だけの色)。 */
+const NIGHT_EXTRA = { moon: "#f4f0d6", moonShade: "#c9c4a4", star: "#e8ecff" };
+
+/** 昼の色を夜の色にする:暗く、青に寄せる。 */
+function nightColor(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const c = (v) => Math.max(0, Math.min(255, Math.round(v)));
+  return `#${[c(r * 0.26 + 6), c(g * 0.32 + 12), c(b * 0.46 + 36)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** 決まった数(0〜1):星の位置に使う(乱数は使わない)。 */
+function hash01(x, y) {
+  const h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return h - Math.floor(h);
+}
+
+/**
+ * 夜の背景を書き出す(昼の絵の色を置き換え、月と星を足す)。src/art/bg/<file>_night.js。
+ * night:{ moon:[中心 x, 中心 y, 半径] | null(月を描かない。外洋は太陽が月になる)}
+ * 色が 32 をこえるときは、いちばん近い 2 色をまとめる(同じ色はひとつにする)。
+ */
+function writeNightBackground(o, night) {
+  const skyNames = Object.keys(o.P).filter((k) => /^sky\d+$/.test(k)).sort((a, b) => Number(a.slice(3)) - Number(b.slice(3)));
+  const color = (name) => {
+    if (name in NIGHT_EXTRA) return NIGHT_EXTRA[name];
+    if (name in NIGHT_LIGHTS) return NIGHT_LIGHTS[name];
+    const i = skyNames.indexOf(name);
+    if (i >= 0) return NIGHT_SKY[Math.round((i / Math.max(1, skyNames.length - 1)) * (NIGHT_SKY.length - 1))];
+    return nightColor(o.P[name]);
+  };
+  const grid = o.grid.map((r) => [...r]);
+  const isSky = (x, y) => y < HORIZON && skyNames.includes(o.grid[y][x]);
+  // 星:空のマスに、まばらに(上ほど多い)。
+  for (let y = 0; y < HORIZON - 12; y++) {
+    for (let x = 0; x < W; x++) {
+      if (!isSky(x, y)) continue;
+      const f = hash01(x, y);
+      if (f < 0.012 * (1 - y / HORIZON) + 0.002) grid[y][x] = "star";
+    }
+  }
+  // 月:丸と、右下の影。
+  const moon = night.moon === undefined ? [24, 26, 7] : night.moon;
+  if (moon) {
+    const [cx, cy, r] = moon;
+    for (let y = cy - r - 1; y <= cy + r + 1; y++) {
+      for (let x = cx - r - 1; x <= cx + r + 1; x++) {
+        if (y < 0 || x < 0 || x >= W || !isSky(x, y)) continue;
+        const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+        if (d > r) continue;
+        grid[y][x] = d > r - 1.6 && x + 0.5 - cx + (y + 0.5 - cy) > r * 0.6 ? "moonShade" : "moon";
+      }
+    }
+  }
+  // 名前 → 夜の色。同じ色はひとつに、32 をこえたら近い色をまとめる。
+  let hexGrid = grid.map((r) => r.map(color));
+  const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  for (;;) {
+    const used = [...new Set(hexGrid.flat())];
+    if (used.length <= 32) break;
+    let best = null;
+    for (let i = 0; i < used.length; i++) {
+      for (let j = i + 1; j < used.length; j++) {
+        const a = rgb(used[i]);
+        const b = rgb(used[j]);
+        const d = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+        if (!best || d < best.d) best = { d, from: used[j], to: used[i] };
+      }
+    }
+    hexGrid = hexGrid.map((r) => r.map((h) => (h === best.from ? best.to : h)));
+  }
+  const lum = (hex) => {
+    const [r, g, b] = rgb(hex);
+    return r * 0.299 + g * 0.587 + b * 0.114;
+  };
+  const used = [...new Set(hexGrid.flat())].sort((a, b) => lum(a) - lum(b));
+  const palette = ["", ...used];
+  const rows = hexGrid.map((r) => r.map((h) => CHARS[used.indexOf(h) + 1]).join(""));
+  const name = o.name.replace("(昼)", "(夜)");
+  const lines = [
+    "// @ts-check",
+    `// ${name}の背景のドット絵(130 × 280 マス:D-392)。${o.script} が、昼の絵の色を夜の色に置き換え、月と星を足して書き出す(手で直さない)。`,
+    "// 降臨の戦いのときだけ使う。背景なので透明のマスはない。1 行 = 1 つの文字列、1 マス = 1 文字(src/art/pixel.js の PIXEL_CHARS)。",
+    "",
+    '/** @type {import("../pixel.js").PixelArt} */',
+    `export const ${o.constName}_NIGHT = Object.freeze({`,
+    `  id: ${JSON.stringify(`${o.id}-night`)},`,
+    `  name: ${JSON.stringify(name)},`,
+    '  kind: "background",',
+    `  width: ${W},`,
+    `  height: ${H},`,
+    `  palette: Object.freeze(${JSON.stringify(palette)}),`,
+    "  rows: Object.freeze([",
+    ...rows.map((r) => `    ${JSON.stringify(r)},`),
+    "  ]),",
+    "});",
+    "",
+  ];
+  const out = join(dirname(fileURLToPath(import.meta.url)), "../../src/art/bg", o.file.replace(/\.js$/, "_night.js"));
+  writeFileSync(out, lines.join("\n"));
+  console.log(`${o.id}-night:${palette.length - 1} 色`);
 }
 
 /**

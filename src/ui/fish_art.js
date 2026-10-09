@@ -1,8 +1,9 @@
 // @ts-check
-// 魚のドット絵を、ゲームの画面で使う(D-386〜D-391)。
+// 魚のドット絵を、ゲームの画面で使う(D-386〜D-391・D-392)。
 // - 絵のデータは釣り場ごとのファイル(src/art/fish/<釣り場>.js)。ゲームを開くときには読まない。いる魚の釣り場の分だけ、あとで読む。
 // - 読んだ絵は、1 マス = 1 画素の小さな canvas にして取っておく。画面には draw.js が拡大して写す。
 // - まだ絵のない魚・読み込みの前は null(今までの丸い形で描く)。
+// - 降臨ヌシ(D-392)は、ヌシの絵の金の冠と縁の光の色だけを、紫の冠と降臨の光の色に置き換えて作る(絵のファイルは増やさない)。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 /** 釣り場の並び(釣り場の表と同じ。1 つの釣り場は 5 段階:D-272)。 */
@@ -19,6 +20,23 @@ const LOADERS = Object.freeze({
   gaiyou: () => import("../art/fish/gaiyou.js").then((m) => m.FISH_GAIYOU),
   shinkai: () => import("../art/fish/shinkai.js").then((m) => m.FISH_SHINKAI),
 });
+
+/** ヌシの冠の色(scripts/art/fish_common.mjs の GOLD と同じ)と、降臨の紫の冠の色(D-392)。 */
+export const CROWN_GOLD = Object.freeze({ gold: "#f2c43c", goldDark: "#b8862a", jewel: "#e63946", jewel2: "#3a86ff", sparkle: "#fff3b0" });
+export const CROWN_KOURIN = Object.freeze({ gold: "#b46cf0", goldDark: "#6c3aa4", jewel: "#f2c43c", jewel2: "#7fe6ff", sparkle: "#f0dcff" });
+/** 降臨ヌシの縁の光の色。 */
+export const KOURIN_GLOW = "#9b5cff";
+
+/**
+ * 降臨ヌシの色の並び:金の冠 → 紫の冠、縁の光(ヌシの色)→ 降臨の光。ほかの色はそのまま。
+ * @param {readonly string[]} palette @param {string} glow
+ */
+export function kourinPalette(palette, glow) {
+  /** @type {Record<string, string>} */
+  const swap = { [glow.toLowerCase()]: KOURIN_GLOW };
+  for (const k of /** @type {(keyof typeof CROWN_GOLD)[]} */ (Object.keys(CROWN_GOLD))) swap[CROWN_GOLD[k]] = CROWN_KOURIN[k];
+  return palette.map((c) => swap[c.toLowerCase()] ?? c);
+}
 
 /** 画面の 1 マスの大きさ(CSS px)。魚は 3px(32 マスで 96px)、ヌシは 6px(魚の部分が 192px:D-372)。 */
 export const FISH_DOT = 3;
@@ -44,13 +62,15 @@ export function hasFishArt(areaId) {
 
 /**
  * 魚の絵(1 マス = 1 画素の canvas)。まだ読んでいなければ読み始めて、いまは null を返す。
- * 画面(document)がないとき(テスト)・絵のない魚は null。
- * @param {{ id: string, stage: number } | null | undefined} fish
+ * 画面(document)がないとき(テスト)・絵のない魚は null。variant が "kourin" なら、降臨ヌシの色(紫の冠)にする。
+ * @param {{ id: string, stage: number, color?: string } | null | undefined} fish
+ * @param {"kourin"} [variant]
  * @returns {HTMLCanvasElement | null}
  */
-export function fishArt(fish) {
+export function fishArt(fish, variant) {
   if (!fish || typeof document === "undefined") return null;
-  const done = canvases.get(fish.id);
+  const key = variant ? `${fish.id}:${variant}` : fish.id;
+  const done = canvases.get(key);
   if (done) return done;
   const areaId = areaOfFishStage(fish.stage);
   if (!areaId || !hasFishArt(areaId)) return null;
@@ -66,14 +86,15 @@ export function fishArt(fish) {
       })
       .catch(() => areas.delete(areaId));
   }
-  const art = entry.arts?.[fish.id];
-  if (!art || !entry.draw) return null;
+  const base = entry.arts?.[fish.id];
+  if (!base || !entry.draw) return null;
+  const art = variant === "kourin" && fish.color ? { ...base, palette: kourinPalette(base.palette, fish.color) } : base;
   const canvas = document.createElement("canvas");
   canvas.width = art.width;
   canvas.height = art.height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
   entry.draw(ctx, art);
-  canvases.set(fish.id, canvas);
+  canvases.set(key, canvas);
   return canvas;
 }

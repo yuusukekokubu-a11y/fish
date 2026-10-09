@@ -9,7 +9,8 @@ import { BACKGROUNDS, BG_HORIZON } from "../src/art/bg/index.js";
 import { BG_MINATO, MINATO_HORIZON } from "../src/art/bg/minato.js";
 import { AREA_ROWS } from "../src/core/areas.js";
 import { ART_HORIZON, areaBackground, hasAreaArt } from "../src/ui/area_bg.js";
-import { areaOfFishStage, fishArt, hasFishArt } from "../src/ui/fish_art.js";
+import { areaOfFishStage, CROWN_GOLD, CROWN_KOURIN, fishArt, hasFishArt, KOURIN_GLOW, kourinPalette } from "../src/ui/fish_art.js";
+import { GOLD } from "../scripts/art/fish_common.mjs";
 import { FISH_MINATO } from "../src/art/fish/minato.js";
 import { FISH_ISO } from "../src/art/fish/iso.js";
 import { FISH_KAWA } from "../src/art/fish/kawa.js";
@@ -68,6 +69,42 @@ test("背景は 6 つの釣り場(港・磯・川・沖・外洋・深海:D-384)
     assert.ok(art.rows.every((r) => !r.includes("0")), `${areaId}:透明のマスがない`);
     assert.ok(art.name.startsWith(AREA_ROWS.find((a) => a.id === areaId)?.name ?? "?"), `${areaId}:名前`);
   }
+});
+
+test("夜の背景(D-392):6 つの釣り場にあり、昼と同じ大きさ・点検に通る・32 色まで・全面を塗る。名前は「(夜)」、id は昼の id + -night", () => {
+  for (const { areaId, art, night } of BACKGROUNDS) {
+    assert.equal(night.kind, "background", areaId);
+    assert.deepEqual([night.width, night.height], [art.width, art.height], areaId);
+    assert.deepEqual(checkArt(night), [], areaId);
+    assert.ok(colorCount(night) <= PALETTE_LIMITS[130], `${areaId}:${colorCount(night)} 色`);
+    assert.ok(night.rows.every((r) => !r.includes("0")), `${areaId}:透明のマスがない`);
+    assert.equal(night.id, `${art.id}-night`);
+    assert.equal(night.name, art.name.replace("(昼)", "(夜)"));
+    assert.notDeepEqual(night.palette, art.palette, `${areaId}:色が夜になっている`);
+  }
+  // 画面がないとき(テスト)は、夜の絵も読まない。
+  assert.equal(areaBackground("minato", true), null);
+});
+
+test("降臨ヌシの紫の冠(D-392):冠の色は生成の道具と同じ。魚の体は冠と縁の色を使わないので、置き換えで変わるのは冠と縁だけ", () => {
+  assert.deepEqual({ ...CROWN_GOLD }, { ...GOLD });
+  assert.equal(new Set(Object.values(CROWN_KOURIN)).size, Object.keys(CROWN_KOURIN).length);
+  const arts = { ...FISH_MINATO, ...FISH_ISO, ...FISH_KAWA, ...FISH_OKI, ...FISH_GAIYOU, ...FISH_SHINKAI };
+  for (const boss of FISH_ROWS.filter((r) => r.kind === "boss")) {
+    const art = arts[boss.id];
+    const strong = arts[boss.id.replace(/^nushi-/, "")];
+    assert.ok(art && strong, boss.id);
+    // 冠と縁の色は、もとの魚の絵(32 マス)に出てこない。
+    const special = [...Object.values(CROWN_GOLD), boss.color.toLowerCase()];
+    assert.deepEqual(strong.palette.filter((c) => special.includes(c.toLowerCase())), [], `${boss.id}:魚の体が冠・縁の色を使っていない`);
+    assert.ok(art.palette.some((c) => c.toLowerCase() === boss.color.toLowerCase()), `${boss.id}:縁の色が表の色`);
+    const purple = kourinPalette(art.palette, boss.color);
+    assert.equal(purple.length, art.palette.length);
+    const changed = art.palette.filter((c, i) => c !== purple[i]);
+    assert.ok(changed.every((c) => special.includes(c.toLowerCase())), `${boss.id}:変わるのは冠と縁だけ`);
+    assert.ok(purple.includes(KOURIN_GLOW) && purple.includes(CROWN_KOURIN.gold), boss.id);
+  }
+  assert.equal(fishArt({ id: "nushi-kurodai", stage: 1, color: "#9c4f1c" }, "kourin"), null);
 });
 
 test("ゲームの背景(D-385):表の 6 つの釣り場には絵があり、あとから足す釣り場は色の段。画面がないとき(テスト)は読まない", () => {
@@ -226,11 +263,17 @@ test("ゲームを開くときは、絵のデータを読み込まない。背�
   const later = importGraph(entry, true).filter((f) => f.includes(art)).map((f) => f.slice(f.indexOf(art)).split("\\").join("/"));
   assert.deepEqual(later.sort(), [
     "src/art/bg/gaiyou.js",
+    "src/art/bg/gaiyou_night.js",
     "src/art/bg/iso.js",
+    "src/art/bg/iso_night.js",
     "src/art/bg/kawa.js",
+    "src/art/bg/kawa_night.js",
     "src/art/bg/minato.js",
+    "src/art/bg/minato_night.js",
     "src/art/bg/oki.js",
+    "src/art/bg/oki_night.js",
     "src/art/bg/shinkai.js",
+    "src/art/bg/shinkai_night.js",
     "src/art/fish/gaiyou.js",
     "src/art/fish/iso.js",
     "src/art/fish/kawa.js",

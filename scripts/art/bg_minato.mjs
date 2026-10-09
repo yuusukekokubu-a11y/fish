@@ -225,5 +225,6 @@ writeBackground({
   script: "scripts/art/bg_minato.mjs",
   P,
   grid,
+  night: { moon: [98, 21, 6] },
   extra: ["/** 水平線の行(上から。ゲームの水面 0.42 の位置)。 */", `export const MINATO_HORIZON = ${HORIZON};`, ""],
 });
