@@ -8,6 +8,7 @@ import { test } from "node:test";
 import { BACKGROUNDS, BG_HORIZON } from "../src/art/bg/index.js";
 import { BG_MINATO, MINATO_HORIZON } from "../src/art/bg/minato.js";
 import { AREA_ROWS } from "../src/core/areas.js";
+import { ART_HORIZON, areaBackground, hasAreaArt } from "../src/ui/area_bg.js";
 import { KURODAI } from "../src/art/fish/kurodai.js";
 import { artSize, checkArt, colorCount, drawArt, fitScale, PALETTE_LIMITS, PIXEL_CHARS } from "../src/art/pixel.js";
 import { ROOT } from "./helpers.js";
@@ -59,6 +60,14 @@ test("背景は 6 つの釣り場(港・磯・川・沖・外洋・深海:D-384)
     assert.ok(art.rows.every((r) => !r.includes("0")), `${areaId}:透明のマスがない`);
     assert.ok(art.name.startsWith(AREA_ROWS.find((a) => a.id === areaId)?.name ?? "?"), `${areaId}:名前`);
   }
+});
+
+test("ゲームの背景(D-385):表の 6 つの釣り場には絵があり、あとから足す釣り場は色の段。画面がないとき(テスト)は読まない", () => {
+  assert.deepEqual(AREA_ROWS.map((a) => hasAreaArt(a.id)), AREA_ROWS.map(() => true));
+  assert.equal(hasAreaArt("a7"), false);
+  assert.equal(ART_HORIZON, BG_HORIZON);
+  assert.equal(areaBackground("minato"), null);
+  assert.equal(areaBackground(null), null);
 });
 
 test("背景の点検:背景は透明のマスがあると問題、魚は透明のマスがないと問題", () => {
@@ -146,14 +155,18 @@ test("描き方:補間なし(imageSmoothingEnabled = false)で、1 マスを dot
   assert.equal(c.rects.reduce((n, r) => n + r.w * r.h, 0), opaque * 4);
 });
 
-/** あるファイルから import をたどって、読み込むファイルを全部集める。 */
-function importGraph(entry) {
+/**
+ * あるファイルから import をたどって、読み込むファイルを全部集める。dynamic が false なら、
+ * 開いたときに読む import(import 文)だけをたどる(あとで読む import(...) はたどらない)。
+ */
+function importGraph(entry, dynamic = true) {
   const seen = new Set();
   const walk = (file) => {
     if (seen.has(file)) return;
     seen.add(file);
     const text = readFileSync(file, "utf8");
-    for (const m of text.matchAll(/(?:import|export)[^"']*?from\s*["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)) {
+    for (const m of text.matchAll(/(?:import|export)[^"'()]*?from\s*["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)) {
+      if (m[2] && !dynamic) continue;
       const spec = m[1] ?? m[2];
       if (spec.startsWith(".")) walk(resolve(dirname(file), spec));
     }
@@ -162,13 +175,25 @@ function importGraph(entry) {
   return [...seen];
 }
 
-test("ゲームを開くときは、絵のデータを読み込まない。見本のページへの入口は ?debug の画面だけ", () => {
+test("ゲームを開くときは、絵のデータを読み込まない。背景の絵だけ、あとで読む(D-385)。見本のページへの入口は ?debug の画面だけ", () => {
   const html = readFileSync(join(ROOT, "index.html"), "utf8");
   assert.doesNotMatch(html, /src\/art\//, "index.html は絵を読まない");
   const entry = join(ROOT, html.match(/<script type="module" src="([^"]+)"/)[1]);
-  const files = importGraph(entry);
+  const art = join("src", "art");
+  const files = importGraph(entry, false);
   assert.ok(files.length > 10, "ゲームの読み込みをたどれている");
-  assert.deepEqual(files.filter((f) => f.includes(`${join("src", "art")}`)), [], "ゲームが読み込むファイルに src/art がない");
+  assert.deepEqual(files.filter((f) => f.includes(art)), [], "開いたときに読むファイルに src/art がない");
+  // あとで読むのは、釣り場の背景の絵と、描く部品だけ(魚の絵・見本のページは読まない)。
+  const later = importGraph(entry, true).filter((f) => f.includes(art)).map((f) => f.slice(f.indexOf(art)).split("\\").join("/"));
+  assert.deepEqual(later.sort(), [
+    "src/art/bg/gaiyou.js",
+    "src/art/bg/iso.js",
+    "src/art/bg/kawa.js",
+    "src/art/bg/minato.js",
+    "src/art/bg/oki.js",
+    "src/art/bg/shinkai.js",
+    "src/art/pixel.js",
+  ]);
   // 見本のページへのリンクは、デバッグ画面の 1 か所だけ。
   const ui = readdirSync(join(ROOT, "src", "ui")).filter((f) => f.endsWith(".js"));
   const linking = ui.filter((f) => readFileSync(join(ROOT, "src", "ui", f), "utf8").includes("art/samples.html"));

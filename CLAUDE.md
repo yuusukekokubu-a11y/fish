@@ -5,7 +5,7 @@ Code(Claude Code)がこのリポジトリで作業するときの手順です。
 ## 1. 作業の始めに読む順番
 
 1. `docs/ACTIVE_DECISIONS.md`(今有効な決定の一覧)
-2. 必要な番号だけ `docs/DECISIONS.md`(D-310 以降)、`docs/decisions/vol1.md`(D-003〜D-092)、`docs/decisions/vol2.md`(D-093〜D-130)、`docs/decisions/vol3.md`(D-132〜D-164)、`docs/decisions/vol4.md`(D-167〜D-212)、`docs/decisions/vol5.md`(D-214〜D-262)、`docs/decisions/vol6.md`(D-263〜D-309)で、くわしい理由を読む(D-133)。置き換えられた古い決定・完了した段取りは `docs/decisions/archive.md`(D-110)
+2. 必要な番号だけ `docs/DECISIONS.md`(D-360 以降)、`docs/decisions/vol1.md`(D-003〜D-092)、`docs/decisions/vol2.md`(D-093〜D-130)、`docs/decisions/vol3.md`(D-132〜D-164)、`docs/decisions/vol4.md`(D-167〜D-212)、`docs/decisions/vol5.md`(D-214〜D-262)、`docs/decisions/vol6.md`(D-263〜D-309)、`docs/decisions/vol7.md`(D-312〜D-359)で、くわしい理由を読む(D-133)。置き換えられた古い決定・完了した段取りは `docs/decisions/archive.md`(D-110)
 3. `docs/SPEC.md`(何をするか)と `docs/DESIGN.md`(どう作るか)
 
 ## 2. 進め方(D-378)
