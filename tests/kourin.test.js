@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { charmValue, CHARM_ROWS } from "../src/core/charms.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
-import { challengeBoss, challengeRaid, createGame, currentMarker, fightSweepMs, PHASES, tap, update } from "../src/core/fishing.js";
+import { canStartRaid, challengeBoss, challengeRaid, createGame, currentMarker, fightSweepMs, PHASES, startRaid, tap, update } from "../src/core/fishing.js";
 import { fishMinigame, round2, typicalPenetration } from "../src/core/formula.js";
 import {
   addCatchPower,
@@ -162,6 +162,23 @@ test("呼ぶ:要る量まで注入した・呼んでいない・解放済みの�
   assert.equal(raidMinigame(KOURIN_ROWS[1], 3, DEFAULT_CONFIG).defense, Math.round((typicalPenetration(3) + 0.2) * 1000) / 1000);
   assert.equal(raidMinigame(KOURIN_ROWS[1], 20, DEFAULT_CONFIG).defense, Math.round((typicalPenetration(20) + 0.2) * 1000) / 1000);
   assert.equal(canSummon(fullAt(5), DEFAULT_CONTENT, C), false, "港では呼べない");
+});
+
+test("挑む(D-409:呼ぶと挑むを 1 つに):要る量まで注入した相手は、呼んでそのまま戦う。呼んでいる間は、ほかの相手には挑めない", () => {
+  const game = createGame(7, { progress: fullAt(13) });
+  const waiting = game.cast;
+  assert.equal(canStartRaid(game, "ika"), true);
+  assert.equal(startRaid(game, "ika"), true);
+  assert.deepEqual([game.phase, game.pendingCast, game.progress.kourin.raid.char, game.progress.kourin.raid.tries], [PHASES.MINIGAME, waiting, "ika", 1]);
+  assert.equal(game.progress.kourin.fills.ika, undefined, "注入した分は使い切る");
+  assert.equal(canStartRaid(game, "ika"), false, "戦いの間は挑めない");
+  finishFight(game, false);
+  update(game, DEFAULT_CONFIG.resultMs);
+  assert.equal(canStartRaid(game, "ika"), true, "呼んでいる相手には、また挑める");
+  assert.equal(canStartRaid(game, "tako"), false, "ほかの相手には挑めない(注入は済んでいても)");
+  assert.equal(startRaid(game, "tako"), false);
+  // 注入が足りない相手には挑めない。
+  assert.equal(canStartRaid(createGame(7, { progress: progressAt(13) }), "ebi"), false);
 });
 
 test("挑む:待っていた魚を取っておき、残りの体力から戦う。時間切れで残りを保存し、挑戦の回数が進む。魚の並びは変わらない", () => {

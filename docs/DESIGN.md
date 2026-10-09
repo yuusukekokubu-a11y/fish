@@ -57,7 +57,7 @@
 | `src/core/fishing.js` | 釣りの 1 サイクルの場面の進み方(合わせ・体力制・休み)と、報酬。お守りの効果(静め・刻・破り)のフック。 |
 | `src/core/challenge.js` | 竿の工程(製作・進化)と、ヌシ・降臨に挑む(`challengeBoss`・`challengeRaid`)。fishing.js を 800 行以内にするため分けた。fishing.js がまとめて書き出す(D-397)。 |
 | `src/core/dex.js` | 魚の図鑑と大きさ(D-405)。倍率 `sizeRatio`(0〜1 の数から区分けの直線)・冠 `crownOf`・`entryCrowns`・釣れた個体の記録 `recordCatch`(乱数はシードとその魚を釣った数から:魚の系統は使わない)。数は `config.dex`。画面は `src/ui/dex_view.js`(`mountList` で描く)。 |
-| `src/core/kourin.js` | 降臨(D-396・D-397・D-403)。キャラの表(`KOURIN_ROWS`。行は並べ替えない)、ウロコパワー(`catchPower`・`addCatchPower`・`needPower`・`scaleOffers`・`planInject`・`injectPower`)、呼ぶ(`summonRaid`)、降臨の投(`makeRaidCast`・`raidMinigame`・`raidSeed`)、挑戦の終わりと区切りの報酬(`settleRaid`)。数は `config.kourin`。 |
+| `src/core/kourin.js` | 降臨(D-396・D-397・D-403)。キャラの表(`KOURIN_ROWS`。行は並べ替えない)、ウロコパワー(`catchPower`・`addCatchPower`・`needPower`・`scaleOffers`・`convertScales`・`injectableOf`・`injectPower`:D-408)、呼ぶ(`summonRaid`)、降臨の投(`makeRaidCast`・`raidMinigame`・`raidSeed`)、挑戦の終わりと区切りの報酬(`settleRaid`)。数は `config.kourin`。 |
 | `src/core/charms.js` | お守り(D-394・D-396)。表(`CHARM_ROWS`:上限 `cap` と効く戦い `scope`。行は並べ替えない)、効果(`charmValue`・`activeCharm`・`charmEffect`)、付け替え(`equipCharm`)。 |
 | `src/core/rod.js` | 竿の工程(製作・ヌシ撃破・進化)、竿の名前、次に要る鱗、数の上限(D-114・D-116)。 |
 | `src/core/save.js` | 保存の形式(版 11)の本文の書き出し(`encodeSave`)と点検つきの読み込み(`decodeSave`)、古い版の本文の読み替え(`UPGRADES`・`upgradeSave`)(D-223・D-232・D-247)。ブラウザへの読み書きは UI が行う。 |
@@ -273,7 +273,7 @@
 
 ### 降臨の作り(D-396・D-397・D-403)
 
-- 計算は `src/core/kourin.js`。ウロコパワーは `finish` の釣り上げで `addCatchPower`(魚の段階で増える。港では貯まらない)。鱗は `convertScales` でまとめてウロコパワーに替える(D-408)。注入は `injectPower`(貯めた分から要る量まで。量は `injectableOf`)、呼ぶのは `summonRaid`(要る量まで注入した相手だけ。注入した分は消す:D-403)。降臨の投は `makeRaidCast`(`kind` は boss、`raid: { char, level }`、`minigame.startHp` に残りの体力)。挑むのは `challengeRaid`(`challenge.js`。ヌシ戦と同じく `pendingCast` に待っていた魚を取っておき、挑戦の回数を進めてから `startFight`)。
+- 計算は `src/core/kourin.js`。ウロコパワーは `finish` の釣り上げで `addCatchPower`(魚の段階で増える。港では貯まらない)。鱗は `convertScales` でまとめてウロコパワーに替える(D-408)。注入は `injectPower`(貯めた分から要る量まで。量は `injectableOf`)、呼ぶのは `summonRaid`(要る量まで注入した相手だけ。注入した分は消す:D-403)。降臨の投は `makeRaidCast`(`kind` は boss、`raid: { char, level }`、`minigame.startHp` に残りの体力)。画面の「挑む」は `startRaid`(`challenge.js`。呼んでいなければ `summonRaid` で呼んでから:D-409)。挑むのは `challengeRaid`(ヌシ戦と同じく `pendingCast` に待っていた魚を取っておき、挑戦の回数を進めてから `startFight`)。
 - 戦いの終わりは `fishing.js` の `finish` が `finishRaid` に回し、`settleRaid` が残りの体力を保存して、越えた区切りの報酬を払う。結果は `{ fishId: null, kind: "boss", raid: { char, level, defeated, damage, hpLeft, maxHp, rewards } }`(魚の報酬・図鑑・数・遊びの記録には入れない)。
 - 降臨の体力:`raidMinigame` が `fishMinigame("boss", レベル, 表, [キャラのくせ])` の体力 × `hpRatio`。防御の壁は下限を置かず、ふつうの貫通 + margin(川より前のレベルでも削れるように)。
 - 画面:`kourin_view.js`(文字)・`kourin_screen.js`(画面の部品)・`kourin.css`。戦いの見た目は `kourin_fx.js`(夜にするか `raidNight`・文 `raidMessage`・報酬の文字 `addRaidEffects`・挑戦の終わりの報酬の一覧 `raidResultView`(中身)と `openRaidResult`(シート。`sheet.js` の `openSheet` に閉じたときの呼び出しを足した):D-402)。`main.js` は背景の絵を `{ id, night }` で持ち、夜に変わるときも 0.5 秒で重ねる。
