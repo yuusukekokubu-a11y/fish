@@ -9,6 +9,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   waitMaxMs: 7500,
   // 強い魚が掛かる確率の合計(D-096)。竿の段階では変えない(D-033)。将来のスキル(大物狙い)で上げられる。
   strongChance: 0.1,
+  // 珍しい魚(D-406):弱い魚の投のうち、釣り場の珍しい魚が出る割合。
+  rareChance: 0.01,
   // 各場面の長さ。
   castMs: 700, // 投げる
   reelMs: 900, // 合わせたあと、普通の魚を巻き上げる
@@ -99,6 +101,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     coinGrowth: 1.1,
     coinGrowthDecay: 10,
     strongCoinRatio: 5,
+    rareCoinRatio: 15, // 珍しい魚のウロコイン = 弱い魚 × これ(強い魚の 3 倍:D-406)
     bossCoinRatio: 10,
     scalesPerCatch: 1, // 強い魚とヌシが落とす鱗の数
     // 体力:強い魚 10 + 10g(20・30・40 …)。

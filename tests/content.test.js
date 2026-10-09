@@ -54,7 +54,8 @@ test("川の魚は、川にいるときだけ出る。魚の抽選の乱数の�
     assert.ok(b.fish.stage >= 11 && b.fish.stage <= 13, b.fish.id);
     ids.add(b.fish.id);
   }
-  assert.deepEqual([...ids].sort(), ["ayu", "funa", "namazu", "oikawa", "ugui", "yamame"]);
+  // 弱い魚は段階ごとに 2 種類、珍しい魚(ゴールデン)は川の段階 1・3(D-406)。
+  assert.deepEqual([...ids].sort(), ["ayu", "funa", "gold-oikawa", "gold-ugui", "kawamutsu", "motsugo", "namazu", "oikawa", "tanago", "ugui", "yamame"]);
 });
 
 test("磯の 5 段階目を進化すると川が解放されて移り、川の製作 → ヌシ戦 → 進化まで動く。港と磯に戻れる", () => {
@@ -66,7 +67,7 @@ test("磯の 5 段階目を進化すると川が解放されて移り、川の�
   const need = craftCount(11);
   for (let i = 0; i < 80 && (game.progress.scales.yamame ?? 0) < need; i++) play(game, 120000, SKILLED);
   assert.ok(game.results.some((r) => r.fishId === "oikawa"), "川の弱い魚が釣れる");
-  assert.ok(game.results.every((r) => ["oikawa", "yamame"].includes(r.fishId)), "川の段階 1 の魚だけ(投げていた投も川の魚に決め直す)");
+  assert.ok(game.results.every((r) => ["oikawa", "motsugo", "gold-oikawa", "yamame"].includes(r.fishId)), "川の段階 1 の魚だけ(投げていた投も川の魚に決め直す)");
   const oikawa = game.results.find((r) => r.fishId === "oikawa");
   assert.equal(oikawa.reward.coins, Math.round(fishCoins("weak", 11) * (oikawa.hook === "just" ? 1.5 : 1)), "報酬は式から");
   assert.equal(craftGameRod(game), true);

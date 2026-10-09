@@ -289,7 +289,7 @@ export async function writeFishModule(o) {
   }
   const lines = [
     "// @ts-check",
-    `// ${o.areaName}の魚のドット絵(弱い魚 5・強い魚 5 は 32 × 32 マス、ヌシ 5 は飾りつきの 36 × 36 マス:${o.decision})。`,
+    `// ${o.areaName}の魚のドット絵(弱い魚 10・強い魚 5 は 32 × 32 マス、ヌシ 5 は飾りつきの 36 × 36 マス:${o.decision}・D-406)。`,
     `// ${o.script} が書き出す(手で直さない)。色番号 0 は透明。1 行 = 1 つの文字列、1 マス = 1 文字。`,
     "",
     '/** @type {Readonly<Record<string, import("../pixel.js").PixelArt>>} */',

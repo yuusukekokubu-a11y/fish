@@ -393,3 +393,9 @@
 .old-data-ok {
   width: 100%;
 }
+
+/* 名前の色(list_view の row.tone)。珍しい魚の名前は金(D-406)。 */
+.menu-label.tone-gold {
+  color: var(--gold);
+  font-weight: bold;
+}

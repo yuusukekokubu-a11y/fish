@@ -4,6 +4,7 @@
 // 書き出すのは src/art/fish/shinkai.js(手で直さない)。使い方:node scripts/art/fish_shinkai.mjs
 
 import { writeFishModule } from "./fish_common.mjs";
+import { EXTRA_FISH } from "./fish_extra.mjs";
 
 /** どの魚にも使う目と口の色。 */
 const EYE = { pupil: "#14161c", eyeRing: "#d9dde0", eyeHi: "#ffffff", mouth: "#3a2a2a" };
@@ -414,7 +415,7 @@ await writeFishModule({
   areaName: "深海",
   script: "scripts/art/fish_shinkai.mjs",
   decision: "D-391",
-  fish: [SOKODARA, HADAKAIWASHI, HIUCHIDAI, GINZAME, KINMEDAI, ANKOU, AKAMUTSU, RABUKA, RYUUGUUNOTSUKAI, SHIIRAKANSU],
+  fish: [SOKODARA, HADAKAIWASHI, HIUCHIDAI, GINZAME, KINMEDAI, ANKOU, AKAMUTSU, RABUKA, RYUUGUUNOTSUKAI, SHIIRAKANSU, ...EXTRA_FISH.shinkai],
   bosses: [
     ["ankou", "#3b3026", 9],
     ["akamutsu", "#7b1e1e", 5],

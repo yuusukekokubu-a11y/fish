@@ -235,7 +235,8 @@ export function niceRound(n) {
 export function coinsPerCast(content, stage, strongChance, weakFactor = 1) {
   /** @param {string} kind */
   const average = (kind) => {
-    const list = content.fish.filter((f) => f.kind === kind && f.stage <= stage);
+    // 珍しい魚(D-406)はおまけとして数えない(価格を前のままにする)。
+    const list = content.fish.filter((f) => f.kind === kind && !(/** @type {any} */ (f).rare) && f.stage <= stage);
     const weight = list.reduce((sum, f) => sum + 2 ** (f.stage - 1), 0);
     return weight === 0 ? 0 : list.reduce((sum, f) => sum + 2 ** (f.stage - 1) * f.reward.coins, 0) / weight;
   };

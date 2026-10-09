@@ -76,6 +76,19 @@ export function addResultEffects(effects, result, now, content = undefined) {
   // 報酬の文字は空のあたりに出す(ダメージや「CRITICAL!」と重ならないように。帯の下)。
   lines.forEach((text, i) => effects.floats.push({ text, start: now + i * 120, ms: FLOAT_MS, y: 0.36 + i * 0.05 }));
   addSizeEffects(effects, result.size, now, Boolean(result.firstCatch));
+  if (result.rare) addRareEffects(effects, result, now);
+}
+
+/**
+ * 珍しい魚の演出(D-406):帯「珍しい魚!」(はじめて・新しい冠があれば前後に足す)と、金の光と粒。
+ * @param {any} effects @param {any} result @param {number} now
+ */
+export function addRareEffects(effects, result, now) {
+  const crown = result.size?.newCrown ? CROWN_BANNER[/** @type {"gold"} */ (result.size.newCrown)].text : null;
+  const text = [result.firstCatch ? "はじめて!" : null, "珍しい魚!", crown].filter(Boolean).join("・");
+  effects.flash = { color: "255,209,102", start: now, ms: FLASH_MS * 2 };
+  effects.banner = { text, start: now, ms: BANNER_MS, color: PX_COLORS.gold };
+  addBurst(effects, CAUGHT_FISH.x, CAUGHT_FISH.y, now, { count: 20, colors: [PX_COLORS.gold, PX_COLORS.goldHi, PX_COLORS.white], speed: 260, size: 7, ms: 1000, gravity: 140, spin: 0.6 });
 }
 
 /** 冠の帯の文字と色(D-405)。 */
