@@ -173,6 +173,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     need: 240, // レベル L の相手を呼ぶのに要る量 × growth^(L − 1)
     scaleShare: 0.5, // 要る量のうち、鱗で注入できる割合
     hpRatio: 6, // レベル n の体力 = 段階 n のヌシの体力(キャラのくせの補正つき)× これ
+    hpRatioByChar: Object.freeze({ ebi: 5 }), // キャラごとの上書き(疾風の大エビは倒すまでの回数が多かったので軽く:D-404)
     steps: 10, // 区切りの数(10% ごと)
     coinFish: 5, // ウロコインの区切り = そのレベルの強い魚 × これ
     charmK: 15, // お守りの効果 = 上限 × L ÷(L + charmK)

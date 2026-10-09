@@ -229,7 +229,7 @@ export function canSummon(progress, content, c, id = undefined) {
 }
 
 /**
- * レベル level のキャラの戦闘の設定(くせはキャラのもの。体力は段階 level のヌシ × hpRatio を上から 2 けた)。
+ * レベル level のキャラの戦闘の設定(くせはキャラのもの。体力は段階 level のヌシ × hpRatio(キャラごとの上書きは hpRatioByChar:D-404)を上から 2 けた)。
  * 防御の壁は、下限(floor)を置かず「ふつうの貫通 + margin」にする(川より前のレベルでも、貫通なしで削れるように:D-397)。
  * @param {KourinRow} row @param {number} level @param {any} config
  */
@@ -237,7 +237,8 @@ export function raidMinigame(row, level, config) {
   const mg = fishMinigame("boss", level, config.formula, [row.quirk]);
   const wall = config.formula.quirks.wall;
   const defense = row.quirk === "wall" ? Math.round((typicalPenetration(level, config.formula) + wall.margin) * 1000) / 1000 : mg.defense;
-  return { ...mg, defense, hp: round2(mg.hp * config.kourin.hpRatio) };
+  const ratio = /** @type {Record<string, number>} */ (config.kourin.hpRatioByChar)[row.id] ?? config.kourin.hpRatio;
+  return { ...mg, defense, hp: round2(mg.hp * ratio) };
 }
 
 /** 呼ぶ(その相手に注入した分を使い切る)。呼べたら true。 @param {any} progress @param {string} id @param {any} content @param {any} config */

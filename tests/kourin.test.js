@@ -6,7 +6,7 @@ import { charmValue, CHARM_ROWS } from "../src/core/charms.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { challengeBoss, challengeRaid, createGame, currentMarker, fightSweepMs, PHASES, tap, update } from "../src/core/fishing.js";
-import { fishMinigame, typicalPenetration } from "../src/core/formula.js";
+import { fishMinigame, round2, typicalPenetration } from "../src/core/formula.js";
 import {
   addCatchPower,
   canSummon,
@@ -145,6 +145,9 @@ test("呼ぶ:要る量まで注入した・呼んでいない・解放済みの�
   const mg = fishMinigame("boss", 10, DEFAULT_CONFIG.formula, ["regen"]);
   assert.equal(raidMinigame(KOURIN_ROWS[2], 10, DEFAULT_CONFIG).hp, Math.round((mg.hp * 6) / 100) * 100);
   assert.ok(raidMinigame(KOURIN_ROWS[2], 10, DEFAULT_CONFIG).regenPerSec > 0);
+  // 疾風の大エビだけ × 5(倒すまでの回数を、ほかのキャラにそろえる:D-404)。
+  const fast = fishMinigame("boss", 10, DEFAULT_CONFIG.formula, ["fast"]);
+  assert.equal(raidMinigame(KOURIN_ROWS[0], 10, DEFAULT_CONFIG).hp, round2(fast.hp * 5));
   // 防御の壁は「ふつうの貫通 + margin」(下限なし:D-397)。
   assert.equal(raidMinigame(KOURIN_ROWS[1], 3, DEFAULT_CONFIG).defense, Math.round((typicalPenetration(3) + 0.2) * 1000) / 1000);
   assert.equal(raidMinigame(KOURIN_ROWS[1], 20, DEFAULT_CONFIG).defense, Math.round((typicalPenetration(20) + 0.2) * 1000) / 1000);
