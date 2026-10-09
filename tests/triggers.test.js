@@ -92,10 +92,10 @@ test("先手:合わせ成功(ふつう・ジャスト)とヌシ戦の始まり�
   assert.equal(first.damage, 18);
   assert.ok(first.triggers.includes("firstHit"));
   if (good.phase === PHASES.MINIGAME) assert.equal(hitOnce(good).damage, 10, "2 回目からは効かない");
-  // ジャスト:初撃(10 × 3)のあとの最初の命中に、先手が乗る(D-256)。
+  // ジャスト:初撃(10 × 2)のあとの最初の命中に、先手が乗る(D-256)。
   const just = untilFight(createGame(3, { content: NO_DEFENSE_CONTENT, combat: noCrit, progress: progressWith({ "first-hit": 2 }) }), 1000);
   assert.equal(just.hookGrade, "just");
-  assert.equal(just.fight.strike.damage, 30, "初撃に先手は乗らない");
+  assert.equal(just.fight.strike.damage, 20, "初撃に先手は乗らない");
   assert.equal(hitOnce(just).damage, 18, "初撃のあとの最初の命中に先手 +8");
   assert.equal(hitOnce(bossFight({ "first-hit": 1 })).damage, 14, "ヌシ戦は合わせの成功とみなす(D-187)");
   // 合わせの失敗(早すぎ)では戦いにならない。
@@ -105,10 +105,10 @@ test("先手:合わせ成功(ふつう・ジャスト)とヌシ戦の始まり�
   assert.notEqual(early.phase, PHASES.MINIGAME);
 });
 
-test("ジャスト・ブースト:強い魚のジャストのときだけ、初撃のジャスト倍率 +0.3 × Lv。ふつうの成功とヌシ戦では効かない(D-257)", () => {
+test("ジャスト・ブースト:強い魚のジャストのときだけ、初撃のジャスト倍率 +0.08 × Lv(D-407)。ふつうの成功とヌシ戦では効かない(D-257)", () => {
   const just = untilFight(createGame(3, { content: NO_DEFENSE_CONTENT, combat: noCrit, progress: progressWith({ "just-boost": 2 }) }), 1000);
-  assert.equal(just.fight.strike.multiplier, 3.6);
-  assert.equal(just.fight.strike.damage, Math.round(10 * 3.6));
+  assert.ok(Math.abs(just.fight.strike.multiplier - 2.16) < 1e-9);
+  assert.equal(just.fight.strike.damage, 22);
   assert.equal(hitOnce(just).damage, 10, "命中には効かない");
   const good = untilFight(createGame(3, { content: NO_DEFENSE_CONTENT, combat: noCrit, progress: progressWith({ "just-boost": 2 }) }), 1100);
   assert.equal(good.fight.strike, null);
@@ -265,7 +265,7 @@ test("スキルの画面:条件発動型も同じ一覧に、条件つきの一�
   const rows = Object.fromEntries(skillRows(game).map((r) => [r.id, r]));
   assert.equal(rows["combo-power"].effect, "連続命中 1 段ごとにダメージ +2(最大 10 段)");
   assert.equal(rows["combo-power"].label, "Lv 2 / 7");
-  assert.equal(rows["just-boost"].effect, "強い魚のジャストの初撃 +0.3 倍");
+  assert.equal(rows["just-boost"].effect, "強い魚のジャストの初撃 +0.08 倍");
   assert.equal(rows.momentum.effect, "クリティカルの次の命中で会心率 +30%");
   assert.equal(rows["first-hit"].effect, "効果なし");
   assert.deepEqual(rows["combo-power"].levels.slice(0, 2).map((l) => l.effect), [
