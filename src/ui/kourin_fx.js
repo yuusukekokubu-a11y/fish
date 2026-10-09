@@ -57,10 +57,11 @@ export function rewardText(reward, content) {
 }
 
 /**
- * 降臨の結果の演出:討伐は金色の帯、区切りの報酬は文字で順に浮かべる。
- * @param {any} effects @param {any} result @param {number} now @param {any} content
+ * 降臨の結果の演出:討伐は紫の帯・光・揺れ・粒、ほかは小さな光と粒。
+ * 区切りの報酬の中身は、挑戦の終わりのシート(openRaidResult)に出すので、浮かぶ文字にはしない(D-404)。
+ * @param {any} effects @param {any} result @param {number} now @param {any} [_content]
  */
-export function addRaidEffects(effects, result, now, content) {
+export function addRaidEffects(effects, result, now, _content = undefined) {
   const r = result.raid;
   if (r.defeated) {
     effects.flash = { color: "155,92,255", start: now, ms: 700 };
@@ -72,9 +73,6 @@ export function addRaidEffects(effects, result, now, content) {
     effects.flash = { color: "155,92,255", start: now, ms: 350 };
     addBurst(effects, 0.5, 0.42, now, { count: 8, colors: ["#9b5cff", "#c9a6ff"], speed: 160, size: 5, ms: 600 });
   }
-  r.rewards.forEach((/** @type {any} */ reward, /** @type {number} */ i) => {
-    effects.floats.push({ text: rewardText(reward, content), start: now + i * 250, ms: 1800, y: 0.4 + i * 0.045, size: 20, color: "#d9c2ff" });
-  });
 }
 
 /** 持ち物がいっぱいでウロコインに替わったときの一言。 */

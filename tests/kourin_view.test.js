@@ -69,7 +69,8 @@ test("夜の背景は降臨の戦いと結果の間だけ。文と、区切り�
   const fx = createEffects();
   addRaidEffects(fx, { raid: { defeated: true, rewards: [{ type: "coins", coins: 5 }, { type: "charm", charm: "toki", level: 1, fresh: true }] } }, 0, DEFAULT_CONTENT);
   assert.equal(fx.banner.text, "討伐!");
-  assert.deepEqual(fx.floats.map((f) => f.text), ["+5 ウロコイン", "刻の守りを授かった!"]);
+  // 報酬の中身は挑戦の終わりのシートに出すので、浮かぶ文字にはしない(D-404)。
+  assert.deepEqual(fx.floats, []);
 });
 
 test("降臨の報酬の一覧(挑戦の終わりのシート):名前と Lv・ダメージ・報酬ごとの行。報酬がなければ次の区切りまでの残り", () => {
