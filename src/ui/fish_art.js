@@ -1,5 +1,5 @@
 // @ts-check
-// 魚のドット絵を、ゲームの画面で使う(D-386〜D-390)。
+// 魚のドット絵を、ゲームの画面で使う(D-386〜D-391)。
 // - 絵のデータは釣り場ごとのファイル(src/art/fish/<釣り場>.js)。ゲームを開くときには読まない。いる魚の釣り場の分だけ、あとで読む。
 // - 読んだ絵は、1 マス = 1 画素の小さな canvas にして取っておく。画面には draw.js が拡大して写す。
 // - まだ絵のない魚・読み込みの前は null(今までの丸い形で描く)。
@@ -17,6 +17,7 @@ const LOADERS = Object.freeze({
   kawa: () => import("../art/fish/kawa.js").then((m) => m.FISH_KAWA),
   oki: () => import("../art/fish/oki.js").then((m) => m.FISH_OKI),
   gaiyou: () => import("../art/fish/gaiyou.js").then((m) => m.FISH_GAIYOU),
+  shinkai: () => import("../art/fish/shinkai.js").then((m) => m.FISH_SHINKAI),
 });
 
 /** 画面の 1 マスの大きさ(CSS px)。魚は 3px(32 マスで 96px)、ヌシは 6px(魚の部分が 192px:D-372)。 */
