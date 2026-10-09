@@ -163,6 +163,21 @@ export const DEFAULT_CONFIG = Object.freeze({
   // セーブコード(D-324):署名なしの古い形式(TSURI1〜4)を、読み込みで受け付けるか。②-5a から false(拒否)。
   // ブラウザの中の保存データの読み出し(parseSave)は、この設定に関係なく読む。
   saveCode: Object.freeze({ acceptUnsigned: false }),
+  // 降臨(D-396・D-397)。キャラの表は kourin.js、お守りの表は charms.js。
+  // ゲージは 1 点 = unit の整数で持つ(鱗の点が半分ずつ下がるので、端数なしで足すため)。
+  kourin: Object.freeze({
+    unit: 64,
+    full: 300, // 満タンの点
+    weakPoints: 1, // 釣り上げ(弱い魚・餌の強い魚)
+    strongPoints: 5, // 強い魚・ヌシ
+    scalePoints: 10, // 今の竿の段階の鱗 1 枚の点(1 段階下がるごとに scaleDecay 倍)
+    scaleDecay: 0.5,
+    scaleCap: 150, // 1 回の満タンのうち、鱗で入れられる点
+    hpRatio: 6, // レベル n の体力 = 段階 n のヌシの体力(キャラのくせの補正つき)× これ
+    steps: 10, // 区切りの数(10% ごと)
+    coinFish: 5, // ウロコインの区切り = そのレベルの強い魚 × これ
+    charmK: 15, // お守りの効果 = 上限 × L ÷(L + charmK)
+  }),
   // 餌(D-263):所持数の上限。
   bait: Object.freeze({ max: 99 }),
   // グローブ(D-332〜D-334):保管の上限、釣れるクレートの出現率(弱い魚の投ごと。D-337 で決めた)、仕切り直しのストックが増える魚の数。

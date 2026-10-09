@@ -1,0 +1,137 @@
+{
+  "note": "互換の正解データ(D-397)。保存の版 9(降臨:ゲージ・鱗から入れた分・キャラごとの倒したレベル・呼んでいるキャラと残りの体力・挑戦の回数・払った区切り。お守りのレベルと付けている能力)。code は署名なし(TSURI9-本文-印)、signed は仮の鍵(dev。秘密ではない)で署名したセーブコード(TSURI5-dev-9-…)。これからの版でも、このコードが読めて同じ結果になることをテストで守る。消さない・書き換えない。",
+  "version": 9,
+  "cases": [
+    {
+      "name": "初めの状態(降臨とお守りの欄は空)",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        }
+      },
+      "code": "TSURI9-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.0.....~.-4b93cec4",
+      "signed": "TSURI5-dev-9-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.0.....~.-hN6jJ7BWgVRpKN7hXQYzxA"
+    },
+    {
+      "name": "ゲージと鱗の分だけ貯まっている",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 7,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        },
+        "kourin": {
+          "gauge": 9000,
+          "fromScales": 1280,
+          "cleared": {},
+          "raid": null
+        }
+      },
+      "code": "TSURI9-0~7.0~~~0..1~~~~0.0.0~~0~0.1.~~6y0.zk.....~.-86c2b424",
+      "signed": "TSURI5-dev-9-0~7.0~~~0..1~~~~0.0.0~~0~0.1.~~6y0.zk.....~.-kj1E_mI_NF3MJcSdHP6JRw"
+    },
+    {
+      "name": "大ガニ Lv3 を呼んでいる(残りの体力・挑戦 7 回・区切り 4)・倒したレベル・お守り 3 つ(破りを付けている)",
+      "progress": {
+        "coins": 54321,
+        "scales": {
+          "mejina": 6,
+          "nushi-mejina": 1
+        },
+        "rodStage": 13,
+        "rodStep": "crafted",
+        "seen": [
+          "aji",
+          "bera",
+          "mejina"
+        ],
+        "gear": {
+          "items": [
+            {
+              "id": 1,
+              "kind": "reel",
+              "rarity": "normal",
+              "grade": 1,
+              "value": 1,
+              "skills": []
+            }
+          ],
+          "equipped": {
+            "reel": 1
+          },
+          "draws": 5,
+          "seed": 77,
+          "nextId": 2
+        },
+        "kourin": {
+          "gauge": 640,
+          "fromScales": 0,
+          "cleared": {
+            "ebi": 4,
+            "kani": 2,
+            "ika": 1
+          },
+          "raid": {
+            "char": "kani",
+            "hp": 3456,
+            "tries": 7,
+            "paid": 4
+          }
+        },
+        "charms": {
+          "levels": {
+            "shizume": 4,
+            "yaburi": 2,
+            "toki": 1
+          },
+          "equipped": "yaburi"
+        }
+      },
+      "code": "TSURI9-15wx~d.1~mejina:6,nushi-mejina:1~aji,bera,mejina~5.25.2~1.1~1.4.1.1~0~0.0.0~~0~0.1.~~hs.0.4,2,0,1.1.2o0.7.4~2.4,1,2-a46a5aee",
+      "signed": "TSURI5-dev-9-15wx~d.1~mejina:6,nushi-mejina:1~aji,bera,mejina~5.25.2~1.1~1.4.1.1~0~0.0.0~~0~0.1.~~hs.0.4,2,0,1.1.2o0.7.4~2.4,1,2-gNZfN125WvWMlaqGcdPuGw"
+    }
+  ],
+  "rejected": [
+    {
+      "name": "表にないキャラを呼んでいる",
+      "code": "TSURI9-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.0..9.1.0.0~.-5f3dd118",
+      "error": "content"
+    },
+    {
+      "name": "残りの体力が 0",
+      "code": "TSURI9-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.0..0.0.0.0~.-be44106c",
+      "error": "content"
+    },
+    {
+      "name": "払った区切りが 10",
+      "code": "TSURI9-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.0..0.1.0.a~.-562b6bbc",
+      "error": "content"
+    },
+    {
+      "name": "ゲージが満タンをこえる",
+      "code": "TSURI9-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~etd.0.....~.-fcec0b7d",
+      "error": "content"
+    },
+    {
+      "name": "付けたお守りのレベルが 0",
+      "code": "TSURI9-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.0.....~1.1-414a5afc",
+      "error": "content"
+    }
+  ]
+}

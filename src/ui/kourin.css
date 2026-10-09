@@ -1,0 +1,67 @@
+/* 降臨の画面(D-396)。紫の縁で、ほかの画面と見分ける。 */
+.kourin-card {
+  border-color: #9b5cff;
+}
+
+.kourin-card.current {
+  box-shadow: 0 0 0 2px #9b5cff inset;
+}
+
+.kourin-bar {
+  height: 14px;
+  margin: 8px 0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.kourin-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6c3aa4, #b46cf0);
+}
+
+.kourin-bar.hp .kourin-bar-fill {
+  background: linear-gradient(90deg, #e63946, #f4a261);
+}
+
+.kourin-donate,
+.kourin-challenge,
+.kourin-summon {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+}
+
+.kourin-quirk,
+.kourin-tries {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.kourin-chars {
+  display: grid;
+  gap: 8px;
+}
+
+.kourin-charm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.kourin-charm-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.kourin-charm-button {
+  min-width: 72px;
+  min-height: 44px;
+}
+
+.kourin-charm-button.equipped {
+  border-color: #9b5cff;
+  color: #d9c2ff;
+}

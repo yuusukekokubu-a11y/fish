@@ -1,7 +1,7 @@
 // @ts-check
 // ドット絵の見本のページ(D-362・D-364・D-383)。3 つの粗さのクロダイを、同じ表示の大きさで並べる。
 // その下に、釣り場ごとの魚(D-386〜D-391:ゲームと同じ大きさ。魚は 1 マス 3px、ヌシは 6px。釣り場は切り替え)。
-// ヌシは、金の冠と、降臨の紫の冠(D-392)を切り替える。
+// ヌシは、金の冠と、紫の冠(D-393)を切り替える。降臨の 4 キャラ(D-396)も「降臨」で見られる。
 // 下に、背景の見本(6 つの釣り場・昼と夜:D-392)を 1 ドット 3px(幅 390 CSS px)で出す。釣り場を切り替え、「ゲームの位置」で、水面・竿・ウキ・魚・ゲージの位置を重ねる。
 // - 大きさ:×1(幅 160 CSS px)・×2(320)・ゲームで使う大きさの想定 96・192。1 マス = 整数の画素の数なので、
 //   表示の幅は目安にいちばん近い値になる(粗さと画素比によって少しちがう。下に実際の値を出す)。
@@ -16,6 +16,7 @@ import { FISH_KAWA } from "./fish/kawa.js";
 import { FISH_OKI } from "./fish/oki.js";
 import { FISH_GAIYOU } from "./fish/gaiyou.js";
 import { FISH_SHINKAI } from "./fish/shinkai.js";
+import { KOURIN_CHARS } from "./kourin.js";
 import { FISH_ROWS } from "../core/fish.js";
 import { kourinPalette } from "../ui/fish_art.js";
 
@@ -38,6 +39,8 @@ const FISH_AREAS = [
   { id: "oki", label: "沖", arts: FISH_OKI },
   { id: "gaiyou", label: "外洋", arts: FISH_GAIYOU },
   { id: "shinkai", label: "深海", arts: FISH_SHINKAI },
+  // 降臨の 4 キャラ(D-396:64 × 64 マス。ゲームでは画面の幅いっぱい。ここは 1 マス 6px で、幅をこえれば小さくする)。
+  { id: "kourin", label: "降臨", arts: KOURIN_CHARS },
 ];
 import { artCanvas, artSize, checkArt, colorCount } from "./pixel.js";
 

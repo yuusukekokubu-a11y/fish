@@ -1,5 +1,5 @@
 // @ts-check
-// 保存の形(版 8:D-223・D-232・D-247・D-267・D-280・D-300・D-325・D-335・D-392)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 9:D-223・D-232・D-247・D-267・D-280・D-300・D-325・D-335・D-392・D-397)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
 // 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 15 の欄に分ける:
@@ -12,7 +12,9 @@
 //   ~ 釣れるクレートの判定の回数.グローブの次の個体の番号.装着中のグローブの番号(なければ空)(版 7 で足した:D-335)
 //   ~ グローブの持ち物(「,」で。1 個:前の個体の番号との差.能力とレア度の番号.グレード、ロック中は最後に「.1」)
 //     能力とレア度の番号 = 能力の番号 × レア度の数 + レア度の番号(glove.js の表の順)。
-//   ~ 降臨:ゲージ.呼び出したヌシの id.残りの体力.挑戦の回数(呼び出していなければ、あとの 3 つは空。版 8 で足した:D-392)
+//   ~ 降臨:ゲージ.鱗から入れた分.キャラごとの倒したレベル(kourin.js の表の順に「,」。最後の 0 は書かない)
+//     .呼んでいるキャラの番号.残りの体力.挑戦の回数.払った区切りの数(呼んでいなければ、あとの 4 つは空。版 8 で足し、版 9 で形を変えた:D-397)
+//     ゲージと鱗から入れた分は、1 点 = config.kourin.unit の整数。
 //   ~ お守り:付けている能力の番号(なければ空).能力ごとのレベルを表の順に「,」で(最後の 0 は書かない。charms.js の表の順)
 // 装備の種類の番号 5(お守り)は、版 8 からは装備の個体を持たない(ガチャで出ない降臨専用の枠:D-392)。
 // 装備 1 個:前の個体の番号との差.種類とレア度の番号.グレード.基本効果の値 のあとに、スキルを「英大文字 1 字(スキルの番号)+ レベル」で並べる。
@@ -29,6 +31,7 @@ import { DEFAULT_CONFIG } from "./config.js";
 import { DEFAULT_CONTENT } from "./fish.js";
 import { AUTO_SCRAP_ROWS, effectRange, emptyGear, makeCrates, RARITY_ROWS, refundFor } from "./gear.js";
 import { CHARM_ROWS, emptyCharms, isEmptyCharms } from "./charms.js";
+import { emptyKourin, isEmptyKourin, KOURIN_ROWS } from "./kourin.js";
 import { abilityAllows, emptyGloves, GLOVE_ABILITY_ROWS, GLOVE_RARITY_ROWS } from "./glove.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 import { itemLevelRange } from "./skills.js";
@@ -36,7 +39,7 @@ import { itemLevelRange } from "./skills.js";
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -65,10 +68,7 @@ const FIELDS = 15;
  * @property {import("./charms.js").CharmBag} [charms] お守り(何か持っているときだけ持つ:D-392)
  */
 
-/**
- * 降臨の状態(D-392)。gauge:納めた鱗のゲージ。raid:呼び出したヌシ(boss は魚の id、hp は残りの体力、tries は挑戦の回数)。
- * @typedef {{ gauge: number, raid: { boss: string, hp: number, tries: number } | null }} KourinState
- */
+/** 降臨の状態(D-396・D-397)。 @typedef {import("./kourin.js").KourinState} KourinState */
 
 /**
  * 読むときに使う表(魚・装備の種類・スキル)。
@@ -177,6 +177,13 @@ export const UPGRADES = Object.freeze({
     parts[7] = locks.join("");
     return [...parts, "0...", "."].join("~");
   },
+  // 版 8 → 9(D-397):降臨の欄の形を変えた(4 キャラのレイド)。版 8 では降臨で遊べなかったので、空の形にする。
+  8: (body) => {
+    const parts = body.split("~");
+    if (parts.length !== 15) return null;
+    parts[13] = "0.0.....";
+    return parts.join("~");
+  },
 });
 
 /**
@@ -260,15 +267,18 @@ export function encodeSave(progress, content = DEFAULT_CONTENT) {
     progress.area ?? "",
     num(seenMask(progress.skillsSeen ?? [], skills)),
     ...encodeGloves(progress.gloves ?? emptyGloves()),
-    encodeKourin(progress.kourin),
+    encodeKourin(progress.kourin ?? emptyKourin()),
     encodeCharms(progress.charms ?? emptyCharms()),
   ].join("~");
 }
 
-/** 降臨の欄(D-392)。 @param {KourinState | undefined} k */
+/** 降臨の欄(D-397)。 @param {KourinState} k */
 function encodeKourin(k) {
-  const raid = k?.raid;
-  return `${num(k?.gauge ?? 0)}.${raid ? `${raid.boss}.${num(raid.hp)}.${num(raid.tries)}` : ".."}`;
+  const cleared = KOURIN_ROWS.map((r) => num(k.cleared[r.id] ?? 0));
+  while (cleared.length > 0 && cleared[cleared.length - 1] === "0") cleared.pop();
+  const raid = k.raid;
+  const tail = raid ? `${num(KOURIN_ROWS.findIndex((r) => r.id === raid.char))}.${num(raid.hp)}.${num(raid.tries)}.${num(raid.paid)}` : "...";
+  return `${num(k.gauge)}.${num(k.fromScales)}.${cleared.join(",")}.${tail}`;
 }
 
 /** お守りの欄(D-392)。 @param {import("./charms.js").CharmBag} bag */
@@ -280,27 +290,38 @@ function encodeCharms(bag) {
 }
 
 /**
- * 降臨の欄を読む。ゲージは 0 以上、呼び出したヌシは表のヌシで、残りの体力は 1 以上、挑戦の回数は 0 以上。壊れていれば null。
- * @param {string} text @param {SaveContent} content @returns {KourinState | null}
+ * 降臨の欄を読む。ゲージは満タンまで、鱗から入れた分は上限までで、ゲージ以下。倒したレベルは表の数まで。
+ * 呼んでいるキャラは表にあり、残りの体力は 1 以上、払った区切りは区切りの数より少ない。壊れていれば null。
+ * @param {string} text @param {typeof DEFAULT_CONFIG} config @returns {KourinState | null}
  */
-function decodeKourin(text, content) {
+function decodeKourin(text, config) {
   const p = text.split(".");
-  if (p.length !== 4) return null;
+  if (p.length !== 7) return null;
+  const c = config.kourin;
   const gauge = readNum(p[0]);
-  if (gauge === null) return null;
-  if (p[1] === "" && p[2] === "" && p[3] === "") return { gauge, raid: null };
-  const hp = readNum(p[2]);
-  const tries = readNum(p[3]);
-  const boss = /** @type {{ kind?: string } | undefined} */ (content.byId.get(p[1]));
-  if (!boss || boss.kind !== "boss" || hp === null || hp < 1 || tries === null) return null;
-  return { gauge, raid: { boss: p[1], hp, tries } };
+  const fromScales = readNum(p[1]);
+  if (gauge === null || fromScales === null || gauge > c.full * c.unit || fromScales > c.scaleCap * c.unit || fromScales > gauge) return null;
+  const raw = list(p[2]);
+  if (raw.length > KOURIN_ROWS.length || (raw.length > 0 && raw[raw.length - 1] === "0")) return null;
+  /** @type {Record<string, number>} */
+  const cleared = {};
+  for (let i = 0; i < raw.length; i++) {
+    const n = readNum(raw[i]);
+    if (n === null) return null;
+    if (n > 0) cleared[KOURIN_ROWS[i].id] = n;
+  }
+  if (p[3] === "" && p[4] === "" && p[5] === "" && p[6] === "") return { gauge, fromScales, cleared, raid: null };
+  const [index, hp, tries, paid] = [p[3], p[4], p[5], p[6]].map(readNum);
+  const row = index === null ? undefined : KOURIN_ROWS[index];
+  if (!row || hp === null || hp < 1 || tries === null || paid === null || paid >= c.steps) return null;
+  return { gauge, fromScales, cleared, raid: { char: row.id, hp, tries, paid } };
 }
 
 /**
- * お守りの欄を読む。レベルは 0〜表の最後の段階、表の数まで。付けている能力はレベル 1 以上。壊れていれば null。
- * @param {string} text @param {SaveContent} content @returns {import("./charms.js").CharmBag | null}
+ * お守りの欄を読む。レベルは 0 以上(上限なし:D-397)、表の数まで。付けている能力はレベル 1 以上。壊れていれば null。
+ * @param {string} text @returns {import("./charms.js").CharmBag | null}
  */
-function decodeCharms(text, content) {
+function decodeCharms(text) {
   const p = text.split(".");
   if (p.length !== 2) return null;
   const raw = list(p[1]);
@@ -309,7 +330,7 @@ function decodeCharms(text, content) {
   const levels = {};
   for (let i = 0; i < raw.length; i++) {
     const n = readNum(raw[i]);
-    if (n === null || n > content.maxStage) return null;
+    if (n === null) return null;
     if (n > 0) levels[CHARM_ROWS[i].id] = n;
   }
   if (p[0] === "") return { levels, equipped: null };
@@ -516,10 +537,10 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (gloves.items.length > 0 || gloves.equipped !== null || gloves.nextId !== 1 || gloves.rolls !== 0) progress.gloves = gloves;
 
   // 降臨とお守り(D-392):既定の形(ゲージ 0・呼び出しなし・お守りなし)のときは持たない。
-  const kourin = decodeKourin(kourinText, content);
-  const charms = decodeCharms(charmText, content);
+  const kourin = decodeKourin(kourinText, config);
+  const charms = decodeCharms(charmText);
   if (!kourin || !charms) return fail;
-  if (kourin.gauge > 0 || kourin.raid) progress.kourin = kourin;
+  if (!isEmptyKourin(kourin)) progress.kourin = kourin;
   if (!isEmptyCharms(charms)) progress.charms = charms;
   return { ok: true, progress };
 }

@@ -19,6 +19,8 @@ import { FISH_GAIYOU } from "../src/art/fish/gaiyou.js";
 import { FISH_SHINKAI } from "../src/art/fish/shinkai.js";
 import { FISH_ROWS } from "../src/core/fish.js";
 import { KURODAI } from "../src/art/fish/kurodai.js";
+import { KOURIN_CHARS } from "../src/art/kourin.js";
+import { KOURIN_ROWS } from "../src/core/kourin.js";
 import { artSize, checkArt, colorCount, drawArt, fitScale, PALETTE_LIMITS, PIXEL_CHARS } from "../src/art/pixel.js";
 import { ROOT } from "./helpers.js";
 
@@ -259,7 +261,7 @@ test("ゲームを開くときは、絵のデータを読み込まない。背�
   const files = importGraph(entry, false);
   assert.ok(files.length > 10, "ゲームの読み込みをたどれている");
   assert.deepEqual(files.filter((f) => f.includes(art)), [], "開いたときに読むファイルに src/art がない");
-  // あとで読むのは、釣り場の背景の絵・釣り場ごとの魚の絵(D-386)と、描く部品だけ(見本の 3 つの粗さのクロダイ・見本のページは読まない)。
+  // あとで読むのは、釣り場の背景の絵・釣り場ごとの魚の絵(D-386)・降臨のキャラの絵(D-396)と、描く部品だけ(見本の 3 つの粗さのクロダイ・見本のページは読まない)。
   const later = importGraph(entry, true).filter((f) => f.includes(art)).map((f) => f.slice(f.indexOf(art)).split("\\").join("/"));
   assert.deepEqual(later.sort(), [
     "src/art/bg/gaiyou.js",
@@ -280,6 +282,7 @@ test("ゲームを開くときは、絵のデータを読み込まない。背�
     "src/art/fish/minato.js",
     "src/art/fish/oki.js",
     "src/art/fish/shinkai.js",
+    "src/art/kourin.js",
     "src/art/pixel.js",
   ]);
   // 見本のページへのリンクは、デバッグ画面の 1 か所だけ。
@@ -287,4 +290,16 @@ test("ゲームを開くときは、絵のデータを読み込まない。背�
   const linking = ui.filter((f) => readFileSync(join(ROOT, "src", "ui", f), "utf8").includes("art/samples.html"));
   assert.deepEqual(linking, ["debug_screen.js"]);
   assert.doesNotMatch(html, /samples\.html/);
+});
+
+test("降臨の 4 キャラの絵(D-396):64 × 64 マス・24 色まで・点検に通る。キャラの表と同じ並び・紫の光と冠の色を持つ。ゲームでは画面の幅いっぱい", () => {
+  assert.deepEqual(Object.keys(KOURIN_CHARS), KOURIN_ROWS.map((r) => r.id));
+  for (const r of KOURIN_ROWS) {
+    const a = KOURIN_CHARS[r.id];
+    assert.deepEqual(checkArt(a), [], r.id);
+    assert.deepEqual([a.width, a.height, a.id, a.name], [64, 64, `kourin-${r.id}`, `降臨・${r.name}`]);
+    assert.ok(colorCount(a) <= PALETTE_LIMITS[64], `${r.id}:${colorCount(a)} 色`);
+    assert.ok(a.palette.includes(KOURIN_GLOW), `${r.id}:紫の光`);
+    assert.ok(a.palette.includes(CROWN_KOURIN.gold) && a.palette.includes(CROWN_KOURIN.goldDark), `${r.id}:紫の冠`);
+  }
 });

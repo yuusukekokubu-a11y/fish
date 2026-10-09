@@ -98,3 +98,40 @@ export function fishArt(fish, variant) {
   canvases.set(key, canvas);
   return canvas;
 }
+
+/** 降臨のキャラの絵の読み込み(D-396)。null は読み込み中。 @type {{ canvases: Map<string, HTMLCanvasElement> | null, loading: boolean }} */
+const kourinArts = { canvases: null, loading: false };
+
+/**
+ * 降臨のキャラの絵(64 × 64 マス、1 マス = 1 画素の canvas)。まだ読んでいなければ読み始めて、いまは null を返す。
+ * 画面(document)がないとき(テスト)は null。
+ * @param {string} id キャラの id(ebi・kani・tako・ika)
+ * @returns {HTMLCanvasElement | null}
+ */
+export function kourinArt(id) {
+  if (typeof document === "undefined") return null;
+  if (kourinArts.canvases) return kourinArts.canvases.get(id) ?? null;
+  if (!kourinArts.loading) {
+    kourinArts.loading = true;
+    Promise.all([import("../art/kourin.js"), import("../art/pixel.js")])
+      .then(([m, pixel]) => {
+        /** @type {Map<string, HTMLCanvasElement>} */
+        const out = new Map();
+        for (const [key, art] of Object.entries(m.KOURIN_CHARS)) {
+          const canvas = document.createElement("canvas");
+          canvas.width = art.width;
+          canvas.height = art.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) continue;
+          pixel.drawArt(ctx, art, { dot: 1 });
+          out.set(key, canvas);
+        }
+        kourinArts.canvases = out;
+      })
+      .catch(() => {
+        // 読めなかったら、丸い形のまま(次に呼んだときにもう一度読む)。
+        kourinArts.loading = false;
+      });
+  }
+  return null;
+}

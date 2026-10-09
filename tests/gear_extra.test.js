@@ -135,7 +135,7 @@ test("ガチャの種類:6 つから同じ確率(10 万回で各 1/6 ± 1%)。1 
 });
 
 test("保存の版 6(D-325):版 5 の本文はそのまま読め、新しい枠は空。ガチャの 5 枠を全部付けても、セーブコードの増えは 20 文字以内(版 8:D-392)", async () => {
-  assert.equal(SAVE_VERSION, 8);
+  assert.equal(SAVE_VERSION, 9);
   const v5 = JSON.parse(readText("tests/fixtures/compat_save_v5.json"));
   for (const c of v5.cases) {
     const r = decodeSaveCode(c.code);
@@ -157,7 +157,7 @@ test("保存の版 6(D-325):版 5 の本文はそのまま読め、新しい枠�
   assert.ok(encodeSaveCode(six).length - encodeSaveCode(three).length <= 20, `${encodeSaveCode(six).length - encodeSaveCode(three).length}`);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(six)), { ok: true, progress: six });
   const signed = await signSaveCode(six, CURRENT_KEY);
-  assert.match(signed, /^TSURI5-dev-8-/);
+  assert.match(signed, /^TSURI5-dev-9-/);
   assert.deepEqual((await readSaveCode(signed, { keys: [CURRENT_KEY] })).progress, six);
 });
 
@@ -170,10 +170,10 @@ test("互換の正解データ(compat_save_v6.json):保存の版 6 の署名な�
     assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: want }, c.name);
     assert.deepEqual(parseSave(c.code), want, `${c.name}:ブラウザの保存としても読める`);
     // 書き出すと保存の版 8(グローブ・降臨・お守りの欄が足される)。読み直すと同じ。
-    assert.match(encodeSaveCode(want), /^TSURI8-.*~0\.1\.~~0\.\.\.~\.-[0-9a-f]{8}$/, `${c.name}:書き出しは版 8`);
+    assert.match(encodeSaveCode(want), /^TSURI9-.*~0\.1\.~~0\.0\.\.\.\.\.~\.-[0-9a-f]{8}$/, `${c.name}:書き出しは版 8`);
     assert.deepEqual(decodeSaveCode(encodeSaveCode(want)), { ok: true, progress: want }, c.name);
     assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: want, signed: true, keyId: "dev", warning: null }, c.name);
-    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-8-/, `${c.name}:署名つきの書き出しは版 8`);
+    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-9-/, `${c.name}:署名つきの書き出しは版 8`);
     // 署名なしのコードは、読み込みでは拒否する(D-324)。
     const unsigned = await readSaveCode(c.code, { keys: [CURRENT_KEY] });
     assert.deepEqual([unsigned.ok, unsigned.ok ? "" : unsigned.error], [false, "unsigned"]);

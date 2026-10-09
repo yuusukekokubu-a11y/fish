@@ -169,3 +169,12 @@ export async function toV8(progress) {
   p.coins += refund;
   return p;
 }
+
+/**
+ * 版 8 の進み具合を、版 9 で読んだ形にする(D-397):降臨の欄は空になる(版 8 では降臨で遊べなかった)。お守りはそのまま。
+ */
+export function toV9(progress) {
+  const p = structuredClone(progress);
+  delete p.kourin;
+  return p;
+}

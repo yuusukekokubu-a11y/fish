@@ -49,7 +49,8 @@ import { playPull } from "./gacha_fx.js";
 import { glovePullView, retryLabel } from "./glove_view.js";
 import { drawScene } from "./draw.js";
 import { areaBackground } from "./area_bg.js";
-import { fishArt } from "./fish_art.js";
+import { fishArt, kourinArt } from "./fish_art.js";
+import { addRaidEffects, NIGHT_COLORS, raidMessage, raidNight } from "./kourin_fx.js";
 import { createPlayLogRecorder, loadPlayLog, PLAY_LOG_KEY, playLogKeyFor } from "./play_log_view.js";
 import {
   addGrazeEffects,
@@ -146,6 +147,9 @@ function clearSave() {
 }
 
 function messageFor(game) {
+  // 降臨の戦いと結果(D-396)。
+  const raid = raidMessage(game);
+  if (raid !== null) return raid;
   switch (game.phase) {
     case PHASES.WAITING:
       return "待っています…";
@@ -335,8 +339,9 @@ function main() {
   let colorTo = colorFrom;
   let colorStart = 0;
   // 釣り場の背景の絵(D-385):移ったら 0.5 秒で前の絵から重ねて切り替える。絵は、いまの釣り場の分だけ読む。
-  let artFrom = /** @type {string | null} */ (null);
-  let artTo = currentArea(game.progress, game.content).id;
+  // 背景の絵(釣り場の id と、夜か:降臨の戦いの間だけ夜:D-396)。
+  let artFrom = /** @type {{ id: string, night: boolean } | null} */ (null);
+  let artTo = { id: currentArea(game.progress, game.content).id, night: false };
 
   // 目次(ドロワー)と全画面(D-152・D-153)。どちらかが開いている間は、釣りを止める(D-134)。
   const app = document.getElementById("app");
@@ -486,6 +491,8 @@ function main() {
       if (result.crate) {
         if (result.glove) openGlove(result.glove);
         else addResultEffects(effects, result, now, game.content);
+      } else if (result.raid) {
+        addRaidEffects(effects, result, now, game.content);
       } else {
         addResultEffects(effects, result, now, game.content);
       }
@@ -503,13 +510,14 @@ function main() {
     if (saveDirty && !isBusyPhase(game.phase)) flushSave();
     else if (playLog.dirty() && !isBusyPhase(game.phase)) playLog.flush();
 
-    const target = sceneColors(game);
+    const night = raidNight(game);
+    const target = night ? NIGHT_COLORS : sceneColors(game);
     if (target.sky !== colorTo.sky) {
       colorFrom = mixColors(colorFrom, colorTo, (now - colorStart) / COLOR_FADE_MS);
       colorTo = target;
       colorStart = now;
       artFrom = artTo;
-      artTo = currentArea(game.progress, game.content).id;
+      artTo = { id: currentArea(game.progress, game.content).id, night };
     }
     const rect = sceneSize;
     // 補正が − のときは、縮む輪と動く印を、その分だけ先の位置で描く(判定は押した時刻のまま:D-285)。
@@ -517,7 +525,7 @@ function main() {
     const viewMs = game.phaseMs + (game.phase === PHASES.BITE || game.phase === PHASES.MINIGAME ? lead : 0);
     const view = {
       colors: mixColors(colorFrom, colorTo, (now - colorStart) / COLOR_FADE_MS),
-      art: { from: areaBackground(artFrom), to: areaBackground(artTo), t: (now - colorStart) / COLOR_FADE_MS },
+      art: { from: artFrom ? areaBackground(artFrom.id, artFrom.night) : null, to: areaBackground(artTo.id, artTo.night), t: (now - colorStart) / COLOR_FADE_MS },
       phase: game.phase,
       progress: game.phase === PHASES.RESTING ? 0 : Math.min(1, viewMs / phaseDuration(game)),
       fish: game.phase === PHASES.RESULT && game.lastResult.fishId ? fishById(game.lastResult.fishId, game.content) : game.cast.fish,
@@ -538,6 +546,8 @@ function main() {
     ctx.translate(shakeOffset(effects, now), 0);
     // 魚のドット絵(D-386):いまの魚の絵(まだ読んでいない・絵のない魚は null で、丸い形)。
     view.fishArt = fishArt(view.fish);
+    // 降臨のキャラ(D-396):戦いと結果の間は、画面の幅いっぱいに描く。
+    view.raidArt = game.cast?.raid && (game.phase === PHASES.MINIGAME || game.phase === PHASES.RESULT) ? kourinArt(game.cast.raid.char) : null;
     drawScene(ctx, rect.width, rect.height, view, now);
     ctx.restore();
     drawEffects(ctx, rect.width, rect.height, effects, now);
