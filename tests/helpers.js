@@ -178,3 +178,19 @@ export function toV9(progress) {
   delete p.kourin;
   return p;
 }
+
+/**
+ * 版 9 の進み具合を、版 10 で読んだ形にする(D-403):ゲージの割合を、いちばん低いレベルの相手に要る量に掛けて、
+ * 貯めているウロコパワーにする(鱗から入れた分は数え直す)。降臨の欄が既定の形になれば持たない。
+ */
+export function toV10(progress) {
+  const p = structuredClone(progress);
+  const k = p.kourin;
+  if (!k) return p;
+  const ids = ["ebi", "kani", "tako", "ika"];
+  const low = Math.min(...ids.map((id) => (k.cleared[id] ?? 0) + 1));
+  const power = Math.round(Math.min(1, k.gauge / (300 * 64)) * 240 * 2 ** (low - 1));
+  p.kourin = { power, fills: {}, cleared: k.cleared, raid: k.raid };
+  if (power === 0 && k.raid === null && Object.keys(k.cleared).length === 0) delete p.kourin;
+  return p;
+}

@@ -1,6 +1,7 @@
 // @ts-check
-// 降臨(レイド風:D-396・D-397)。4 キャラ(大エビ・大ガニ・大ダコ・大イカ)に、挑戦ごとのダメージを積み重ねて挑む。
-// - ゲージ(4 体で共通):釣り上げと、強い魚の鱗の余りで貯める。満タンで 1 体を呼び、倒すまで何回でも無料で挑める。
+// 降臨(レイド風:D-396・D-397)。4 キャラ(疾風の大エビ・鉄壁の大ガニ・不死の大ダコ・刹那の大イカ)に、挑戦ごとのダメージを積み重ねて挑む。
+// - ウロコパワー(D-403):釣り上げで貯め(魚の段階で増える)、ねらう相手に注入する。強い魚の鱗の余りも注入できる(要る量の半分まで)。
+//   相手ごとに、レベルに応じた量が要る。満たした相手を呼び、倒すまで何回でも無料で挑める。竿の段階には依らない。
 // - キャラごとにレベル 1 から。レベル n の体力 = 段階 n のヌシの体力(キャラのくせの補正つき)× hpRatio。
 // - 削った量の 10% ごとに区切りの報酬、討伐でそのキャラのお守り(レベル n を倒すとレベル n)。
 // - 乱数は、降臨の塩・キャラ・レベル・挑戦の回数から作る別の系統(魚の系統は使わない:D-115 と同じ考え)。
@@ -45,8 +46,14 @@ export const KOURIN_COLOR = "#9b5cff";
  */
 
 /**
- * 降臨の状態。gauge と fromScales は 1 点 = config.kourin.unit の整数。cleared はキャラごとの倒したレベル(1 以上だけ)。
- * @typedef {{ gauge: number, fromScales: number, cleared: Record<string, number>, raid: Raid | null }} KourinState
+ * 相手ごとに注入した量。total は合計、scales はそのうち鱗から入れた分(D-403)。
+ * @typedef {{ total: number, scales: number }} Fill
+ */
+
+/**
+ * 降臨の状態。power は貯めているウロコパワー(まだ注入していない分)。fills は相手ごとに注入した量(0 の相手は持たない)。
+ * cleared はキャラごとの倒したレベル(1 以上だけ)。
+ * @typedef {{ power: number, fills: Record<string, Fill>, cleared: Record<string, number>, raid: Raid | null }} KourinState
  */
 
 /** @typedef {typeof import("./config.js").DEFAULT_CONFIG.kourin} KourinConfig */
@@ -57,17 +64,18 @@ const KOURIN_GLOVE_SALT = 0x510e527f;
 
 /** 何もしていない降臨の状態。 @returns {KourinState} */
 export function emptyKourin() {
-  return { gauge: 0, fromScales: 0, cleared: {}, raid: null };
+  return { power: 0, fills: {}, cleared: {}, raid: null };
 }
 
 /** 既定の形か(保存で欄を持たないため)。 @param {KourinState} k */
 export function isEmptyKourin(k) {
-  return k.gauge === 0 && k.fromScales === 0 && k.raid === null && Object.values(k.cleared).every((n) => !(n > 0));
+  return k.power === 0 && Object.keys(k.fills).length === 0 && k.raid === null && Object.values(k.cleared).every((n) => !(n > 0));
 }
 
 /** 複製。 @param {KourinState} k @returns {KourinState} */
 export function copyKourin(k) {
-  return { gauge: k.gauge, fromScales: k.fromScales, cleared: { ...k.cleared }, raid: k.raid ? { ...k.raid } : null };
+  const fills = Object.fromEntries(Object.entries(k.fills).map(([id, f]) => [id, { ...f }]));
+  return { power: k.power, fills, cleared: { ...k.cleared }, raid: k.raid ? { ...k.raid } : null };
 }
 
 /** 進み具合の降臨の状態(なければ既定の形。変えない)。 @param {{ kourin?: KourinState }} progress */
@@ -94,9 +102,9 @@ export function kourinUnlocked(progress, content) {
   return content.areas.length > 1 && progress.rodStage >= content.areas[1].firstStage;
 }
 
-/** 満タンの量(単位つき)。 @param {KourinConfig} c */
-export function fullGauge(c) {
-  return c.full * c.unit;
+/** 段階(レベル)ごとの倍率:growth^(stage − 1)。 @param {number} stage @param {KourinConfig} c */
+function stageScale(stage, c) {
+  return c.growth ** (Math.max(1, stage) - 1);
 }
 
 /** 次に挑むレベル(倒したレベル + 1)。 @param {KourinState} k @param {string} id */
@@ -104,29 +112,45 @@ export function raidLevel(k, id) {
   return (k.cleared[id] ?? 0) + 1;
 }
 
-/**
- * 釣り上げで貯まる量(単位つき)。強い魚とヌシは strongPoints、ほか(弱い魚・餌の強い魚)は weakPoints。
- * @param {string} kind @param {boolean} bait @param {KourinConfig} c
- */
-export function catchUnits(kind, bait, c) {
-  return (kind === "strong" && !bait) || kind === "boss" ? c.strongPoints * c.unit : c.weakPoints * c.unit;
+/** レベル level の相手を呼ぶのに要るウロコパワー。 @param {number} level @param {KourinConfig} c */
+export function needPower(level, c) {
+  return Math.round(c.need * stageScale(level, c));
+}
+
+/** 要る量のうち、鱗で注入できる量。 @param {number} level @param {KourinConfig} c */
+export function scaleRoomOf(level, c) {
+  return Math.floor(needPower(level, c) * c.scaleShare);
+}
+
+/** 相手に注入した量(なければ 0)。 @param {KourinState} k @param {string} id @returns {Fill} */
+export function fillOf(k, id) {
+  return k.fills[id] ?? { total: 0, scales: 0 };
 }
 
 /**
- * 釣り上げたときにゲージを貯める(解放されているときだけ。満タンで止まる)。貯まった量を返す。
- * @param {any} progress @param {any} content @param {string} kind @param {boolean} bait @param {KourinConfig} c
+ * 釣り上げで貯まるウロコパワー。強い魚とヌシは strongPower、ほか(弱い魚・餌の強い魚)は weakPower。魚の段階で増える。
+ * @param {string} kind @param {boolean} bait @param {number} stage 魚の段階 @param {KourinConfig} c
  */
-export function addCatchGauge(progress, content, kind, bait, c) {
+export function catchPower(kind, bait, stage, c) {
+  const base = (kind === "strong" && !bait) || kind === "boss" ? c.strongPower : c.weakPower;
+  return Math.round(base * stageScale(stage, c));
+}
+
+/**
+ * 釣り上げたときにウロコパワーを貯める(解放されているときだけ)。貯まった量を返す。
+ * @param {any} progress @param {any} content @param {string} kind @param {boolean} bait @param {number} stage @param {KourinConfig} c
+ */
+export function addCatchPower(progress, content, kind, bait, stage, c) {
   if (!kourinUnlocked(progress, content)) return 0;
+  const add = catchPower(kind, bait, stage, c);
   const k = ensureKourin(progress);
-  const before = k.gauge;
-  k.gauge = Math.min(fullGauge(c), k.gauge + catchUnits(kind, bait, c));
-  return k.gauge - before;
+  k.power = addCount(k.power, add);
+  return add;
 }
 
 /**
- * 納められる鱗(点の高い順)。強い魚の鱗だけ。今の段階は、未製作なら製作に要る分を残した余り。
- * 1 枚の量(each)は scalePoints × scaleDecay^(竿の段階 − 鱗の段階) × unit の切り捨て。0 になる古い鱗は入れない。
+ * 注入できる鱗(1 枚の量が多い順)。強い魚の鱗だけ。今の竿の段階の鱗は、未製作なら製作に要る分を残した余り。
+ * 1 枚の量(each)は scalePower × growth^(鱗の段階 − 1)。
  * @param {any} progress @param {any} content @param {KourinConfig} c
  * @returns {{ fishId: string, stage: number, count: number, each: number }[]}
  */
@@ -139,53 +163,69 @@ export function scaleOffers(progress, content, c) {
     const have = progress.scales[f.id] ?? 0;
     const keep = stage && progress.rodStep === ROD_STEPS.NONE && stage.craft.scale === f.id ? stage.craft.count : 0;
     const count = have - keep;
-    const each = Math.floor(c.scalePoints * c.scaleDecay ** (progress.rodStage - f.stage) * c.unit);
-    if (count > 0 && each > 0) out.push({ fishId: f.id, stage: f.stage, count, each });
+    if (count > 0) out.push({ fishId: f.id, stage: f.stage, count, each: Math.round(c.scalePower * stageScale(f.stage, c)) });
   }
-  return out.sort((a, b) => b.each - a.each || b.stage - a.stage);
+  return out.sort((a, b) => b.each - a.each);
 }
 
 /**
- * 鱗を納める計画:点の高い鱗から、鱗の分の上限(scaleCap)と満タンまで。最後の 1 枚は、こえる分を切り捨てる。
- * @param {any} progress @param {any} content @param {KourinConfig} c
- * @returns {{ take: { fishId: string, count: number }[], scales: number, units: number }}
+ * 相手 id に注入する計画:まず鱗(1 枚の量が多い順、鱗で入れられる量まで。最後の 1 枚は、こえる分を切り捨てる)、
+ * 残りを貯めているウロコパワーで。要る量まで。
+ * @param {any} progress @param {any} content @param {string} id @param {KourinConfig} c
+ * @returns {{ take: { fishId: string, count: number }[], scales: number, fromScales: number, fromPower: number }}
  */
-export function planDonation(progress, content, c) {
-  const k = kourinOf(progress);
-  let room = Math.max(0, Math.min(fullGauge(c) - k.gauge, c.scaleCap * c.unit - k.fromScales));
+export function planInject(progress, content, id, c) {
   /** @type {{ fishId: string, count: number }[]} */
   const take = [];
+  const none = { take, scales: 0, fromScales: 0, fromPower: 0 };
+  const k = kourinOf(progress);
+  if (!kourinUnlocked(progress, content) || !kourinById(id)) return none;
+  const level = raidLevel(k, id);
+  const fill = fillOf(k, id);
+  let room = Math.max(0, needPower(level, c) - fill.total);
+  let scaleRoom = Math.min(room, Math.max(0, scaleRoomOf(level, c) - fill.scales));
   let scales = 0;
-  let units = 0;
-  if (!kourinUnlocked(progress, content)) return { take, scales, units };
+  let fromScales = 0;
   for (const o of scaleOffers(progress, content, c)) {
-    if (room <= 0) break;
-    const n = Math.min(o.count, Math.ceil(room / o.each));
-    const add = Math.min(n * o.each, room);
+    if (scaleRoom <= 0) break;
+    const n = Math.min(o.count, Math.ceil(scaleRoom / o.each));
+    const add = Math.min(n * o.each, scaleRoom);
     take.push({ fishId: o.fishId, count: n });
     scales += n;
-    units += add;
-    room -= add;
+    fromScales += add;
+    scaleRoom -= add;
   }
-  return { take, scales, units };
+  room -= fromScales;
+  const fromPower = Math.min(k.power, room);
+  return { take, scales, fromScales, fromPower };
 }
 
-/** 鱗を納める(planDonation のとおり)。納めた { scales, units } を返す。 @param {any} progress @param {any} content @param {KourinConfig} c */
-export function donateScales(progress, content, c) {
-  const plan = planDonation(progress, content, c);
-  if (plan.scales === 0) return { scales: 0, units: 0 };
+/** 相手 id に注入する(planInject のとおり)。注入した計画を返す。 @param {any} progress @param {any} content @param {string} id @param {KourinConfig} c */
+export function injectPower(progress, content, id, c) {
+  const plan = planInject(progress, content, id, c);
+  if (plan.fromScales + plan.fromPower === 0) return plan;
   const k = ensureKourin(progress);
   for (const t of plan.take) progress.scales[t.fishId] -= t.count;
   for (const t of plan.take) if (progress.scales[t.fishId] === 0) delete progress.scales[t.fishId];
-  k.gauge += plan.units;
-  k.fromScales += plan.units;
-  return { scales: plan.scales, units: plan.units };
+  const fill = fillOf(k, id);
+  k.fills[id] = { total: fill.total + plan.fromScales + plan.fromPower, scales: fill.scales + plan.fromScales };
+  k.power -= plan.fromPower;
+  return plan;
 }
 
-/** 呼べるか(解放済み・呼んでいない・満タン)。 @param {any} progress @param {any} content @param {KourinConfig} c */
-export function canSummon(progress, content, c) {
+/** 相手 id が要る量まで満たされているか。 @param {KourinState} k @param {string} id @param {KourinConfig} c */
+export function isFilled(k, id, c) {
+  return fillOf(k, id).total >= needPower(raidLevel(k, id), c);
+}
+
+/**
+ * 呼べるか(解放済み・呼んでいない・要る量まで注入した)。id を省くと、どれか 1 体でも呼べるか。
+ * @param {any} progress @param {any} content @param {KourinConfig} c @param {string} [id]
+ */
+export function canSummon(progress, content, c, id = undefined) {
   const k = kourinOf(progress);
-  return kourinUnlocked(progress, content) && k.raid === null && k.gauge >= fullGauge(c);
+  if (!kourinUnlocked(progress, content) || k.raid !== null) return false;
+  return id === undefined ? KOURIN_ROWS.some((r) => isFilled(k, r.id, c)) : Boolean(kourinById(id)) && isFilled(k, id, c);
 }
 
 /**
@@ -200,14 +240,13 @@ export function raidMinigame(row, level, config) {
   return { ...mg, defense, hp: round2(mg.hp * config.kourin.hpRatio) };
 }
 
-/** 呼ぶ(ゲージを空にする)。呼べたら true。 @param {any} progress @param {string} id @param {any} content @param {any} config */
+/** 呼ぶ(その相手に注入した分を使い切る)。呼べたら true。 @param {any} progress @param {string} id @param {any} content @param {any} config */
 export function summonRaid(progress, id, content, config) {
   const row = kourinById(id);
-  if (!row || !canSummon(progress, content, config.kourin)) return false;
+  if (!row || !canSummon(progress, content, config.kourin, id)) return false;
   const k = ensureKourin(progress);
   k.raid = { char: row.id, hp: raidMinigame(row, raidLevel(k, row.id), config).hp, tries: 0, paid: 0 };
-  k.gauge = 0;
-  k.fromScales = 0;
+  delete k.fills[row.id];
   return true;
 }
 

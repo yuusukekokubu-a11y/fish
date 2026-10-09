@@ -1,11 +1,11 @@
 // @ts-check
-// 降臨の画面(全画面:D-396・D-397)。ゲージ・鱗を納める・呼んでいるキャラ(挑む)・4 キャラ(呼ぶ)・お守り(付ける)。
+// 降臨の画面(全画面:D-396・D-397・D-403)。ウロコパワー・呼んでいるキャラ(挑む)・4 キャラ(注入する・呼ぶ)・お守り(付ける)。
 // 文字は kourin_view.js が作る。変えたら保存して、画面を作り直す。挑むとメイン画面に戻り、夜の戦いが始まる。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { equipCharm } from "../core/charms.js";
 import { challengeRaid, refreshCombat } from "../core/fishing.js";
-import { donateScales, summonRaid } from "../core/kourin.js";
+import { injectPower, summonRaid } from "../core/kourin.js";
 import { kourinView } from "./kourin_view.js";
 import { button, el } from "./list_view.js";
 
@@ -45,17 +45,10 @@ export function mountKourin(container, ctx) {
     return;
   }
 
-  // ゲージと、鱗を納める。
-  const gauge = el("section", "crate-card kourin-card kourin-gauge");
-  gauge.append(el("h2", "crate-name", view.gauge.text), bar(view.gauge.ratio, "gauge"), el("p", "crate-price", view.gauge.scaleText));
-  const donate = button(view.donate.label, "primary-button kourin-donate");
-  donate.disabled = view.donate.disabled;
-  donate.addEventListener("click", () => {
-    const r = donateScales(game.progress, game.content, game.config.kourin);
-    if (r.scales > 0) done(`鱗を ${r.scales} 枚納めました`);
-  });
-  gauge.append(el("p", "pull-note", view.gauge.note), donate, el("p", "pull-note", view.donate.note));
-  container.append(gauge);
+  // 貯めているウロコパワー。
+  const power = el("section", "crate-card kourin-card kourin-gauge");
+  power.append(el("h2", "crate-name", view.power.text), el("p", "crate-price", view.power.scaleText), el("p", "pull-note", view.power.note));
+  container.append(power);
 
   // 呼んでいるキャラ(挑む)。
   if (view.raid) {
@@ -75,7 +68,7 @@ export function mountKourin(container, ctx) {
     container.append(box);
   }
 
-  // 4 キャラ(呼ぶ)。
+  // 4 キャラ(注入する・呼ぶ)。
   const list = el("section", "kourin-chars");
   for (const ch of view.chars) {
     const card = el("div", ch.current ? "crate-card kourin-card kourin-char current" : "crate-card kourin-card kourin-char");
@@ -83,15 +76,24 @@ export function mountKourin(container, ctx) {
     const head = el("div", "crate-head");
     head.append(el("h3", "crate-name", `${ch.name} ${ch.levelText}`), el("span", "kourin-quirk", ch.quirkText));
     card.append(head, el("p", "crate-price", `${ch.charmText}・${ch.clearedText}`));
-    if (!view.raid) {
+    if (ch.current) {
+      card.append(el("p", "pull-note", "いま呼んでいます"));
+    } else {
+      card.append(bar(ch.ratio, "gauge"), el("p", "crate-price", `${ch.fillText}・${ch.scaleText}`));
+      const row = el("div", "kourin-buttons");
+      const inject = button(ch.injectLabel, "secondary-button kourin-inject");
+      inject.disabled = !ch.canInject;
+      inject.addEventListener("click", () => {
+        const r = injectPower(game.progress, game.content, ch.id, game.config.kourin);
+        if (r.fromScales + r.fromPower > 0) done(`${ch.name}にウロコパワーを注入しました`);
+      });
       const call = button("呼ぶ", "primary-button kourin-summon");
       call.disabled = !ch.canSummon;
       call.addEventListener("click", () => {
         if (summonRaid(game.progress, ch.id, game.content, game.config)) done(`${ch.name}を呼びました`);
       });
-      card.append(call);
-    } else if (ch.current) {
-      card.append(el("p", "pull-note", "いま呼んでいます"));
+      row.append(inject, call);
+      card.append(row);
     }
     list.append(card);
   }

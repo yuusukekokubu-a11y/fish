@@ -1,7 +1,7 @@
 // 降臨の重いテスト(D-396・D-397)。
 // - 4 キャラを倒すまでの挑戦の回数:段階 g の目安の装備(そのキャラのくせに合わせて選び直す:付け替えの想定)と、ふつうの遊び方で、
 //   レベル g に挑む。目安は 5 回くらい(2〜10 回に入ること)。
-// - ゲージ:上手に釣り続けたときの、1 時間あたりの点(実際の遊びは約 2 倍の時間がかかる:D-355)。
+// - ウロコパワー:上手に釣り続けたときの、1 時間あたりの量(実際の遊びは約 2 倍の時間がかかる:D-355・D-403)。
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -10,7 +10,7 @@ import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { DEFAULT_CONTENT, makeContent } from "../../src/core/fish.js";
 import { challengeRaid, createGame, currentMarker, fightSweepMs, PHASES, tap, update } from "../../src/core/fishing.js";
 import { fishMinigame, fishSweepMs, fishZoneWidth } from "../../src/core/formula.js";
-import { fullGauge, KOURIN_ROWS, raidMinigame } from "../../src/core/kourin.js";
+import { KOURIN_ROWS, needPower, raidMinigame } from "../../src/core/kourin.js";
 import { grownItems, hitChance, MIN_TAP_GAP_MS, playRng, progressWith, STANDARD_PLAY, unlimitedContent } from "./builds.js";
 
 const CONTENT = DEFAULT_CONTENT;
@@ -56,7 +56,7 @@ test("降臨:4 キャラとも、目安の装備とふつうの遊び方で 2〜
       const tries = [];
       for (const seed of [1, 2, 3]) {
         const p = progressWith(g, items);
-        p.kourin = { gauge: 0, fromScales: 0, cleared: g > 1 ? { [ch.id]: g - 1 } : {}, raid: { char: ch.id, hp: raidMinigame(ch, g, DEFAULT_CONFIG).hp, tries: 0, paid: 0 } };
+        p.kourin = { power: 0, fills: {}, cleared: g > 1 ? { [ch.id]: g - 1 } : {}, raid: { char: ch.id, hp: raidMinigame(ch, g, DEFAULT_CONFIG).hp, tries: 0, paid: 0 } };
         const game = createGame(seed, { progress: p, content: CONTENT });
         const rand = playRng(seed * 31 + g);
         let n = 0;
@@ -79,23 +79,22 @@ test("降臨:4 キャラとも、目安の装備とふつうの遊び方で 2〜
   console.log(`降臨を倒すまでの挑戦の回数(中央値):\n${lines.join("\n")}`);
 });
 
-test("降臨のゲージ:上手に釣り続けると、シミュレーションの 1 時間で満タン(300 点)の 1.5〜2.5 倍(実際の遊びで約 1 時間に 1 回)", () => {
-  const game = createGame(11, { progress: progressWith(6, []), content: CONTENT });
-  const hourMs = 3600 * 1000;
-  for (let t = 0; t < hourMs; t += 16) {
-    update(game, 16);
-    if (game.phase === PHASES.BITE && game.phaseMs >= (game.cast.kind === "strong" ? 1060 : 1400)) tap(game);
-    else if (game.phase === PHASES.MINIGAME) {
-      const z = game.fight.zone;
-      if (Math.abs(currentMarker(game) - (z.start + z.end) / 2) < 0.03) tap(game);
-    } else if (game.phase === PHASES.RESTING) tap(game);
-    // 満タンで止まらないように、貯まった分を数えて空にする。
-    if (game.progress.kourin && game.progress.kourin.gauge >= fullGauge(DEFAULT_CONFIG.kourin)) {
-      game.fills = (game.fills ?? 0) + 1;
-      game.progress.kourin.gauge = 0;
+test("ウロコパワー(D-403):上手に釣り続けると、シミュレーションの 1 時間で、竿と同じレベルの相手に要る量の 1.5〜3.5 倍(実際の遊びで約 1 時間に 1 回)", () => {
+  const lines = [];
+  for (const g of [6, 8, 10, 13]) {
+    const game = createGame(11, { progress: progressWith(g, []), content: CONTENT });
+    const hourMs = 3600 * 1000;
+    for (let t = 0; t < hourMs; t += 16) {
+      update(game, 16);
+      if (game.phase === PHASES.BITE && game.phaseMs >= (game.cast.kind === "strong" ? 1060 : 1400)) tap(game);
+      else if (game.phase === PHASES.MINIGAME) {
+        const z = game.fight.zone;
+        if (Math.abs(currentMarker(game) - (z.start + z.end) / 2) < 0.03) tap(game);
+      } else if (game.phase === PHASES.RESTING) tap(game);
     }
+    const ratio = (game.progress.kourin?.power ?? 0) / needPower(g, DEFAULT_CONFIG.kourin);
+    lines.push(`g=${g}:${ratio.toFixed(2)} 回分(弱い魚 ${game.counts.weak}・強い魚 ${game.counts.strong}・逃げた ${game.counts.escaped})`);
+    assert.ok(ratio >= 1.5 && ratio <= 3.5, `g=${g}:${ratio}`);
   }
-  const points = (game.fills ?? 0) * DEFAULT_CONFIG.kourin.full + Math.floor((game.progress.kourin?.gauge ?? 0) / DEFAULT_CONFIG.kourin.unit);
-  console.log(`1 時間(シミュレーション)の点:${points}(弱い魚 ${game.counts.weak}・強い魚 ${game.counts.strong}・逃げた ${game.counts.escaped})`);
-  assert.ok(points >= 1.5 * DEFAULT_CONFIG.kourin.full && points <= 2.5 * DEFAULT_CONFIG.kourin.full, `${points} 点`);
+  console.log(`1 時間(シミュレーション)で貯まるウロコパワー(竿と同じレベルの相手に要る量の何回分か):\n${lines.join("\n")}`);
 });

@@ -11,6 +11,7 @@ import { baitCount, refundBait, setBait } from "../core/bait.js";
 import { DEFAULT_CONFIG } from "../core/config.js";
 import { DEFAULT_CONTENT } from "../core/fish.js";
 import { growthMaxLevel } from "../core/formula.js";
+import { KOURIN_ROWS, needPower, raidLevel } from "../core/kourin.js";
 import { currentHookTiming, FISH_KINDS, HOOK_GRADES, makeBossCast, PHASES, refreshCombat, tap } from "../core/fishing.js";
 import { BASE_KIND_IDS, effectRange, EQUIP_KIND_ROWS, gachaKinds, kindById, RARITY_ROWS, rarityById } from "../core/gear.js";
 import { abilityAllows, abilityById, equipGlove, gloveRarityById } from "../core/glove.js";
@@ -322,12 +323,14 @@ export function startQuickFight(game, fishId, grade) {
 }
 
 /**
- * 降臨のデバッグ(D-397):ゲージを満タンにする(鱗の分は 0)。
+ * 降臨のデバッグ(D-397・D-403):呼んでいないキャラ全員に、要る量まで注入する(鱗の分は 0)。
  * @param {any} progress @param {any} config
  */
 export function debugFillGauge(progress, config) {
   const c = config.kourin;
-  progress.kourin = { ...(progress.kourin ?? { cleared: {}, raid: null }), gauge: c.full * c.unit, fromScales: 0 };
+  const k = progress.kourin ?? { power: 0, fills: {}, cleared: {}, raid: null };
+  for (const row of KOURIN_ROWS) if (k.raid?.char !== row.id) k.fills[row.id] = { total: needPower(raidLevel(k, row.id), c), scales: 0 };
+  progress.kourin = k;
 }
 
 /**
