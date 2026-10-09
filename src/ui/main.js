@@ -50,7 +50,7 @@ import { glovePullView, retryLabel } from "./glove_view.js";
 import { drawScene } from "./draw.js";
 import { areaBackground } from "./area_bg.js";
 import { fishArt, kourinArt } from "./fish_art.js";
-import { addRaidEffects, NIGHT_COLORS, raidMessage, raidNight } from "./kourin_fx.js";
+import { addRaidEffects, NIGHT_COLORS, openRaidResult, raidMessage, raidNight, raidResultView } from "./kourin_fx.js";
 import { createPlayLogRecorder, loadPlayLog, PLAY_LOG_KEY, playLogKeyFor } from "./play_log_view.js";
 import {
   addGrazeEffects,
@@ -81,6 +81,8 @@ const MAX_STEP_MS = 100;
 // 知らせを出しておく時間(払い戻し 4 秒、釣り場の解放 3 秒:D-263・D-273)。
 const NOTICE_MS = 4000;
 const UNLOCK_NOTICE_MS = 3000;
+// 降臨の挑戦が終わってから、報酬の一覧を出すまで(討伐の帯と粒を見せる間)。
+const RAID_RESULT_DELAY_MS = 1200;
 
 /** シードの指定がないときに使う、毎回ちがうシード。計算本体では Math.random を使わない(D-021)。 */
 function randomSeed() {
@@ -474,6 +476,13 @@ function main() {
     setPaused(session, true);
     playPull(app, glovePullView(game, glove), "釣れるクレート", () => setPaused(session, isPaused(nav)));
   };
+  // 降臨の挑戦の終わり:討伐の演出を少し見せてから、もらった報酬の一覧を出す。出している間は釣りを止める。
+  const showRaidResult = (raid) => {
+    setTimeout(() => {
+      setPaused(session, true);
+      openRaidResult(app, raidResultView(raid, game.content, game.config.kourin.steps), () => setPaused(session, isPaused(nav)));
+    }, RAID_RESULT_DELAY_MS);
+  };
   let wasBusy = false;
   /** 上の欄に出している釣り場(移ったらすぐ書き換える:D-358)。 @type {string | null} */
   let shownAreaId = null;
@@ -493,6 +502,7 @@ function main() {
         else addResultEffects(effects, result, now, game.content);
       } else if (result.raid) {
         addRaidEffects(effects, result, now, game.content);
+        showRaidResult(result.raid);
       } else {
         addResultEffects(effects, result, now, game.content);
       }
