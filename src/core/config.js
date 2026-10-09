@@ -32,9 +32,9 @@ export const DEFAULT_CONFIG = Object.freeze({
     zoneWidthBonus: 0, // 命中範囲の幅を広げる割合(%。ルアー:D-181)
     penetration: 0, // 貫通(魚の防御から引く割合。1 で 100%:D-235)
     justMultiplier: 3, // ジャスト倍率:強い魚のジャストの初撃 = 1 命中の基本のダメージ × これ(D-256)
-    markerSlow: 0, // 印の動きを遅くする割合(おもり:D-320)。印の速さ ×(1 − これ)。基準の 50% より遅くしない
+    markerSlow: 0, // 印の動きを遅くする割合(版 7 まではおもり:D-320。版 8 からはお守りの「静め」で使う:D-392)。印の速さ ×(1 − これ)。基準の 50% より遅くしない
     hookWiden: 0, // 合わせの成功帯とジャスト帯を広げる割合(浮き:D-320)
-    coinBonus: 0, // 獲得ウロコインを増やす割合(おまもり:D-320。豊漁と足し算)
+    coinBonus: 0, // 獲得ウロコインを増やす割合(おもり:D-320・D-392。豊漁と足し算)
     // 合わせの縮む輪(D-084・D-087)。「!」と同時に縮み始め、ringMs で通り過ぎる。
     // 成功帯は通り過ぎる直前の successMs、ジャスト帯は成功帯の真ん中の justMs。
     hook: Object.freeze({
@@ -74,7 +74,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     maxMarkerSlow: 0.5,
     maxHookSuccessRatio: 0.6,
     maxHookJustRatio: 0.5,
-    maxCoinBonus: 1000000, // おまもりの安全上限(計算が壊れない範囲だけ)
+    maxCoinBonus: 1000000, // おもりのウロコインの安全上限(計算が壊れない範囲だけ)
   }),
   // スキル(D-167・D-195・D-197・D-207)。表は skills.js にある。
   skills: Object.freeze({
@@ -106,7 +106,8 @@ export const DEFAULT_CONFIG = Object.freeze({
     hpPerStage: 10,
     // ヌシの体力 = 77 × g^0.77 × 1.14^g を上から 2 けた(D-380・D-381)。目安の引く回数 P(g) の装備で、ふつうの遊び方が 80% 勝つ体力に、
     // シミュレーションで合わせ、式との差(±2 割)を見込んで全体を 0.9 倍にした(g=1〜30。g=31 からは、釣り場を足すときに合わせ直す)。
-    bossHpBase: 75.4,
+    // 版 8 でガチャの枠が 6 → 5 になった(付けられるスキルが減る)ので、全体を 0.85 倍にした(75.4 → 64.1:D-395)。
+    bossHpBase: 64.1,
     bossHpPower: 0.9323,
     bossHpGrowth: 1.1425,
     // 目安の引く回数 P(g) = 20 × 6^((g − 1) ÷ 29) を四捨五入(g=1 で 20 回、g=30 で 120 回:D-379)。

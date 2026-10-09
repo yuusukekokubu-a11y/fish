@@ -12,7 +12,8 @@
 // 数と文字は gear_view.js が作る。操作は計算本体(gear.js)の関数を呼ぶ。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
-import { dismantleItem, dismantleRarity, equipItem, makeCrates, RARITY_ROWS, setLocked, unequipKind } from "../core/gear.js";
+import { charmById } from "../core/charms.js";
+import { dismantleItem, dismantleRarity, equipItem, gachaKinds, makeCrates, RARITY_ROWS, setLocked, unequipKind } from "../core/gear.js";
 import { formatCount } from "./format.js";
 import { defaultPrefs } from "./equip_prefs.js";
 import { bulkDismantleRows, bulkLockPreview, inventoryLabel, inventoryRows, slotRows, SORT_CHOICES } from "./gear_view.js";
@@ -337,6 +338,8 @@ export function mountEquipment(container, ctx) {
       ctx.rerender();
     }),
   );
+  // お守りの枠(降臨専用。ガチャでは出ない:D-392)。付け替えは降臨の画面で行う。
+  slots.append(charmSlot(game));
 
   // 持ち物の切り替え(装備 / グローブ)。
   const tabs = el("div", "bag-tabs");
@@ -375,7 +378,7 @@ export function mountEquipment(container, ctx) {
     select("sort", "並べ替え", SORT_CHOICES.map((c) => [c.id, `並び:${c.label}`]), prefs.sort, (v) =>
       update({ sort: /** @type {import("./gear_view.js").SortId} */ (v) }),
     ),
-    select("kind", "種類の絞り込み", [["all", "種類:すべて"], ...game.content.equipKinds.map((k) => /** @type {[string, string]} */ ([k.id, k.name]))], prefs.kind ?? "all", (v) =>
+    select("kind", "種類の絞り込み", [["all", "種類:すべて"], ...gachaKinds(game.content.equipKinds).map((k) => /** @type {[string, string]} */ ([k.id, k.name]))], prefs.kind ?? "all", (v) =>
       update({ kind: v === "all" ? null : v }),
     ),
     select("rarity", "レア度の絞り込み", [["all", "レア度:すべて"], ...RARITY_ROWS.map((r) => /** @type {[string, string]} */ ([r.id, r.name]))], prefs.rarity ?? "all", (v) =>
@@ -397,4 +400,19 @@ export function mountEquipment(container, ctx) {
   }
   bag.append(list);
   container.append(slots, bag);
+}
+
+/**
+ * お守りの枠(D-392)。付けていれば名前とレベル、なければ「降臨で授かる」。
+ * @param {any} game
+ */
+function charmSlot(game) {
+  const bag = game.progress.charms ?? null;
+  const row = bag?.equipped ? charmById(bag.equipped) : undefined;
+  const box = el("div", row ? "glove-slot charm-slot" : "glove-slot charm-slot empty");
+  box.dataset.slot = "charm";
+  box.append(el("span", "glove-slot-kind", "お守り"));
+  if (row && bag) box.append(el("span", "glove-slot-name", `${row.name} Lv${bag.levels[row.id]}`));
+  else box.append(el("span", "slot-empty", "空き(降臨で授かる)"));
+  return box;
 }

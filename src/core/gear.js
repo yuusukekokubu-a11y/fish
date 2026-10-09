@@ -34,6 +34,7 @@ import { levelRange, SKILL_ROWS } from "./skills.js";
  * @property {{ label: string, scale: number, unit: string, sign?: string }} display 画面の見せ方(値 ÷ scale に unit を付ける)
  * @property {{ cap: number, k: number }} [curve] 拮抗型(D-320):基本効果の値(点)を、割合 = cap × 値 ÷(値 + k)にする。
  *   値がいくら大きくても cap に届かない(成長が無駄にならず、上限・下限をこえない)。画面は割合(%)で見せる。
+ * @property {boolean} [special] ガチャで出ない特別な枠(お守り:降臨で授かる。D-392)。装備の個体は持たない(保存の番号のために表に残す)。
  */
 
 /**
@@ -139,12 +140,12 @@ export const EQUIP_KIND_ROWS = Object.freeze([
   {
     id: "weight",
     name: "おもり",
-    // 印の動きを遅くする割合。印の速さ ×(1 − 割合)。基準の 50% より遅くしない(割合は 40% に届かない)。
-    stat: "markerSlow",
+    // 獲得ウロコインを増やす割合(豊漁と足し算)。版 8 で、おまもりの役目を引き継いだ(D-392。前は印を遅くする)。
+    stat: "coinBonus",
     base: { min: 10, max: 15 },
     step: 1,
-    curve: { cap: 0.4, k: 60 },
-    display: { label: "印の速さ", scale: 1, unit: "%", sign: "−" },
+    curve: { cap: 0.6, k: 112 },
+    display: { label: "ウロコイン", scale: 1, unit: "%", sign: "+" },
   },
   {
     id: "float",
@@ -158,8 +159,10 @@ export const EQUIP_KIND_ROWS = Object.freeze([
   },
   {
     id: "charm",
-    name: "おまもり",
-    // 獲得ウロコインを増やす割合(豊漁と足し算)。
+    name: "お守り",
+    // 降臨専用の枠(D-392)。ガチャで出ず、装備の個体は持たない(お守りは charms.js の表とレベルで持つ)。
+    // 保存の番号(種類の番号 5)のために表に残す。下の数は使わない(版 7 までの「おまもり」の値の点検のために残す)。
+    special: true,
     stat: "coinBonus",
     base: { min: 10, max: 15 },
     step: 1,
@@ -167,6 +170,11 @@ export const EQUIP_KIND_ROWS = Object.freeze([
     display: { label: "ウロコイン", scale: 1, unit: "%", sign: "+" },
   },
 ]);
+
+/** ガチャで出る種類(特別な枠を除く:D-392)。 @param {readonly EquipKind[]} kinds */
+export function gachaKinds(kinds) {
+  return kinds.filter((k) => !k.special);
+}
 
 /** 経済の基準の「平均的な装備」に使う種類(新しい 3 枠は付けない:D-323)。 */
 export const BASE_KIND_IDS = Object.freeze(["line", "reel", "lure"]);
@@ -365,10 +373,12 @@ export function pullCrate(progress, crate, count, kinds, gacha, skillDraw = DEFA
   if (blocker) return { ok: false, reason: blocker };
   const gear = progress.gear;
   const seed = /** @type {number} */ (gear.seed);
+  // 特別な枠(お守り)はガチャで出ない(D-392)。種類を選ぶ割合は、ガチャの種類の数で割る。
+  const pool = gachaKinds(kinds);
   /** @type {Item[]} */
   const items = [];
   for (let i = 0; i < count; i++) {
-    const drawn = drawItem(seed, gear.draws, crate, kinds, gacha.gradeGrowth, skillDraw);
+    const drawn = drawItem(seed, gear.draws, crate, pool, gacha.gradeGrowth, skillDraw);
     const item = { id: gear.nextId, ...drawn };
     gear.nextId += 1;
     gear.draws += 1;
@@ -537,6 +547,7 @@ export function applyGear(base, gear, kinds) {
   /** @type {Record<string, any>} */
   const result = { ...base };
   for (const kind of kinds) {
+    if (kind.special) continue;
     const item = equippedItem(gear, kind.id);
     if (!item) continue;
     result[kind.stat] = (Number.isFinite(result[kind.stat]) ? result[kind.stat] : 0) + kindEffect(kind, item.value);

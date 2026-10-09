@@ -12,7 +12,7 @@ import { DEFAULT_CONFIG } from "../core/config.js";
 import { DEFAULT_CONTENT } from "../core/fish.js";
 import { growthMaxLevel } from "../core/formula.js";
 import { currentHookTiming, FISH_KINDS, HOOK_GRADES, makeBossCast, PHASES, refreshCombat, tap } from "../core/fishing.js";
-import { BASE_KIND_IDS, effectRange, EQUIP_KIND_ROWS, kindById, RARITY_ROWS, rarityById } from "../core/gear.js";
+import { BASE_KIND_IDS, effectRange, EQUIP_KIND_ROWS, gachaKinds, kindById, RARITY_ROWS, rarityById } from "../core/gear.js";
 import { abilityAllows, abilityById, equipGlove, gloveRarityById } from "../core/glove.js";
 import { ensureGloveBag } from "../core/glove_play.js";
 import { COUNT_MAX, ROD_STEPS } from "../core/rod.js";
@@ -160,7 +160,7 @@ export function setDebugField(game, id, value) {
  * @param {any} game @param {ItemSpec} spec
  */
 export function buildDebugItem(game, spec) {
-  const kinds = game.content.equipKinds ?? EQUIP_KIND_ROWS;
+  const kinds = gachaKinds(game.content.equipKinds ?? EQUIP_KIND_ROWS);
   const kind = kindById(spec.kind, kinds);
   const rarity = rarityById(spec.rarity);
   if (!kind || !rarity) return { ok: false, error: "種類かレア度がちがいます" };
@@ -240,7 +240,7 @@ export const DEBUG_PRESETS = Object.freeze([
 export function applyPreset(game, id) {
   const preset = DEBUG_PRESETS.find((p) => p.id === id);
   if (!preset) return { ok: false, error: "プリセットがありません" };
-  // プリセットは、糸・リール・ルアーの 3 枠だけに作る(おもり・浮き・おまもりは作らない:D-327)。
+  // プリセットは、糸・リール・ルアーの 3 枠だけに作る(おもり・浮きは作らない。お守りは装備の個体を持たない:D-327)。
   const kinds = (game.content.equipKinds ?? EQUIP_KIND_ROWS).filter((/** @type {{ id: string }} */ k) => BASE_KIND_IDS.includes(k.id));
   const gear = game.progress.gear;
   if (game.config.gacha.inventoryMax - gear.items.length < kinds.length) {

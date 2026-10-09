@@ -101,6 +101,9 @@ function ownProgress(progress) {
   if (progress.area) own.area = progress.area;
   // グローブの持ち物(あるときだけ:D-335)。
   copyGloveField(progress, own);
+  // 降臨とお守り(あるときだけ:D-392)。
+  if (progress.kourin) own.kourin = { gauge: progress.kourin.gauge, raid: progress.kourin.raid ? { ...progress.kourin.raid } : null };
+  if (progress.charms) own.charms = { levels: { ...progress.charms.levels }, equipped: progress.charms.equipped };
   return own;
 }
 
@@ -115,7 +118,7 @@ export function refreshCombat(game) {
   // 基本の表 → 装備の基本効果(足し算)→ スキル(足し算 → 掛け算)→ 点検と丸め(D-181・D-210)。
   const geared = applyGear(game.baseCombat, game.progress.gear, content.equipKinds);
   game.combat = normalizeCombat(applySkillsToCombat(geared, game.skills, content.skills), config.combat, config.combatLimits);
-  // おまもり:獲得ウロコインの倍率に足す(豊漁と足し算:D-320)。なければ倍率はそのまま。
+  // おもり(版 8 から。前はおまもり:D-392):獲得ウロコインの倍率に足す(豊漁と足し算:D-320)。なければ倍率はそのまま。
   if (game.combat.coinBonus > 0) game.rates = { ...game.rates, coins: game.rates.coins + game.combat.coinBonus };
   return game.combat;
 }
@@ -216,8 +219,8 @@ export function currentHookTiming(game) {
 }
 
 /**
- * 戦闘の印が端から端まで動く時間(おもりで遅くした値:D-320)。印の速さ ×(1 − 割合)。基準の 50% より遅くしない。
- * おもりがなければ、魚の値のまま。
+ * 戦闘の印が端から端まで動く時間(遅くする効果を入れた値。版 8 からはお守りの「静め」:D-392)。印の速さ ×(1 − 割合)。基準の 50% より遅くしない。
+ * 効果がなければ、魚の値のまま。
  * @param {any} game
  */
 export function fightSweepMs(game) {

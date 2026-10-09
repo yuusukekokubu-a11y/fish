@@ -1,0 +1,139 @@
+{
+  "note": "互換の正解データ(D-392)。保存の版 8(降臨のゲージ・呼び出したヌシと残りの体力・挑戦の回数、お守りのレベルと付けている能力。おもりはウロコイン +%)。code は署名なし(TSURI8-本文-印)、signed は仮の鍵(dev。秘密ではない)で署名したセーブコード(TSURI5-dev-8-…)。これからの版でも、このコードが読めて同じ結果になることをテストで守る。消さない・書き換えない。",
+  "version": 8,
+  "cases": [
+    {
+      "name": "初めの状態(降臨とお守りの欄は空)",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        }
+      },
+      "code": "TSURI8-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0...~.-2ef22842",
+      "signed": "TSURI5-dev-8-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0...~.-uH7MaAz7ustBw819sArHZA"
+    },
+    {
+      "name": "ゲージだけ貯まっている",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        },
+        "kourin": {
+          "gauge": 7,
+          "raid": null
+        }
+      },
+      "code": "TSURI8-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~7...~.-c81db0e1",
+      "signed": "TSURI5-dev-8-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~7...~.-7XGaLpaMrvjbcWWaQb4a2A"
+    },
+    {
+      "name": "降臨のヌシを呼び出し中・お守り 2 つ(刻を付けている)・おもり(ウロコイン)を装着",
+      "progress": {
+        "coins": 98765,
+        "scales": {
+          "kurodai": 4,
+          "nushi-kurodai": 1
+        },
+        "rodStage": 3,
+        "rodStep": "crafted",
+        "seen": [
+          "aji",
+          "kurodai",
+          "nushi-kurodai"
+        ],
+        "gear": {
+          "items": [
+            {
+              "id": 1,
+              "kind": "weight",
+              "rarity": "rare",
+              "grade": 2,
+              "value": 22,
+              "skills": [
+                {
+                  "id": "fortune",
+                  "level": 1
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "kind": "reel",
+              "rarity": "normal",
+              "grade": 1,
+              "value": 1,
+              "skills": []
+            }
+          ],
+          "equipped": {
+            "reel": 2,
+            "weight": 1
+          },
+          "draws": 2,
+          "seed": 11,
+          "nextId": 3
+        },
+        "skillsSeen": [
+          "fortune"
+        ],
+        "kourin": {
+          "gauge": 250,
+          "raid": {
+            "boss": "nushi-kurodai",
+            "hp": 900,
+            "tries": 2
+          }
+        },
+        "charms": {
+          "levels": {
+            "shizume": 1,
+            "toki": 2
+          },
+          "equipped": "toki"
+        }
+      },
+      "code": "TSURI8-247h~3.1~kurodai:4,nushi-kurodai:1~aji,kurodai,nushi-kurodai~2.b.3~1.2,3.1~1.d.2.mE1,1.4.1.1~00~0.0.0~~g~0.1.~~6y.nushi-kurodai.p0.2~1.1,2-6352859c",
+      "signed": "TSURI5-dev-8-247h~3.1~kurodai:4,nushi-kurodai:1~aji,kurodai,nushi-kurodai~2.b.3~1.2,3.1~1.d.2.mE1,1.4.1.1~00~0.0.0~~g~0.1.~~6y.nushi-kurodai.p0.2~1.1,2-PPInnJQ774ZgKi9cuvqEig"
+    }
+  ],
+  "rejected": [
+    {
+      "name": "ヌシでない魚を呼び出している",
+      "code": "TSURI8-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~0.kurodai.1.0~.-f7ec3f6c",
+      "error": "content"
+    },
+    {
+      "name": "残りの体力が 0",
+      "code": "TSURI8-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~0.nushi-kurodai.0.0~.-572d71d7",
+      "error": "content"
+    },
+    {
+      "name": "お守りのレベルが段階をこえる",
+      "code": "TSURI8-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~0...~.zz-76bdfad0",
+      "error": "content"
+    },
+    {
+      "name": "付けたお守りのレベルが 0",
+      "code": "TSURI8-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~0...~1.1-947d0dac",
+      "error": "content"
+    }
+  ]
+}

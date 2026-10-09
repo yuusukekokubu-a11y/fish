@@ -140,3 +140,32 @@ export function withDefense(content, defenses) {
 export function withoutDefense(content) {
   return makeContent(content.fish.map((f) => (f.minigame ? { ...f, minigame: { ...f.minigame, defense: 0 } } : f)));
 }
+
+/**
+ * 版 7 までの進み具合を、版 8 で読んだときの形にする(D-392:おもりとお守りの入れ替え)。互換の正解データの比べ合わせに使う。
+ * - おもり(印を遅くする)の装備は取り除き、払い戻しのウロコインに換える(ロック中でも。装着中なら外す)。
+ * - おまもりの装備は、おもり(版 8 ではウロコイン +%)に変える。
+ */
+export async function toV8(progress) {
+  const { makeCrates, refundFor } = await import("../src/core/gear.js");
+  const crates = makeCrates(DEFAULT_CONTENT_FOR_TESTS, DEFAULT_CONFIG_FOR_TESTS);
+  const p = structuredClone(progress);
+  let refund = 0;
+  p.gear.items = p.gear.items.flatMap((it) => {
+    if (it.kind === "weight") {
+      refund += refundFor(it, crates);
+      return [];
+    }
+    return [it.kind === "charm" ? { ...it, kind: "weight" } : it];
+  });
+  const eq = {};
+  for (const [kind, id] of Object.entries(p.gear.equipped)) {
+    if (kind === "weight") continue;
+    eq[kind === "charm" ? "weight" : kind] = id;
+  }
+  // 装着の並び:種類の表の順(書き出しと同じ)。
+  const order = ["line", "reel", "lure", "weight", "float", "charm"];
+  p.gear.equipped = Object.fromEntries(Object.entries(eq).sort(([a], [b]) => order.indexOf(a) - order.indexOf(b)));
+  p.coins += refund;
+  return p;
+}

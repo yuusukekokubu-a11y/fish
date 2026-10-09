@@ -12,7 +12,7 @@ export const MIN_TAP_GAP_MS = 250;
 
 import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { createGame, fightSweepMs, PHASES, tap, update } from "../../src/core/fishing.js";
-import { BASE_KIND_IDS, drawItem, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
+import { BASE_KIND_IDS, drawItem, effectRange, gachaKinds, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
 import { fishSweepMs, fishZoneWidth, targetPulls } from "../../src/core/formula.js";
 import { makeContent } from "../../src/core/fish.js";
 import { levelRange, SKILL_ROWS } from "../../src/core/skills.js";
@@ -106,7 +106,8 @@ export function pulledPool(content, g, frac, seed) {
   const out = [];
   for (let h = 1; h <= g; h++) {
     const n = Math.round(frac * targetPulls(h));
-    for (let i = 0; i < n; i++) out.push(drawItem(seed * 1000 + h, i, crates[h - 1], content.equipKinds, GG));
+    // ガチャで出る種類だけ(お守りは出ない:D-394)。
+    for (let i = 0; i < n; i++) out.push(drawItem(seed * 1000 + h, i, crates[h - 1], gachaKinds(content.equipKinds), GG));
   }
   return out;
 }
@@ -234,7 +235,8 @@ export function grownItems(content, g, fishId, seed, options = {}) {
   let items = options.pool;
   if (!items && options.per) {
     const crate = makeCrates(content, DEFAULT_CONFIG)[g - 1];
-    items = Array.from({ length: options.per * content.equipKinds.length }, (_, i) => drawItem(seed, i, crate, content.equipKinds, GG));
+    const pool = gachaKinds(content.equipKinds);
+    items = Array.from({ length: options.per * pool.length }, (_, i) => drawItem(seed, i, crate, pool, GG));
   }
   for (const it of items ?? pulledPool(content, g, options.pulls ?? 1, seed)) byKind.get(it.kind).push(it);
   const isPen = (it) => it.skills.some((s) => s.id === "penetration" || s.id === "combo-pen");
@@ -312,14 +314,15 @@ function combinations(list, k, start = 0, acc = [], out = []) {
 }
 
 /**
- * 最強の装備:レジェンド・グレード g・値は最大で、6 枠全部に付ける(D-327)。スキル 6 つを、
- * 枠 i にスキル i・i+1・i+2(6 で割った余り)を置いて、どのスキルも 3 枠ずつにする。レベルは装備 1 個の上限。
+ * 最強の装備:レジェンド・グレード g・値は最大で、ガチャの 5 枠全部に付ける(D-327・D-394)。スキル 5 つを、
+ * 枠 i にスキル i・i+1・i+2(5 で割った余り)を置いて、どのスキルも 3 枠ずつにする。レベルは装備 1 個の上限。
  * 6 つの選び方を全部、1 シードで比べ、良い 10 通りを 3 シードで比べ直す。
  */
 export function strongestItems(content, g, fishId, { noPen = false } = {}) {
   const pool = STRONG_SKILLS.filter((id) => !(noPen && (id === "penetration" || id === "combo-pen")));
   const lv = levelRange("legend", g, DEFAULT_CONFIG.skills).max;
-  const kinds = content.equipKinds;
+  // ガチャの 5 枠(お守りは装備の個体を持たない:D-394)。
+  const kinds = gachaKinds(content.equipKinds);
   const values = kinds.map((kind) => effectRange(kind, RARITY_ROWS[3], g, GG).max);
   const n = kinds.length;
   const make = (six) =>

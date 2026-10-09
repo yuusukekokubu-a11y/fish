@@ -141,7 +141,7 @@ test("制限時間は強い魚 8 秒 + 4 秒 × log5(g)、ヌシ 20 秒 + 2 秒 
   assert.equal(fightTimeLimit(20000, { timeLimitBonusMs: -30000 }, limits), limits.minTimeLimitMs);
 });
 
-test("ヌシの体力は 75 × g^0.93 × 1.14^g を上から 2 けた(D-380・D-382)。g=1〜2 は 120 まで。強い魚の体力は 10 + 10g、防御はどの魚も 0", () => {
+test("ヌシの体力は 64.1 × g^0.93 × 1.14^g を上から 2 けた(D-380・D-382・D-395)。g=1〜2 は 120 まで。強い魚の体力は 10 + 10g、防御はどの魚も 0", () => {
   const f = DEFAULT_CONFIG.formula;
   for (let g = 1; g <= 100; g++) {
     const raw = f.bossHpBase * g ** f.bossHpPower * f.bossHpGrowth ** g;
@@ -150,7 +150,7 @@ test("ヌシの体力は 75 × g^0.93 × 1.14^g を上から 2 けた(D-380・D-
     assert.equal(fishDefense("boss", g) + fishDefense("strong", g), 0);
     if (g > 1) assert.ok(fishHp("boss", g) >= fishHp("boss", g - 1), `g=${g} は前より少なくない`);
   }
-  assert.deepEqual([1, 10, 30].map((g) => fishHp("boss", g)), [86, 2400, 98000]);
+  assert.deepEqual([1, 10, 30].map((g) => fishHp("boss", g)), [73, 2100, 83000]);
   // 目安の引く回数 P(g):g=1 で 20、g=30 で 120(D-379)。
   assert.deepEqual([1, 15, 30].map((g) => targetPulls(g)), [20, 48, 120]);
 });

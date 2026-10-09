@@ -7,6 +7,7 @@ import {
   effectDiff,
   effectRange,
   equippedItem,
+  gachaKinds,
   isEquipped,
   itemName,
   kindById,
@@ -85,7 +86,7 @@ export function crateCards(game, crates) {
         skills: r.skillCount ?? 0,
         skillsText: (r.skillCount ?? 0) === 0 ? "スキルなし" : `スキル ${r.skillCount} つ`,
       })),
-      kinds: content.equipKinds.map((k) => {
+      kinds: gachaKinds(content.equipKinds).map((k) => {
         const low = effectRange(k, crate.rarities[0], crate.grade, config.gacha.gradeGrowth);
         const high = effectRange(k, crate.rarities[crate.rarities.length - 1], crate.grade, config.gacha.gradeGrowth);
         return { id: k.id, name: k.name, range: formatRange(k, low.min, high.max) };
@@ -98,7 +99,7 @@ export function crateCards(game, crates) {
  * @param {import("../core/gear.js").EquipKind} kind @param {number} min @param {number} max
  */
 export function formatRange(kind, min, max) {
-  // 拮抗型(おもり・浮き・おまもり)は、効果の割合で書く(例:印の速さ −10〜−24%:D-327)。
+  // 拮抗型(おもり・浮き)は、効果の割合で書く(例:ウロコイン +8〜+23%:D-327)。
   if (kind.curve) {
     const sign = kind.display.sign ?? "+";
     return `${kind.display.label} ${sign}${percentText(kindEffect(kind, min))}〜${sign}${percentText(kindEffect(kind, max))}%`;
@@ -268,9 +269,9 @@ export function inventoryRows(game, crates, sort, kind = null, lock = null, rari
   return items.map((it) => itemView(game, it, crates));
 }
 
-/** 装着の 3 枠(種類の表の順)。 @param {GameLike} game @param {Crate[]} crates */
+/** 装着の枠(種類の表の順。ガチャで出ないお守りの枠は除く:D-392)。 @param {GameLike} game @param {Crate[]} crates */
 export function slotRows(game, crates) {
-  return game.content.equipKinds.map((kind) => {
+  return gachaKinds(game.content.equipKinds).map((kind) => {
     const item = equippedItem(game.progress.gear, kind.id);
     return { kind: kind.id, kindName: kind.name, item: item ? itemView(game, item, crates) : null };
   });

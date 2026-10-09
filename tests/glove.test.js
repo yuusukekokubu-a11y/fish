@@ -27,7 +27,7 @@ import { decodeSaveCode, encodeSaveCode, parseSave } from "../src/core/savecode.
 import { readSaveCode, signSaveCode } from "../src/core/signed_code.js";
 import { CURRENT_KEY } from "../src/ui/save_sign.js";
 import { startQuickFight } from "../src/ui/debug_view.js";
-import { progressAt, readText, withDefense } from "./helpers.js";
+import { progressAt, readText, toV8, withDefense } from "./helpers.js";
 
 const SEED = 777;
 
@@ -415,7 +415,7 @@ test("保存の版 7:グローブが往復で元に戻る。壊れた系(能力�
   assert.deepEqual(decodeSave(body), { ok: true, progress: p });
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p)), { ok: true, progress: p });
   const parts = body.split("~");
-  const withGloves = (head, items) => [...parts.slice(0, 11), head, items].join("~");
+  const withGloves = (head, items) => [...parts.slice(0, 11), head, items, ...parts.slice(13)].join("~");
   assert.equal(decodeSave(withGloves(parts[11], parts[12])).ok, true);
   const bad = {
     "存在しない能力": withGloves("0.2.", `1.${(10 * 4).toString(36)}.1`),
@@ -437,11 +437,14 @@ test("互換の正解データ(compat_save_v7.json):保存の版 7 の署名な�
   const fixture = JSON.parse(readText("tests/fixtures/compat_save_v7.json"));
   assert.equal(fixture.version, 7);
   for (const c of fixture.cases) {
-    assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: c.progress }, c.name);
-    assert.deepEqual(parseSave(c.code), c.progress, `${c.name}:ブラウザの保存としても読める`);
-    assert.equal(encodeSaveCode(c.progress), c.code, `${c.name}:書き出しも同じ`);
-    assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
-    assert.equal(await signSaveCode(c.progress, CURRENT_KEY), c.signed, `${c.name}:署名つきの書き出しも同じ`);
+    // 版 8 で読むと、おもりは払い戻しに、おまもりはおもりになる(D-392)。
+    const want = await toV8(c.progress);
+    assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: want }, c.name);
+    assert.deepEqual(parseSave(c.code), want, `${c.name}:ブラウザの保存としても読める`);
+    assert.match(encodeSaveCode(want), /^TSURI8-/, `${c.name}:書き出しは版 8`);
+    assert.deepEqual(decodeSaveCode(encodeSaveCode(want)), { ok: true, progress: want }, `${c.name}:版 8 で往復`);
+    assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: want, signed: true, keyId: "dev", warning: null }, c.name);
+    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-8-/, `${c.name}:署名つきの書き出しは版 8`);
     assert.match(c.signed, /^TSURI5-dev-7-/);
   }
   for (const c of fixture.rejected) {
@@ -456,7 +459,7 @@ test("互換の正解データ(compat_save_v7.json):保存の版 7 の署名な�
   // 版 6 の署名つきのコードは、グローブが空の版 7 として読める(ほかの値は変わらない)。
   for (const c of JSON.parse(readText("tests/fixtures/compat_save_v6.json")).cases) {
     const r = await readSaveCode(c.signed, { keys: [CURRENT_KEY] });
-    assert.deepEqual([r.ok, r.ok && r.progress], [true, c.progress], c.name);
+    assert.deepEqual([r.ok, r.ok && r.progress], [true, await toV8(c.progress)], c.name);
     assert.equal(r.ok && "gloves" in r.progress, false);
   }
 });
