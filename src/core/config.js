@@ -164,15 +164,14 @@ export const DEFAULT_CONFIG = Object.freeze({
   // ブラウザの中の保存データの読み出し(parseSave)は、この設定に関係なく読む。
   saveCode: Object.freeze({ acceptUnsigned: false }),
   // 降臨(D-396・D-397)。キャラの表は kourin.js、お守りの表は charms.js。
-  // ゲージは 1 点 = unit の整数で持つ(鱗の点が半分ずつ下がるので、端数なしで足すため)。
   kourin: Object.freeze({
-    unit: 64,
-    full: 300, // 満タンの点
-    weakPoints: 1, // 釣り上げ(弱い魚・餌の強い魚)
-    strongPoints: 5, // 強い魚・ヌシ
-    scalePoints: 10, // 今の竿の段階の鱗 1 枚の点(1 段階下がるごとに scaleDecay 倍)
-    scaleDecay: 0.5,
-    scaleCap: 150, // 1 回の満タンのうち、鱗で入れられる点
+    // ウロコパワー(D-403):釣り上げと鱗で貯め、ねらう相手に注入する。どれも段階(レベル)が 1 上がるごとに growth 倍。
+    growth: 2,
+    weakPower: 1, // 釣り上げ(弱い魚・餌の強い魚)× growth^(魚の段階 − 1)
+    strongPower: 5, // 強い魚・ヌシ × growth^(魚の段階 − 1)
+    scalePower: 10, // 強い魚の鱗 1 枚 × growth^(鱗の段階 − 1)
+    need: 240, // レベル L の相手を呼ぶのに要る量 × growth^(L − 1)
+    scaleShare: 0.5, // 要る量のうち、鱗で注入できる割合
     hpRatio: 6, // レベル n の体力 = 段階 n のヌシの体力(キャラのくせの補正つき)× これ
     steps: 10, // 区切りの数(10% ごと)
     coinFish: 5, // ウロコインの区切り = そのレベルの強い魚 × これ

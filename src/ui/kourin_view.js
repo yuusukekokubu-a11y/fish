@@ -5,7 +5,7 @@
 import { activeCharm, CHARM_ROWS, charmValue } from "../core/charms.js";
 import { canChallengeRaid } from "../core/fishing.js";
 import { percentText } from "../core/gear.js";
-import { canSummon, fullGauge, KOURIN_ROWS, kourinById, kourinOf, kourinUnlocked, planDonation, raidLevel, raidMinigame } from "../core/kourin.js";
+import { canSummon, fillOf, KOURIN_ROWS, kourinById, kourinOf, kourinUnlocked, needPower, planInject, raidLevel, raidMinigame, scaleOffers, scaleRoomOf } from "../core/kourin.js";
 import { formatCount } from "./format.js";
 
 /** くせの短い説明(キャラの行の quirk)。 */
@@ -28,11 +28,6 @@ export function charmEffectText(id, value) {
   return f ? f(percentText(value)) : "";
 }
 
-/** 1 点 = unit の量を、点の文字にする(端数は切り捨て)。 @param {number} units @param {number} unit */
-function points(units, unit) {
-  return formatCount(Math.floor(units / unit));
-}
-
 /**
  * 降臨の画面の中身。
  * @param {any} game
@@ -42,26 +37,19 @@ export function kourinView(game) {
   const c = config.kourin;
   const k = kourinOf(progress);
   const unlocked = kourinUnlocked(progress, content);
-  const full = fullGauge(c);
-  const plan = planDonation(progress, content, c);
-  const summonable = canSummon(progress, content, c);
   const raid = k.raid;
   const raidRow = raid ? kourinById(raid.char) : undefined;
   const bag = progress.charms;
   const worn = activeCharm(bag, c.charmK);
+  const offers = scaleOffers(progress, content, c);
+  const spare = offers.reduce((n, o) => n + o.count, 0);
   return {
     unlocked,
     lockedText: "港を越えると(磯に入ると)、降臨を呼べるようになります",
-    gauge: {
-      ratio: Math.min(1, k.gauge / full),
-      text: `ゲージ ${points(k.gauge, c.unit)} / ${formatCount(c.full)} 点`,
-      scaleText: `鱗から ${points(k.fromScales, c.unit)} / ${formatCount(c.scaleCap)} 点`,
-      note: `釣り上げ +${c.weakPoints}・強い魚とヌシ +${c.strongPoints}。満タンで 1 体を呼べます`,
-    },
-    donate: {
-      label: plan.scales > 0 ? `余りの鱗を納める(${formatCount(plan.scales)} 枚で +${points(plan.units, c.unit)} 点)` : "納められる鱗はありません",
-      disabled: !unlocked || plan.scales === 0,
-      note: "強い魚の鱗の余りだけ(今の段階は製作に要る分を残す)。古い段階ほど点が低い",
+    power: {
+      text: `ウロコパワー ${formatCount(k.power)}`,
+      scaleText: spare > 0 ? `注入できる鱗 ${formatCount(spare)} 枚` : "注入できる鱗はありません",
+      note: `釣り上げで貯まる(弱い魚 ${c.weakPower}・強い魚とヌシ ${c.strongPower}。魚の段階が 1 上がるごとに ${c.growth} 倍)。ねらう相手に注入し、要る量まで貯めると呼べます。強い魚の鱗の余りも注入できます(1 枚 ${c.scalePower}・段階ごとに ${c.growth} 倍。要る量の半分まで)`,
     },
     raid:
       raid && raidRow
@@ -85,6 +73,11 @@ export function kourinView(game) {
     chars: KOURIN_ROWS.map((row) => {
       const level = raidLevel(k, row.id);
       const charm = CHARM_ROWS.find((x) => x.id === row.charm);
+      const need = needPower(level, c);
+      const fill = fillOf(k, row.id);
+      const plan = planInject(progress, content, row.id, c);
+      const add = plan.fromScales + plan.fromPower;
+      const current = raid?.char === row.id;
       return {
         id: row.id,
         name: row.name,
@@ -92,8 +85,13 @@ export function kourinView(game) {
         quirkText: QUIRK_TEXT[/** @type {keyof typeof QUIRK_TEXT} */ (row.quirk)] ?? row.quirk,
         charmText: `倒すと ${charm?.name ?? row.charm}`,
         clearedText: (k.cleared[row.id] ?? 0) > 0 ? `Lv${k.cleared[row.id]} まで討伐` : "まだ討伐していない",
-        canSummon: summonable,
-        current: raid?.char === row.id,
+        current,
+        ratio: current ? 0 : Math.min(1, fill.total / need),
+        fillText: `ウロコパワー ${formatCount(current ? 0 : fill.total)} / ${formatCount(need)}`,
+        scaleText: `鱗から ${formatCount(current ? 0 : fill.scales)} / ${formatCount(scaleRoomOf(level, c))}`,
+        injectLabel: add > 0 ? `注入する(+${formatCount(add)}${plan.scales > 0 ? `・鱗 ${formatCount(plan.scales)} 枚` : ""})` : "注入できるものはありません",
+        canInject: !current && add > 0,
+        canSummon: canSummon(progress, content, c, row.id),
       };
     }),
     charms: CHARM_ROWS.filter((row) => (bag?.levels[row.id] ?? 0) > 0).map((row) => {

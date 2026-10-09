@@ -53,7 +53,7 @@ import {
 } from "./rod.js";
 import { initialProgress } from "./save.js";
 import { charmEffect } from "./charms.js";
-import { addCatchGauge, copyKourin, settleRaid } from "./kourin.js";
+import { addCatchPower, copyKourin, settleRaid } from "./kourin.js";
 
 export { FISH_KINDS, triggeredStats, zoneBand };
 export { bossSeed, drawCast, makeBaitCast, makeBossCast, resolveCast };
@@ -306,8 +306,8 @@ function finish(game, outcome, reason) {
     if (reward.scales > 0) p.scales[fish.id] = addCount(p.scales[fish.id] ?? 0, reward.scales);
     if (firstCatch) p.seen.push(fish.id);
     if (kind === FISH_KINDS.BOSS) markBossDefeated(p);
-    // 降臨のゲージ(D-396・D-397)。餌の強い魚は弱い魚と同じ。
-    addCatchGauge(p, game.content, kind, Boolean(game.cast.bait), game.config.kourin);
+    // 降臨のウロコパワー(D-403)。魚の段階で増える。餌の強い魚は弱い魚と同じ。
+    addCatchPower(p, game.content, kind, Boolean(game.cast.bait), fish.stage, game.config.kourin);
   } else {
     game.counts.escaped += 1;
   }

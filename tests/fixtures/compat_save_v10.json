@@ -1,0 +1,156 @@
+{
+  "note": "互換の正解データ(D-403)。保存の版 10(降臨:貯めているウロコパワー・キャラごとの倒したレベル・キャラごとの注入した量とそのうち鱗の分・呼んでいるキャラと残りの体力・挑戦の回数・払った区切り。お守りのレベルと付けている能力)。code は署名なし(TSURI10-本文-印)、signed は仮の鍵(dev。秘密ではない)で署名したセーブコード(TSURI5-dev-10-…)。これからの版でも、このコードが読めて同じ結果になることをテストで守る。消さない・書き換えない。",
+  "version": 10,
+  "cases": [
+    {
+      "name": "初めの状態(降臨とお守りの欄は空)",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        }
+      },
+      "code": "TSURI10-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~.-af5eb47a",
+      "signed": "TSURI5-dev-10-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~.-RmJS1jFpZc6EQjqqK0cI9g"
+    },
+    {
+      "name": "ウロコパワーを貯め、大エビと大イカに注入している",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 7,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        },
+        "kourin": {
+          "power": 4321,
+          "fills": {
+            "ebi": {
+              "total": 200,
+              "scales": 120
+            },
+            "ika": {
+              "total": 50,
+              "scales": 0
+            }
+          },
+          "cleared": {},
+          "raid": null
+        }
+      },
+      "code": "TSURI10-0~7.0~~~0..1~~~~0.0.0~~0~0.1.~~3c1..5k,0,0,1e.3c....~.-aa95f63d",
+      "signed": "TSURI5-dev-10-0~7.0~~~0..1~~~~0.0.0~~0~0.1.~~3c1..5k,0,0,1e.3c....~.-Bmel9Vq_2rbO4CV5c2EzZQ"
+    },
+    {
+      "name": "鉄壁の大ガニ Lv3 を呼んでいる(残りの体力・挑戦 7 回・区切り 4)・大エビに注入・倒したレベル・お守り 3 つ(破りを付けている)",
+      "progress": {
+        "coins": 54321,
+        "scales": {
+          "mejina": 6,
+          "nushi-mejina": 1
+        },
+        "rodStage": 13,
+        "rodStep": "crafted",
+        "seen": [
+          "aji",
+          "bera",
+          "mejina"
+        ],
+        "gear": {
+          "items": [
+            {
+              "id": 1,
+              "kind": "reel",
+              "rarity": "normal",
+              "grade": 1,
+              "value": 1,
+              "skills": []
+            }
+          ],
+          "equipped": {
+            "reel": 1
+          },
+          "draws": 5,
+          "seed": 77,
+          "nextId": 2
+        },
+        "kourin": {
+          "power": 98765,
+          "fills": {
+            "ebi": {
+              "total": 3000,
+              "scales": 1500
+            }
+          },
+          "cleared": {
+            "ebi": 4,
+            "kani": 2,
+            "ika": 1
+          },
+          "raid": {
+            "char": "kani",
+            "hp": 3456,
+            "tries": 7,
+            "paid": 4
+          }
+        },
+        "charms": {
+          "levels": {
+            "shizume": 4,
+            "yaburi": 2,
+            "toki": 1
+          },
+          "equipped": "yaburi"
+        }
+      },
+      "code": "TSURI10-15wx~d.1~mejina:6,nushi-mejina:1~aji,bera,mejina~5.25.2~1.1~1.4.1.1~0~0.0.0~~0~0.1.~~247h.4,2,0,1.2bc.15o.1.2o0.7.4~2.4,1,2-9392363a",
+      "signed": "TSURI5-dev-10-15wx~d.1~mejina:6,nushi-mejina:1~aji,bera,mejina~5.25.2~1.1~1.4.1.1~0~0.0.0~~0~0.1.~~247h.4,2,0,1.2bc.15o.1.2o0.7.4~2.4,1,2-DMppZaKCddRo-luahGFpiA"
+    }
+  ],
+  "rejected": [
+    {
+      "name": "表にないキャラを呼んでいる",
+      "code": "TSURI10-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0....9.1.0.0~.-55d7a8ce",
+      "error": "content"
+    },
+    {
+      "name": "残りの体力が 0",
+      "code": "TSURI10-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0....0.0.0.0~.-fac44ca2",
+      "error": "content"
+    },
+    {
+      "name": "払った区切りが 10",
+      "code": "TSURI10-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0....0.1.0.a~.-759f0552",
+      "error": "content"
+    },
+    {
+      "name": "鱗の分が注入した量より多い",
+      "code": "TSURI10-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0..1.2....~.-8828dd83",
+      "error": "content"
+    },
+    {
+      "name": "呼んでいるキャラに注入した量がある",
+      "code": "TSURI10-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0..5.0.0.1.0.0~.-b22170d6",
+      "error": "content"
+    },
+    {
+      "name": "付けたお守りのレベルが 0",
+      "code": "TSURI10-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~1.1-e01439c2",
+      "error": "content"
+    }
+  ]
+}

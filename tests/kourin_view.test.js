@@ -1,4 +1,4 @@
-// 降臨の画面の文字(D-396・D-397)。
+// 降臨の画面の文字(D-396・D-397・D-403)。
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -10,32 +10,31 @@ import { createEffects } from "../src/ui/effects.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { progressAt } from "./helpers.js";
 
-const U = DEFAULT_CONFIG.kourin.unit;
-
-test("港では「港を越えると」。磯からはゲージ・納める鱗・4 キャラ(Lv・くせ・倒すと授かるお守り)", () => {
+test("港では「港を越えると」。磯からはウロコパワー・注入できる鱗・4 キャラ(Lv・くせ・お守り・注入した量・注入する・呼ぶ)", () => {
   assert.equal(kourinView(createGame(1, { progress: progressAt(3) })).unlocked, false);
   const stage = DEFAULT_CONTENT.stageByNumber.get(7);
-  const game = createGame(1, { progress: progressAt(7, "crafted", { scales: { [stage.craft.scale]: 3 }, kourin: { gauge: 120 * U, fromScales: 40 * U, cleared: { kani: 2 }, raid: null } }) });
+  const kourin = { power: 500, fills: { kani: { total: 300, scales: 100 }, ika: { total: 240, scales: 0 } }, cleared: { kani: 2 }, raid: null };
+  const game = createGame(1, { progress: progressAt(7, "crafted", { scales: { [stage.craft.scale]: 3 }, kourin }) });
   const v = kourinView(game);
   assert.equal(v.unlocked, true);
-  assert.deepEqual([v.gauge.text, v.gauge.scaleText, v.gauge.ratio], ["ゲージ 120 / 300 点", "鱗から 40 / 150 点", 0.4]);
-  assert.deepEqual([v.donate.label, v.donate.disabled], ["余りの鱗を納める(3 枚で +30 点)", false]);
+  assert.deepEqual([v.power.text, v.power.scaleText], ["ウロコパワー 500", "注入できる鱗 3 枚"]);
   assert.equal(v.raid, null);
   assert.deepEqual(
-    v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.canSummon]),
+    v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.fillText, c.scaleText, c.injectLabel, c.canInject, c.canSummon]),
     [
-      ["疾風の大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", false],
-      ["鉄壁の大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", false],
-      ["不死の大ダコ", "Lv1", "自動回復", "倒すと 和らぎの守り", "まだ討伐していない", false],
-      ["刹那の大イカ", "Lv1", "制限時間が短い", "倒すと 刻の守り", "まだ討伐していない", false],
+      ["疾風の大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", "ウロコパワー 0 / 240", "鱗から 0 / 120", "注入する(+240・鱗 1 枚)", true, false],
+      ["鉄壁の大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", "ウロコパワー 300 / 960", "鱗から 100 / 480", "注入する(+660・鱗 1 枚)", true, false],
+      ["不死の大ダコ", "Lv1", "自動回復", "倒すと 和らぎの守り", "まだ討伐していない", "ウロコパワー 0 / 240", "鱗から 0 / 120", "注入する(+240・鱗 1 枚)", true, false],
+      ["刹那の大イカ", "Lv1", "制限時間が短い", "倒すと 刻の守り", "まだ討伐していない", "ウロコパワー 240 / 240", "鱗から 0 / 120", "注入できるものはありません", false, true],
     ],
   );
+  assert.equal(v.chars[1].ratio, 300 / 960);
 });
 
 test("呼んでいるキャラ(残りの体力・報酬の区切り・挑戦の回数)と、お守り(レベル・効果・付けているか)", () => {
   const game = createGame(1, {
     progress: progressAt(13, "none", {
-      kourin: { gauge: 0, fromScales: 0, cleared: { tako: 4 }, raid: { char: "tako", hp: 1234, tries: 2, paid: 3 } },
+      kourin: { power: 0, fills: {}, cleared: { tako: 4 }, raid: { char: "tako", hp: 1234, tries: 2, paid: 3 } },
       charms: { levels: { shizume: 15, toki: 5 }, equipped: "toki" },
     }),
   });

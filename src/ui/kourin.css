@@ -23,7 +23,6 @@
   background: var(--red);
   box-shadow: inset 0 3px 0 var(--red-hi), inset 0 -3px 0 #8a1f2e;
 }
-.kourin-donate,
 .kourin-challenge,
 .kourin-summon {
   width: 100%;
@@ -133,4 +132,25 @@
 .raid-result-note {
   font-size: 14px;
   color: var(--muted);
+}
+
+/* 4 キャラのボタン(注入する・呼ぶ:D-403)。注入は広く、呼ぶは右に。 */
+.kourin-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.kourin-inject {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+}
+.kourin-buttons .kourin-summon {
+  flex: none;
+  width: auto;
+  margin-top: 0;
+  padding: 0 16px;
+}
+.kourin-inject {
+  min-height: 44px;
 }

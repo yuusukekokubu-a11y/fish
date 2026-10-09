@@ -34,7 +34,7 @@ import { mountSkills } from "./skill_screen.js";
 export const SCREENS = Object.freeze([
   { id: "areas", title: "釣り場", note: "釣り場を移る", mount: mountAreas },
   // 降臨(D-396):満タンで呼べるときに「!」。
-  { id: "kourin", title: "降臨", note: "ゲージを貯めて挑む", mount: mountKourin, badge: (game) => (canSummon(game.progress, game.content, game.config.kourin) ? "warn" : null) },
+  { id: "kourin", title: "降臨", note: "ウロコパワーを注入して挑む", mount: mountKourin, badge: (game) => (canSummon(game.progress, game.content, game.config.kourin) ? "warn" : null) },
   { id: "equipment", title: "装備", note: "付け替え・分解・ロック", mount: mountEquipment, badge: (game) => inventoryWarning(game).level },
   { id: "skills", title: "スキル", note: "装備で育つ力の一覧", mount: mountSkills },
   { id: "crates", title: "クレート", note: "ウロコインで装備を引く", mount: mountCrates },
