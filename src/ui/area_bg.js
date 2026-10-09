@@ -3,6 +3,7 @@
 // - 絵のデータは大きいので、ゲームを開くときには読まない。いまいる釣り場の絵だけを、必要になったときに読む(動的な import)。
 // - 読んだ絵は、1 マス = 1 画素の小さな canvas(130 × 280)に描いて取っておく。画面には draw.js が拡大して写す。
 // - 表にない釣り場(あとから足す「釣り場 n」)や、読み込みの前・失敗のときは null(今までの色の段で描く)。
+// - 夜の絵(降臨の戦いのときだけ:D-392)も同じように、必要になったときに読む。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 /** 釣り場の id → 絵を読む関数。並びは釣り場の表と同じ(src/art/bg/index.js)。 */
@@ -13,6 +14,16 @@ const LOADERS = Object.freeze({
   oki: () => import("../art/bg/oki.js").then((m) => m.BG_OKI),
   gaiyou: () => import("../art/bg/gaiyou.js").then((m) => m.BG_GAIYOU),
   shinkai: () => import("../art/bg/shinkai.js").then((m) => m.BG_SHINKAI),
+});
+
+/** 釣り場の id → 夜の絵を読む関数(降臨の戦いだけで使う:D-392)。 */
+const NIGHT_LOADERS = Object.freeze({
+  minato: () => import("../art/bg/minato_night.js").then((m) => m.BG_MINATO_NIGHT),
+  iso: () => import("../art/bg/iso_night.js").then((m) => m.BG_ISO_NIGHT),
+  kawa: () => import("../art/bg/kawa_night.js").then((m) => m.BG_KAWA_NIGHT),
+  oki: () => import("../art/bg/oki_night.js").then((m) => m.BG_OKI_NIGHT),
+  gaiyou: () => import("../art/bg/gaiyou_night.js").then((m) => m.BG_GAIYOU_NIGHT),
+  shinkai: () => import("../art/bg/shinkai_night.js").then((m) => m.BG_SHINKAI_NIGHT),
 });
 
 /** 背景の絵の水平線の行(上から。どの絵も同じ:D-383)。 */
@@ -31,18 +42,20 @@ const cache = new Map();
 
 /**
  * 釣り場の背景の絵(1 マス = 1 画素の canvas)。まだ読んでいなければ読み始めて、いまは null を返す。
- * 画面(document)がないとき(テスト)は、いつも null。
+ * 画面(document)がないとき(テスト)は、いつも null。night が true なら夜の絵(降臨の戦い:D-392)。
  * @param {string | null | undefined} areaId
+ * @param {boolean} [night]
  * @returns {HTMLCanvasElement | null}
  */
-export function areaBackground(areaId) {
+export function areaBackground(areaId, night = false) {
   if (!areaId || !hasAreaArt(areaId) || typeof document === "undefined") return null;
-  let entry = cache.get(areaId);
+  const key = night ? `${areaId}:night` : areaId;
+  let entry = cache.get(key);
   if (!entry) {
     const slot = { image: /** @type {HTMLCanvasElement | null} */ (null) };
     entry = slot;
-    cache.set(areaId, slot);
-    const load = LOADERS[/** @type {keyof typeof LOADERS} */ (areaId)];
+    cache.set(key, slot);
+    const load = (night ? NIGHT_LOADERS : LOADERS)[/** @type {keyof typeof LOADERS} */ (areaId)];
     Promise.all([load(), import("../art/pixel.js")])
       .then(([art, pixel]) => {
         const canvas = document.createElement("canvas");
@@ -55,7 +68,7 @@ export function areaBackground(areaId) {
       })
       .catch(() => {
         // 読めなかったら、色の段のまま(遊びは止めない)。次に開いたときにもう一度読む。
-        cache.delete(areaId);
+        cache.delete(key);
       });
   }
   return entry.image;

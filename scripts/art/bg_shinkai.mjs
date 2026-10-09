@@ -147,4 +147,4 @@ for (const [dx, dy] of [
 ]) set(bx + dx, by + dy, "shipLight");
 for (let x = bx - 1; x <= bx + 27; x++) if (isSea(get(x, by + 2)) && x % 3 === 0) set(x, by + 2, "shipLight");
 
-writeBackground({ id: "bg-shinkai", name: "深海(昼)", constName: "BG_SHINKAI", file: "shinkai.js", decision: "D-384", script: "scripts/art/bg_shinkai.mjs", P, grid: sc.grid });
+writeBackground({ id: "bg-shinkai", name: "深海(昼)", constName: "BG_SHINKAI", file: "shinkai.js", decision: "D-384", script: "scripts/art/bg_shinkai.mjs", P, grid: sc.grid, night: { moon: null } });

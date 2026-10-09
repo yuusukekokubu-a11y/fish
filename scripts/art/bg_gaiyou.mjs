@@ -155,4 +155,4 @@ spout.forEach((row, dy) => {
 });
 for (let x = wx - 8; x <= wx + 8; x++) if (isSea(get(x, HORIZON + 1))) set(x, HORIZON + 1, x % 2 ? "glintMid" : "swellHi");
 
-writeBackground({ id: "bg-gaiyou", name: "外洋(昼)", constName: "BG_GAIYOU", file: "gaiyou.js", decision: "D-384", script: "scripts/art/bg_gaiyou.mjs", P, grid: sc.grid });
+writeBackground({ id: "bg-gaiyou", name: "外洋(昼)", constName: "BG_GAIYOU", file: "gaiyou.js", decision: "D-384", script: "scripts/art/bg_gaiyou.mjs", P, grid: sc.grid, night: { moon: null } });

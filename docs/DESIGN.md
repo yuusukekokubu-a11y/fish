@@ -254,6 +254,8 @@
   - データは kind: "background"(透明のマスなし)。
   - 魚(D-386):`scripts/art/fish_common.mjs` の `renderFish(spec)` が、形の数(背と腹の線 `top`・`bot`、`bodyEnd`、尾 `tail`・ひれ `fins` の多角形、目・口・えらぶた)と色の決まり(`tones` と `toneCuts` の段、`pattern(info)` の模様、`vScale` の縦の強調)から 32 × 32 の色の並びを作る(1 マスを 3 × 3 に分けた多数決・外に面したマスは輪郭)。`decorateBoss` がヌシの縁と冠を足す。`fins` の 1 つに `color` を書くと、そのひれは 1 色で輪郭なし(ひげ:D-388)。釣り場ごとのスクリプトが、魚の spec とヌシの並びを `writeFishModule` に渡して(D-387) `src/art/fish/<釣り場>.js` に `FISH_<釣り場>`(魚の id → 絵)を書き出す。ゲームでは `src/ui/fish_art.js` の `fishArt(魚)` が、魚の段階から釣り場を決めてあとで読み、1 マス 1 画素の canvas を返す。`draw.js` の `drawFishOrArt` が拡大して描く(絵がなければ丸い形)。新しい釣り場の魚を足すときは、スクリプトを 1 つ足し、`fish_art.js` の `LOADERS`・`tsconfig.json`・見本のページの `FISH_AREAS`・`tests/art.test.js`(魚の点検と、あとで読むファイルの一覧)に足す。
   - ほかの釣り場(D-384):共通の道具 `scripts/art/bg_common.mjs`(`makeScene` の帯・雲・鳥、`seaWaves`・`deepRipples`、`writeBackground` の書き出しと点検)を使い、釣り場ごとに `scripts/art/bg_<id>.mjs` を置く。一覧 `src/art/bg/index.js` は釣り場の表と同じ並び(テストが確かめる)。釣り場を足すときは、スクリプトを 1 つ足し、書き出して、一覧と `tsconfig.json` に足す。
+  - 夜の背景(D-393):`writeBackground` が昼と一緒に `<id>_night.js` も書く(色の名前ごとに夜の色へ置き換え、空に星と月。`night: { moon }` で月の位置、`null` で月なし)。一覧の `night`、ゲームでは `areaBackground(id, true)`。釣り場を足すときは、`area_bg.js` の `NIGHT_LOADERS`・一覧・`tsconfig.json`・`tests/art.test.js` のあとで読むファイルの一覧にも足す。
+  - 降臨ヌシの紫の冠(D-393):`fish_art.js` の `kourinPalette` が、ヌシの絵の色の並びの冠の色(`CROWN_GOLD`)と縁の色(魚の表のヌシの色)を置き換える。`fishArt(魚, "kourin")` は別の canvas として取っておく。
 
 ### 目次と全画面の作り、画面を足す手順(D-152〜D-155・D-161〜D-164)
 
