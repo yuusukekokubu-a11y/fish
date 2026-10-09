@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { createGame } from "../src/core/fishing.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
-import { effectRange, RARITY_ROWS } from "../src/core/gear.js";
+import { effectRange, EQUIP_KIND_ROWS, makeCrates, RARITY_ROWS, refundFor } from "../src/core/gear.js";
 import { levelRange, SKILL_ROWS } from "../src/core/skills.js";
 import { syntheticContent } from "../src/core/synthetic.js";
 import { decodeSave, encodeSave, initialProgress, SAVE_VERSION, STEP_ORDER, UPGRADES, upgradeSave } from "../src/core/save.js";
@@ -42,6 +42,9 @@ function sample() {
 const SEEN_MASK = (2 ** 0 + 2 ** 1 + 2 ** 16 + 2 ** 17).toString(36);
 // 版 7 で足したグローブの 2 つの欄(判定 0 回・次の番号 1・装着なし・持ち物なし:D-335)。
 const GLOVES = "~0.1.~";
+// 版 8 で足した降臨とお守りの 2 つの欄(ゲージ 0・呼び出しなし・お守りなし:D-392)。
+const KOURIN = "~0...~.";
+const TAIL = `${GLOVES}${KOURIN}`;
 
 /** 本文から、印の合ったコードを作る。 */
 const codeOf = (body) => `TSURI${SAVE_VERSION}-${body}-${checksum(body)}`;
@@ -61,13 +64,13 @@ const V2_BODY = `${V1_BODY}~000`;
 // 版 3 の本文(sample() を版 3 で書いたもの)。
 const V3_BODY = `${V2_BODY}~0.0.0`;
 
-test("版 7 の形:13 の欄(ウロコイン・竿・鱗・釣れた魚・ガチャ・装着・持ち物・ロック・餌と自動分解・釣り場・出会ったスキル・グローブ 2 つ)を 36 進数の数と記号で書く", () => {
-  assert.equal(SAVE_VERSION, 7);
-  assert.equal(encodeSave(sample()), `${V3_BODY}~~${SEEN_MASK}${GLOVES}`, "いちばん新しい釣り場にいるときは、釣り場の欄は空");
+test("版 8 の形:15 の欄(ウロコイン・竿・鱗・釣れた魚・ガチャ・装着・持ち物・ロック・餌と自動分解・釣り場・出会ったスキル・グローブ 2 つ・降臨・お守り)を 36 進数の数と記号で書く", () => {
+  assert.equal(SAVE_VERSION, 8);
+  assert.equal(encodeSave(sample()), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "いちばん新しい釣り場にいるときは、釣り場の欄は空");
   const p = sample();
   p.gear.items[1].locked = true;
-  assert.equal(encodeSave(p), `${V1_BODY}~010~0.0.0~~${SEEN_MASK}${GLOVES}`, "ロックは持ち物の順に 1 個 1 字");
-  assert.match(encodeSaveCode(sample()), /^TSURI7-[0-9A-Za-z.,:~-]+-[0-9a-f]{8}$/);
+  assert.equal(encodeSave(p), `${V1_BODY}~010~0.0.0~~${SEEN_MASK}${TAIL}`, "ロックは持ち物の順に 1 個 1 字");
+  assert.match(encodeSaveCode(sample()), /^TSURI8-[0-9A-Za-z.,:~-]+-[0-9a-f]{8}$/);
   // 古い釣り場(港)にいるとき:釣り場の id を書く(D-280)。
   const old = { ...sample(), rodStage: 7, area: "minato" };
   assert.equal(encodeSave(old).split("~")[9], "minato");
@@ -75,7 +78,7 @@ test("版 7 の形:13 の欄(ウロコイン・竿・鱗・釣れた魚・ガチ
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p)), { ok: true, progress: p }, "ロックも往復で元に戻る");
   // 餌 99 個(36 進数で 2r)・スイッチ入り・自動分解「エピックまで」(番号 3)。
   const b = { ...sample(), bait: 99, useBait: true, autoScrap: "epic" };
-  assert.equal(encodeSave(b), `${V2_BODY}~2r.1.3~~${SEEN_MASK}${GLOVES}`);
+  assert.equal(encodeSave(b), `${V2_BODY}~2r.1.3~~${SEEN_MASK}${TAIL}`);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(b)), { ok: true, progress: b }, "餌・スイッチ・自動分解も往復で元に戻る");
   for (const [id, n] of [["normal", 1], ["rare", 2]]) {
     const q = { ...sample(), bait: 1, autoScrap: id };
@@ -86,7 +89,7 @@ test("版 7 の形:13 の欄(ウロコイン・竿・鱗・釣れた魚・ガチ
 
 test("版 2(TSURI2)のコードと本文を読み、版 3 → 版 4 に読み替える(餌 0・スイッチはオフ・自動分解はオフ。ほかは変わらない)", () => {
   assert.equal(UPGRADES[2](V2_BODY), V3_BODY);
-  assert.equal(upgradeSave(V2_BODY, 2), `${V3_BODY}~~${SEEN_MASK}${GLOVES}`);
+  assert.equal(upgradeSave(V2_BODY, 2), `${V3_BODY}~~${SEEN_MASK}${TAIL}`);
   assert.equal(UPGRADES[2](V1_BODY), null, "欄の数がちがう版 2 は読み替えない");
   const p = sample();
   p.gear.items[0].locked = true;
@@ -95,22 +98,23 @@ test("版 2(TSURI2)のコードと本文を読み、版 3 → 版 4 に読み替
   assert.deepEqual(r, { ok: true, progress: p });
   assert.ok(r.ok && !("bait" in r.progress) && !("useBait" in r.progress) && !("autoScrap" in r.progress));
   assert.deepEqual(parseSave(`TSURI2-${body2}-${checksum(body2)}`), p, "ブラウザに残った版 2 の保存データも読める");
-  assert.match(encodeSaveCode(p), /^TSURI7-/);
+  assert.match(encodeSaveCode(p), /^TSURI8-/);
   // 版 2 なのに 9 つの欄は拒否。
   assert.equal(decodeSaveCode(`TSURI2-${V2_BODY}~0.0.0-${checksum(`${V2_BODY}~0.0.0`)}`).error, "content");
 });
 
 test("版 1(TSURI1)のコードと本文を読み、版 2 → 版 3 → 版 4 と順に読み替える(ロックは全てなし。ほかは変わらない)", () => {
   assert.equal(UPGRADES[1](V1_BODY), `${V1_BODY}~000`);
-  assert.equal(upgradeSave(V1_BODY, 1), `${V1_BODY}~000~0.0.0~~${SEEN_MASK}${GLOVES}`, "版 1 → 2 → … → 7");
-  assert.equal(upgradeSave(`${V3_BODY}~`, 4), `${V3_BODY}~~${SEEN_MASK}${GLOVES}`, "版 4 → 5:持ち物のスキルが出会ったスキルになる");
+  assert.equal(upgradeSave(V1_BODY, 1), `${V1_BODY}~000~0.0.0~~${SEEN_MASK}${TAIL}`, "版 1 → 2 → … → 8");
+  assert.equal(upgradeSave(`${V3_BODY}~`, 4), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "版 4 → 5:持ち物のスキルが出会ったスキルになる");
   assert.equal(UPGRADES[5](`${V3_BODY}~~${SEEN_MASK}`), `${V3_BODY}~~${SEEN_MASK}`, "版 5 → 6:本文は同じ(D-325)");
   assert.equal(UPGRADES[5](V3_BODY), null, "欄の数がちがう版 5 は読み替えない");
   assert.equal(UPGRADES[6](`${V3_BODY}~~${SEEN_MASK}`), `${V3_BODY}~~${SEEN_MASK}${GLOVES}`, "版 6 → 7:グローブの欄を空で足す(D-335)");
   assert.equal(UPGRADES[6](V3_BODY), null, "欄の数がちがう版 6 は読み替えない");
-  assert.equal(upgradeSave(`${V3_BODY}~~${SEEN_MASK}${GLOVES}`, 7), `${V3_BODY}~~${SEEN_MASK}${GLOVES}`, "今の版はそのまま");
+  assert.equal(UPGRADES[7](`${V3_BODY}~~${SEEN_MASK}${GLOVES}`, DEFAULT_CONTENT, DEFAULT_CONFIG), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "版 7 → 8:糸・リール・ルアーだけなら、降臨とお守りの欄を空で足すだけ(D-392)");
+  assert.equal(upgradeSave(`${V3_BODY}~~${SEEN_MASK}${TAIL}`, 8), `${V3_BODY}~~${SEEN_MASK}${TAIL}`, "今の版はそのまま");
   assert.equal(upgradeSave(V1_BODY, 0), null);
-  assert.equal(upgradeSave(V1_BODY, 8), null);
+  assert.equal(upgradeSave(V1_BODY, 9), null);
   assert.equal(UPGRADES[1]("1~2"), null, "欄の数がちがう版 1 は読み替えない");
   const r = decodeSaveCode(`TSURI1-${V1_BODY}-${checksum(V1_BODY)}`);
   assert.deepEqual(r, { ok: true, progress: sample() });
@@ -118,7 +122,7 @@ test("版 1(TSURI1)のコードと本文を読み、版 2 → 版 3 → 版 4 �
   // ブラウザに残った版 1 の保存データも読める(次に保存するときは版 4)。
   assert.deepEqual(parseSave(`TSURI1-${V1_BODY}-${checksum(V1_BODY)}`), sample());
   // 読み替えたものを書くと版 4。
-  assert.match(encodeSaveCode(r.ok ? r.progress : sample()), /^TSURI7-/);
+  assert.match(encodeSaveCode(r.ok ? r.progress : sample()), /^TSURI8-/);
 });
 
 test("版 3(TSURI3)を版 4 に読み替える:釣り場は竿の段階の釣り場、頭打ち型は Lv1、港の最後の「進化済み」は磯の段階 1(D-280)", () => {
@@ -197,7 +201,7 @@ test("空・切れた・1 文字ちがう・ちがう形・ちがう版のコー
   assert.equal(decodeSaveCode("hello").error, "format");
   assert.equal(decodeSaveCode("TSURI3-abc").error, "format");
   const body = encodeSave(sample());
-  for (const v of [0, 8, 10]) assert.equal(decodeSaveCode(`TSURI${v}-${body}-${checksum(body)}`).error, "version", `版 ${v}`);
+  for (const v of [0, 9, 10]) assert.equal(decodeSaveCode(`TSURI${v}-${body}-${checksum(body)}`).error, "version", `版 ${v}`);
   assert.equal(decodeSaveCode("TSURI1-" + "a".repeat(60000) + "-00000000").error, "format");
 });
 
@@ -376,5 +380,81 @@ test("互換の正解データ(compat_v1〜v4.json。版 5 の読み替えで、
       assert.equal(r.ok, false, c.name);
       if (!later) assert.equal(r.error, c.error, c.name);
     }
+  }
+});
+
+test("版 7 → 8(D-392):おもり(印を遅くする)は払い戻しのウロコインに換え(ロック中・装着中でも)、おまもりはおもりになる。番号の差とロックはずれない", () => {
+  const R = RARITY_ROWS.length;
+  const crates = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG);
+  // 持ち物:1 糸(装着)・2 おもり(エピック・グレード 3・ロック・装着)・4 おまもり(レア・グレード 2・装着)・5 おもり(ノーマル・グレード 1)・7 リール。
+  const kr = (kind, rarity) => (kind * R + rarity).toString(36);
+  // 値は、その種類・レア度・グレードの範囲のいちばん小さい値。
+  const v = (kind, rarity, grade) => effectRange(EQUIP_KIND_ROWS[kind], RARITY_ROWS[rarity], grade, DEFAULT_CONFIG.gacha.gradeGrowth).min.toString(36);
+  const items = [`1.${kr(0, 1)}.1.${v(0, 1, 1)}`, `1.${kr(3, 2)}.3.${v(3, 2, 3)}`, `2.${kr(5, 1)}.2.${v(5, 1, 2)}`, `1.${kr(3, 0)}.1.${v(3, 0, 1)}`, `2.${kr(1, 0)}.1.${v(1, 0, 1)}`].join(",");
+  const v7 = ["100", "3.0", "", "", "5..8", "0.1,3.2,5.4", items, "01000", "0.0.0", "", "0", "0.1.", ""].join("~");
+  const v8 = UPGRADES[7](v7, DEFAULT_CONTENT, DEFAULT_CONFIG);
+  const refund =
+    refundFor({ id: 2, kind: "weight", rarity: "epic", grade: 3, value: 30, skills: [] }, crates) +
+    refundFor({ id: 5, kind: "weight", rarity: "normal", grade: 1, value: 10, skills: [] }, crates);
+  const parts = v8.split("~");
+  assert.equal(parts.length, 15);
+  assert.equal(parseInt(parts[0], 36), 36 ** 2 + refund, "払い戻しを足す");
+  assert.equal(parts[5], "0.1,3.4", "おもりの装着は外し、おまもりの装着はおもりの枠へ");
+  assert.equal(parts[6], [`1.${kr(0, 1)}.1.${v(0, 1, 1)}`, `3.${kr(3, 1)}.2.${v(5, 1, 2)}`, `3.${kr(1, 0)}.1.${v(1, 0, 1)}`].join(","), "取り除いた分の番号の差は次に足す");
+  assert.equal(parts[7], "000", "ロックは残った装備の分だけ");
+  assert.deepEqual(parts.slice(13), ["0...", "."]);
+  const r = decodeSave(v8);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.ok && r.progress.gear.items.map((it) => [it.id, it.kind, it.rarity]), [[1, "line", "rare"], [4, "weight", "rare"], [7, "reel", "normal"]]);
+  assert.deepEqual(r.ok && r.progress.gear.equipped, { line: 1, weight: 4 });
+  // 版 7 のコードとしても読める(セーブコードの読み替え)。
+  assert.deepEqual(decodeSaveCode(`TSURI7-${v7}-${checksum(v7)}`), r);
+});
+
+test("版 8 の降臨とお守りの欄(D-392):往復で元に戻る。既定の形は欄を持たない。お守りの種類の装備・壊れた系は拒否", () => {
+  const p = sample();
+  p.kourin = { gauge: 1234, raid: { boss: "nushi-kurodai", hp: 5000, tries: 3 } };
+  p.charms = { levels: { shizume: 2, yaburi: 5 }, equipped: "yaburi" };
+  const body = encodeSave(p);
+  assert.deepEqual(body.split("~").slice(13), ["ya.nushi-kurodai.3uw.3", "2.2,0,5"]);
+  assert.deepEqual(decodeSave(body), { ok: true, progress: p });
+  assert.deepEqual(decodeSaveCode(encodeSaveCode(p)), { ok: true, progress: p });
+  const gaugeOnly = { ...sample(), kourin: { gauge: 5, raid: null } };
+  assert.deepEqual(decodeSave(encodeSave(gaugeOnly)), { ok: true, progress: gaugeOnly });
+  const plain = decodeSave(encodeSave(sample()));
+  assert.ok(plain.ok && !("kourin" in plain.progress) && !("charms" in plain.progress), "既定の形は持たない");
+  const parts = body.split("~");
+  const withTail = (k, c) => [...parts.slice(0, 13), k, c].join("~");
+  const bad = {
+    "ヌシでない魚": withTail("0.kurodai.1.0", "."),
+    "表にない魚": withTail("0.nushi-x.1.0", "."),
+    "残りの体力 0": withTail("0.nushi-kurodai.0.0", "."),
+    "呼び出しの欄が足りない": withTail("0.nushi-kurodai..", "."),
+    "形がちがう": withTail("0..", "."),
+    "表の数をこえるお守り": withTail("0...", ".1,1,1,1,1"),
+    "最後の 0 を書いた": withTail("0...", ".1,0"),
+    "レベルが段階をこえる": withTail("0...", `.${(DEFAULT_CONTENT.maxStage + 1).toString(36)}`),
+    "付けた能力のレベルが 0": withTail("0...", "1.1"),
+    "表にない能力を付けた": withTail("0...", "9.1"),
+    "お守りの種類の装備": encodeSave(sample()).replace("1.8.1.5", `1.${(5 * RARITY_ROWS.length).toString(36)}.1.a`),
+  };
+  for (const [name, text] of Object.entries(bad)) assert.equal(decodeSave(text).ok, false, name);
+});
+
+test("互換の正解データ(compat_save_v8.json):保存の版 8 の署名なしと署名つきのコードが、読めて決まった結果になる", async () => {
+  const { readSaveCode, signSaveCode } = await import("../src/core/signed_code.js");
+  const { CURRENT_KEY } = await import("../src/ui/save_sign.js");
+  const fixture = JSON.parse(readText("tests/fixtures/compat_save_v8.json"));
+  assert.equal(fixture.version, 8);
+  for (const c of fixture.cases) {
+    assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: c.progress }, c.name);
+    assert.deepEqual(parseSave(c.code), c.progress, `${c.name}:ブラウザの保存としても読める`);
+    assert.equal(encodeSaveCode(c.progress), c.code, `${c.name}:書き出しも同じ`);
+    assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
+    assert.equal(await signSaveCode(c.progress, CURRENT_KEY), c.signed, `${c.name}:署名つきの書き出しも同じ`);
+  }
+  for (const c of fixture.rejected) {
+    const r = decodeSaveCode(c.code);
+    assert.deepEqual([r.ok, r.ok ? "" : r.error], [false, c.error], c.name);
   }
 });

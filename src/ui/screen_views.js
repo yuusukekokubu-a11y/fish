@@ -124,9 +124,9 @@ const ITEM = Object.freeze({
   // 合わせの帯は、浮きで広げたあとの値(D-320)。
   success: { label: "合わせの成功帯(強い魚)", value: (c) => strongRing(c).successMs, format: seconds },
   just: { label: "ジャスト帯(強い魚)", value: (c) => strongRing(c).justMs, format: seconds },
-  // おもり・浮き(D-320・D-327)。付けていないとき(0)は出さない。
+  // 印を遅くする(版 8 からはお守りの「静め」:D-392)・浮き(D-320・D-327)。付けていないとき(0)は出さない。
   markerSlow: {
-    label: "印の速さ(おもり)",
+    label: "印の速さ(お守り)",
     value: (c) => c.markerSlow ?? 0,
     format: (x) => `−${percent(x)}`,
     neutral: 0,
@@ -134,13 +134,13 @@ const ITEM = Object.freeze({
   },
   hookWiden: { label: "合わせの帯の広さ(浮き)", value: (c) => c.hookWiden ?? 0, format: (x) => `+${percent(x)}`, neutral: 0 },
   // 報酬と待ち時間の倍率(スキル:豊漁・俊敏)。基本は全部 1。鱗を増やす効果はない(D-211)。
-  // おまもりの分も入る(豊漁と足し算:D-320)。
+  // おもりの分も入る(豊漁と足し算:D-320。版 8 からはおもりの効果:D-392)。
   coins: {
     label: "ウロコイン",
     value: (_c, r) => r.coins,
     format: rate,
     neutral: 1,
-    extra: (c) => ((c.coinBonus ?? 0) > 0 ? [["うち おまもり", `+${percent(c.coinBonus)}`]] : []),
+    extra: (c) => ((c.coinBonus ?? 0) > 0 ? [["うち おもり", `+${percent(c.coinBonus)}`]] : []),
   },
   wait: { label: "待ち時間", value: (_c, r) => r.wait, format: rate, neutral: 1 },
 });
@@ -163,7 +163,7 @@ function strongRing(c) {
   return widenRing(ring, c.hookWiden ?? 0, DEFAULT_CONFIG.combatLimits);
 }
 
-/** いまの段階の強い魚とヌシの、印が端から端まで動く時間の変化(おもり:D-320)。 */
+/** いまの段階の強い魚とヌシの、印が端から端まで動く時間の変化(お守りの「静め」:D-392)。 */
 function sweepRows(c, game) {
   const content = game.content ?? DEFAULT_CONTENT;
   const slow = c.markerSlow ?? 0;

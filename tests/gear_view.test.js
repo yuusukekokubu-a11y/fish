@@ -40,14 +40,13 @@ test("クレートの画面:解放済みだけを段階の新しい順に。価�
     "制限時間 +0.5〜+3.2 秒",
     "ダメージ +1〜+6",
     "命中範囲 +5〜+24%",
-    "印の速さ −5.7〜−17.8%",
-    "合わせの帯 +8.6〜+26.7%",
     "ウロコイン +4.9〜+18%",
+    "合わせの帯 +8.6〜+26.7%",
   ]);
   assert.equal(formatRate(15), "1.5%");
 });
 
-test("装備の画面:6 枠、持ち物の並べ替え、差と ▲、まとめて分解の見込み(装着中を除く)", () => {
+test("装備の画面:ガチャの 5 枠(お守りは別:D-392)、持ち物の並べ替え、差と ▲、まとめて分解の見込み(装着中を除く)", () => {
   const items = [item(1, "reel", "normal", 1, 2), item(2, "reel", "epic", 3, 6), item(3, "line", "rare", 2, 1500), item(4, "reel", "normal", 1, 1)];
   const game = gameWith(3, 0, items);
   equipItem(game.progress.gear, 1);
@@ -58,7 +57,6 @@ test("装備の画面:6 枠、持ち物の並べ替え、差と ▲、まとめ�
     ["ルアー", null],
     ["おもり", null],
     ["浮き", null],
-    ["おまもり", null],
   ]);
   const byRarity = inventoryRows(game, crates, "rarity");
   assert.deepEqual(byRarity.map((v) => v.id), [2, 3, 1, 4]);

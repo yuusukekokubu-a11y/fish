@@ -75,3 +75,13 @@
   font-size: 14px;
   color: #a9d6e5;
 }
+
+/* お守りの枠(降臨専用:D-392・D-394)。グローブと同じ横長の形で、紫の縁(降臨の色)。押す場所ではない。 */
+.charm-slot {
+  box-sizing: border-box;
+  border-color: #9b5cff;
+  background: rgba(155, 92, 255, 0.1);
+}
+.charm-slot .glove-slot-kind {
+  color: #c9a6ff;
+}

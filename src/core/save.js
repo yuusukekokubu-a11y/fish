@@ -1,8 +1,8 @@
 // @ts-check
-// 保存の形(版 7:D-223・D-232・D-247・D-267・D-280・D-300・D-325・D-335)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 8:D-223・D-232・D-247・D-267・D-280・D-300・D-325・D-335・D-392)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
-// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 13 の欄に分ける:
+// 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 15 の欄に分ける:
 //   ウロコイン ~ 竿の段階.工程の番号 ~ 鱗(魚の id:数 を「,」で) ~ 釣れた魚(魚の id を「,」で)
 //   ~ 引いた回数.ガチャの種.次の個体の番号 ~ 装着(種類の番号.個体の番号 を「,」で) ~ 持ち物(装備を「,」で)
 //   ~ ロック(持ち物の順に、1 個 1 字で「1」ロック中・「0」ロックなし。版 2 で足した:D-247)
@@ -12,6 +12,9 @@
 //   ~ 釣れるクレートの判定の回数.グローブの次の個体の番号.装着中のグローブの番号(なければ空)(版 7 で足した:D-335)
 //   ~ グローブの持ち物(「,」で。1 個:前の個体の番号との差.能力とレア度の番号.グレード、ロック中は最後に「.1」)
 //     能力とレア度の番号 = 能力の番号 × レア度の数 + レア度の番号(glove.js の表の順)。
+//   ~ 降臨:ゲージ.呼び出したヌシの id.残りの体力.挑戦の回数(呼び出していなければ、あとの 3 つは空。版 8 で足した:D-392)
+//   ~ お守り:付けている能力の番号(なければ空).能力ごとのレベルを表の順に「,」で(最後の 0 は書かない。charms.js の表の順)
+// 装備の種類の番号 5(お守り)は、版 8 からは装備の個体を持たない(ガチャで出ない降臨専用の枠:D-392)。
 // 装備 1 個:前の個体の番号との差.種類とレア度の番号.グレード.基本効果の値 のあとに、スキルを「英大文字 1 字(スキルの番号)+ レベル」で並べる。
 //   例:「1.b.5.2s」+「B7C7D7」。種類とレア度の番号 = 種類の番号 × レア度の数 + レア度の番号。
 // - 魚は id で書く(D-228)。鱗は持っているもの(1 以上)だけを書く。
@@ -24,7 +27,8 @@
 
 import { DEFAULT_CONFIG } from "./config.js";
 import { DEFAULT_CONTENT } from "./fish.js";
-import { AUTO_SCRAP_ROWS, effectRange, emptyGear, RARITY_ROWS } from "./gear.js";
+import { AUTO_SCRAP_ROWS, effectRange, emptyGear, makeCrates, RARITY_ROWS, refundFor } from "./gear.js";
+import { CHARM_ROWS, emptyCharms, isEmptyCharms } from "./charms.js";
 import { abilityAllows, emptyGloves, GLOVE_ABILITY_ROWS, GLOVE_RARITY_ROWS } from "./glove.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 import { itemLevelRange } from "./skills.js";
@@ -32,7 +36,7 @@ import { itemLevelRange } from "./skills.js";
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -40,7 +44,7 @@ export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_
 /** スキルの番号を書く文字(26 個まで)。 */
 const SKILL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SEED_MAX = 4294967295;
-const FIELDS = 13;
+const FIELDS = 15;
 
 /**
  * 進み具合。
@@ -57,6 +61,13 @@ const FIELDS = 13;
  * @property {string} [area] いまいる釣り場の id(古い釣り場にいるときだけ持つ:D-280)
  * @property {string[]} [skillsSeen] 出会ったスキルの id(スキルの表の順。1 つ以上のときだけ持つ:D-300)
  * @property {import("./glove.js").GloveBag} [gloves] グローブの持ち物(既定の形でないときだけ持つ:D-335)
+ * @property {KourinState} [kourin] 降臨のゲージと、呼び出したヌシ(既定の形でないときだけ持つ:D-392)
+ * @property {import("./charms.js").CharmBag} [charms] お守り(何か持っているときだけ持つ:D-392)
+ */
+
+/**
+ * 降臨の状態(D-392)。gauge:納めた鱗のゲージ。raid:呼び出したヌシ(boss は魚の id、hp は残りの体力、tries は挑戦の回数)。
+ * @typedef {{ gauge: number, raid: { boss: string, hp: number, tries: number } | null }} KourinState
  */
 
 /**
@@ -72,8 +83,8 @@ const list = (text) => (text === "" ? [] : text.split(","));
 /**
  * 読み替えの関数(D-247)。UPGRADES[v] は、版 v の本文を版 v + 1 の本文にする。形がちがえば null。
  * 中身の点検は、今の版になってから decodeSave が行う。
- * 版 3 → 4 だけは、表(content)を見る(頭打ち型のスキルと、次の段階の有無)。
- * @type {Readonly<Record<number, (body: string, content: SaveContent) => string | null>>}
+ * 版 3 → 4 は、表(content)を見る(頭打ち型のスキルと、次の段階の有無)。版 7 → 8 は、数値の表(config)も見る(払い戻し)。
+ * @type {Readonly<Record<number, (body: string, content: SaveContent, config: typeof DEFAULT_CONFIG) => string | null>>}
  */
 export const UPGRADES = Object.freeze({
   // 版 1 → 2:ロックの欄を足す(全てロックなし)。
@@ -121,17 +132,62 @@ export const UPGRADES = Object.freeze({
   5: (body) => (body.split("~").length === 11 ? body : null),
   // 版 6 → 7(D-335):グローブの欄を 2 つ足す(判定 0 回・次の番号 1・装着なし・持ち物なし)。
   6: (body) => (body.split("~").length === 11 ? `${body}~0.1.~` : null),
+  // 版 7 → 8(D-392):おもりとお守りの役目を入れ替える。
+  // - おもり(種類 3:印を遅くする)の装備は、取り除いて払い戻しのウロコインに換える(ロック中でも。装着中なら外す)。
+  // - おまもり(種類 5:ウロコイン +%)の装備は、種類 3(おもり。版 8 ではウロコイン +%)に変える(値の範囲は同じ)。
+  // - 降臨とお守りの欄を足す(ゲージ 0・呼び出しなし・お守りなし)。
+  7: (body, content, config) => {
+    const parts = body.split("~");
+    if (parts.length !== 13) return null;
+    const R = RARITY_ROWS.length;
+    const crates = /** @type {any} */ (content).stages ? makeCrates(/** @type {any} */ (content), config) : [];
+    const items = list(parts[6]);
+    if (parts[7].length !== items.length) return null;
+    let refund = 0;
+    let carry = 0; // 取り除いた装備の番号の差(次の装備の差に足す)
+    const kept = [];
+    const locks = [];
+    for (let i = 0; i < items.length; i++) {
+      const m = items[i].match(/^([0-9a-z]+)\.([0-9a-z]+)\.([0-9a-z]+)\.(.*)$/);
+      const delta = m ? readNum(m[1]) : null;
+      const kr = m ? readNum(m[2]) : null;
+      const grade = m ? readNum(m[3]) : null;
+      if (!m || delta === null || kr === null || grade === null) return null;
+      const kind = Math.floor(kr / R);
+      if (kind === 3) {
+        refund += refundFor({ id: 0, kind: "weight", rarity: RARITY_ROWS[kr % R]?.id ?? "", grade, value: 0, skills: [] }, crates);
+        carry += delta;
+        continue;
+      }
+      const newKr = kind === 5 ? 3 * R + (kr % R) : kr;
+      kept.push(`${num(delta + carry)}.${num(newKr)}.${m[3]}.${m[4]}`);
+      locks.push(parts[7][i]);
+      carry = 0;
+    }
+    const equipped = list(parts[5]).flatMap((pair) => {
+      const [k, id] = pair.split(".");
+      if (k === "3") return [];
+      return [k === "5" ? `3.${id}` : pair];
+    });
+    const coins = readNum(parts[0]);
+    if (coins === null) return null;
+    parts[0] = num(Math.min(COUNT_MAX, coins + refund));
+    parts[5] = equipped.join(",");
+    parts[6] = kept.join(",");
+    parts[7] = locks.join("");
+    return [...parts, "0...", "."].join("~");
+  },
 });
 
 /**
  * 版 version の本文を、今の版の本文にする。読めない版・形がちがうときは null。
- * @param {string} body @param {number} version @param {SaveContent} [content]
+ * @param {string} body @param {number} version @param {SaveContent} [content] @param {typeof DEFAULT_CONFIG} [config]
  */
-export function upgradeSave(body, version, content = DEFAULT_CONTENT) {
+export function upgradeSave(body, version, content = DEFAULT_CONTENT, config = DEFAULT_CONFIG) {
   if (!Number.isInteger(version) || version < 1 || version > SAVE_VERSION) return null;
   /** @type {string | null} */
   let text = body;
-  for (let v = version; v < SAVE_VERSION && text !== null; v++) text = UPGRADES[v](text, content);
+  for (let v = version; v < SAVE_VERSION && text !== null; v++) text = UPGRADES[v](text, content, config);
   return text;
 }
 
@@ -204,7 +260,63 @@ export function encodeSave(progress, content = DEFAULT_CONTENT) {
     progress.area ?? "",
     num(seenMask(progress.skillsSeen ?? [], skills)),
     ...encodeGloves(progress.gloves ?? emptyGloves()),
+    encodeKourin(progress.kourin),
+    encodeCharms(progress.charms ?? emptyCharms()),
   ].join("~");
+}
+
+/** 降臨の欄(D-392)。 @param {KourinState | undefined} k */
+function encodeKourin(k) {
+  const raid = k?.raid;
+  return `${num(k?.gauge ?? 0)}.${raid ? `${raid.boss}.${num(raid.hp)}.${num(raid.tries)}` : ".."}`;
+}
+
+/** お守りの欄(D-392)。 @param {import("./charms.js").CharmBag} bag */
+function encodeCharms(bag) {
+  const levels = CHARM_ROWS.map((c) => num(bag.levels[c.id] ?? 0));
+  while (levels.length > 0 && levels[levels.length - 1] === "0") levels.pop();
+  const eq = bag.equipped === null ? "" : num(CHARM_ROWS.findIndex((c) => c.id === bag.equipped));
+  return `${eq}.${levels.join(",")}`;
+}
+
+/**
+ * 降臨の欄を読む。ゲージは 0 以上、呼び出したヌシは表のヌシで、残りの体力は 1 以上、挑戦の回数は 0 以上。壊れていれば null。
+ * @param {string} text @param {SaveContent} content @returns {KourinState | null}
+ */
+function decodeKourin(text, content) {
+  const p = text.split(".");
+  if (p.length !== 4) return null;
+  const gauge = readNum(p[0]);
+  if (gauge === null) return null;
+  if (p[1] === "" && p[2] === "" && p[3] === "") return { gauge, raid: null };
+  const hp = readNum(p[2]);
+  const tries = readNum(p[3]);
+  const boss = /** @type {{ kind?: string } | undefined} */ (content.byId.get(p[1]));
+  if (!boss || boss.kind !== "boss" || hp === null || hp < 1 || tries === null) return null;
+  return { gauge, raid: { boss: p[1], hp, tries } };
+}
+
+/**
+ * お守りの欄を読む。レベルは 0〜表の最後の段階、表の数まで。付けている能力はレベル 1 以上。壊れていれば null。
+ * @param {string} text @param {SaveContent} content @returns {import("./charms.js").CharmBag | null}
+ */
+function decodeCharms(text, content) {
+  const p = text.split(".");
+  if (p.length !== 2) return null;
+  const raw = list(p[1]);
+  if (raw.length > CHARM_ROWS.length || (raw.length > 0 && raw[raw.length - 1] === "0")) return null;
+  /** @type {Record<string, number>} */
+  const levels = {};
+  for (let i = 0; i < raw.length; i++) {
+    const n = readNum(raw[i]);
+    if (n === null || n > content.maxStage) return null;
+    if (n > 0) levels[CHARM_ROWS[i].id] = n;
+  }
+  if (p[0] === "") return { levels, equipped: null };
+  const index = readNum(p[0]);
+  const row = index === null ? undefined : CHARM_ROWS[index];
+  if (!row || !(levels[row.id] > 0)) return null;
+  return { levels, equipped: row.id };
 }
 
 /** グローブの 2 つの欄(D-335)。 @param {import("./glove.js").GloveBag} bag */
@@ -269,7 +381,8 @@ function readItem(text, prev, content, config) {
   if (delta === null || kr === null || grade === null || value === null || delta < 1) return null;
   const kind = content.equipKinds[Math.floor(kr / RARITY_ROWS.length)];
   const rarity = RARITY_ROWS[kr % RARITY_ROWS.length];
-  if (!kind || !rarity || grade < 1 || grade > content.maxStage) return null;
+  // 特別な枠(お守り)は装備の個体を持たない(D-392)。
+  if (!kind || kind.special || !rarity || grade < 1 || grade > content.maxStage) return null;
   const range = effectRange(kind, rarity, grade, config.gacha.gradeGrowth);
   if (value < range.min || value > range.max) return null;
   const skills = skillTable(content);
@@ -298,7 +411,7 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (typeof body !== "string") return fail;
   const parts = body.split("~");
   if (parts.length !== FIELDS) return fail;
-  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText, areaText, skillSeenText, gloveHead, gloveItems] = parts;
+  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText, areaText, skillSeenText, gloveHead, gloveItems, kourinText, charmText] = parts;
 
   const coins = readNum(coinText);
   if (coins === null) return fail;
@@ -401,5 +514,12 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   const gloves = decodeGloves(gloveHead, gloveItems, content, config);
   if (!gloves) return fail;
   if (gloves.items.length > 0 || gloves.equipped !== null || gloves.nextId !== 1 || gloves.rolls !== 0) progress.gloves = gloves;
+
+  // 降臨とお守り(D-392):既定の形(ゲージ 0・呼び出しなし・お守りなし)のときは持たない。
+  const kourin = decodeKourin(kourinText, content);
+  const charms = decodeCharms(charmText, content);
+  if (!kourin || !charms) return fail;
+  if (kourin.gauge > 0 || kourin.raid) progress.kourin = kourin;
+  if (!isEmptyCharms(charms)) progress.charms = charms;
   return { ok: true, progress };
 }

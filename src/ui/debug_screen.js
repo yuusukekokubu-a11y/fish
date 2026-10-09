@@ -9,7 +9,7 @@
 import { currentArea, unlockedAreas } from "../core/areas.js";
 import { setUseBait } from "../core/bait.js";
 import { moveArea } from "../core/fishing.js";
-import { AUTO_SCRAP_ROWS, autoScrapSetting, EQUIP_KIND_ROWS, RARITY_ROWS, setAutoScrap } from "../core/gear.js";
+import { AUTO_SCRAP_ROWS, autoScrapSetting, EQUIP_KIND_ROWS, gachaKinds, RARITY_ROWS, setAutoScrap } from "../core/gear.js";
 import { GLOVE_ABILITY_ROWS, GLOVE_RARITY_ROWS } from "../core/glove.js";
 import { SKILL_ROWS } from "../core/skills.js";
 import { coverText } from "./glove_view.js";
@@ -169,7 +169,7 @@ export function mountDebug(container, ctx) {
 
   // 装備を作る。
   const make = section("装備を作る");
-  const kinds = game.content.equipKinds ?? EQUIP_KIND_ROWS;
+  const kinds = gachaKinds(game.content.equipKinds ?? EQUIP_KIND_ROWS);
   const kind = select(kinds.map((/** @type {{ id: string, name: string }} */ k) => [k.id, k.name]));
   const rarity = select(RARITY_ROWS.map((r) => [r.id, `${r.name}(スキル ${r.skillCount} 個まで)`]), RARITY_ROWS[RARITY_ROWS.length - 1].id);
   const grade = input(String(game.content.maxStage), "number");

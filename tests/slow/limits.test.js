@@ -9,7 +9,8 @@ import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { checkContent, DEFAULT_CONTENT, FISH_KINDS } from "../../src/core/fish.js";
 import { createGame, update } from "../../src/core/fishing.js";
 import { craftCount, fishCoins, fishDefense, fishHp, fishSweepMs, fishTimeLimitMs, fishZoneWidth, stagePosition } from "../../src/core/formula.js";
-import { BASE_KIND_IDS, effectRange, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
+import { BASE_KIND_IDS, effectRange, gachaKinds, makeCrates, RARITY_ROWS } from "../../src/core/gear.js";
+import { CHARM_ROWS } from "../../src/core/charms.js";
 import { decodeSaveCode, encodeSaveCode, MAX_CODE_LENGTH } from "../../src/core/savecode.js";
 import { levelRange, maxLevel, SKILL_ROWS } from "../../src/core/skills.js";
 import { GLOVE_ABILITY_ROWS, GLOVE_RARITY_ROWS } from "../../src/core/glove.js";
@@ -159,8 +160,9 @@ function fullGloves(grade) {
   return { items, equipped: 1, nextId: items.length + 1, rolls: 99999 };
 }
 
-test("保存とセーブコード:魚 300 種類の鱗を全部・全部釣った・持ち物 300 個(スキル 3 つ)・グローブ 20 個で往復し、上限の長さに収まる", () => {
-  const kinds = BIG.equipKinds;
+test("保存とセーブコード:魚 300 種類の鱗を全部・全部釣った・持ち物 300 個(スキル 3 つ)・グローブ 20 個・降臨とお守り(すべて最大)で往復し、上限の長さに収まる", () => {
+  // お守りの種類は装備の個体を持たない(D-394)ので、ガチャの種類だけで作る。
+  const kinds = gachaKinds(BIG.equipKinds);
   const lv = levelRange("legend", G_MAX, DEFAULT_CONFIG.skills).max;
   const items = Array.from({ length: DEFAULT_CONFIG.gacha.inventoryMax }, (_, i) => {
     const kind = kinds[i % kinds.length];
@@ -182,6 +184,8 @@ test("保存とセーブコード:魚 300 種類の鱗を全部・全部釣っ�
     seen: BIG.fish.map((f) => f.id),
     gear: { items, equipped: { line: 1, reel: 2, lure: 3 }, draws: SAFE, seed: 4294967295, nextId: items.length + 1 },
     gloves: fullGloves(G_MAX),
+    kourin: { gauge: SAFE, raid: { boss: BIG.fish.filter((f) => f.kind === "boss").at(-1).id, hp: SAFE, tries: SAFE } },
+    charms: { levels: Object.fromEntries(CHARM_ROWS.map((c) => [c.id, G_MAX])), equipped: CHARM_ROWS.at(-1).id },
   };
   const code = encodeSaveCode(p, BIG);
   assert.deepEqual(decodeSaveCode(code, BIG), { ok: true, progress: p });

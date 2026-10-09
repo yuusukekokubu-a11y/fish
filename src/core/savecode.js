@@ -76,7 +76,7 @@ export function decodeSaveCode(text, content = DEFAULT_CONTENT, config = DEFAULT
  */
 export function decodeBody(body, version, content = DEFAULT_CONTENT, config = DEFAULT_CONFIG) {
   if (!Number.isInteger(version) || version < 1 || version > SAVE_VERSION) return fail("version");
-  const current = upgradeSave(body, version, content);
+  const current = upgradeSave(body, version, content, config);
   if (current === null) return fail("content");
   const result = decodeSave(current, content, config);
   return result.ok ? /** @type {const} */ ({ ok: true, progress: result.progress }) : fail("content");

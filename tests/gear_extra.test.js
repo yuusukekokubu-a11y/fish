@@ -10,13 +10,13 @@ import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { normalizeCombat, widenRing } from "../src/core/combat.js";
 import { DEFAULT_CONTENT, FISH_KINDS } from "../src/core/fish.js";
 import { createGame, currentHookTiming, fightSweepMs, refreshCombat } from "../src/core/fishing.js";
-import { BASE_KIND_IDS, drawItem, effectRange, EQUIP_KIND_ROWS, formatEffect, kindById, kindEffect, makeCrates, RARITY_ROWS } from "../src/core/gear.js";
+import { BASE_KIND_IDS, drawItem, effectRange, EQUIP_KIND_ROWS, formatEffect, gachaKinds, kindById, kindEffect, makeCrates, pullCrate, RARITY_ROWS } from "../src/core/gear.js";
 import { SAVE_VERSION } from "../src/core/save.js";
 import { checksum, decodeSaveCode, encodeSaveCode, parseSave } from "../src/core/savecode.js";
 import { readSaveCode, signSaveCode } from "../src/core/signed_code.js";
 import { startQuickFight } from "../src/ui/debug_view.js";
 import { CURRENT_KEY } from "../src/ui/save_sign.js";
-import { progressAt, readText } from "./helpers.js";
+import { progressAt, readText, toV8 } from "./helpers.js";
 
 const LIMITS = DEFAULT_CONFIG.combatLimits;
 const kind = (id) => kindById(id, EQUIP_KIND_ROWS);
@@ -28,14 +28,18 @@ function gameWith(g, items) {
   return createGame(1, { progress: progressAt(g, "none", { gear }) });
 }
 
-test("種類の表:糸・リール・ルアーのあとに、おもり・浮き・おまもりを足した(表の番号は保存に使うので、最後に足す)", () => {
+test("種類の表:糸・リール・ルアーのあとに、おもり・浮き・お守り(表の番号は保存に使うので並べ替えない)。お守りはガチャで出ない(D-392)", () => {
   assert.deepEqual(EQUIP_KIND_ROWS.map((k) => k.id), ["line", "reel", "lure", "weight", "float", "charm"]);
-  assert.deepEqual(EQUIP_KIND_ROWS.map((k) => k.name), ["糸", "リール", "ルアー", "おもり", "浮き", "おまもり"]);
+  assert.deepEqual(EQUIP_KIND_ROWS.map((k) => k.name), ["糸", "リール", "ルアー", "おもり", "浮き", "お守り"]);
   assert.deepEqual([...BASE_KIND_IDS], ["line", "reel", "lure"]);
+  assert.deepEqual(gachaKinds(EQUIP_KIND_ROWS).map((k) => k.id), ["line", "reel", "lure", "weight", "float"]);
+  // おもりは、版 7 までのおまもりと同じ値の範囲と曲線(持ち物の値がそのまま使える)。
+  const [w, c] = [kind("weight"), kind("charm")];
+  assert.deepEqual([w.stat, w.base, w.step, w.curve], [c.stat, c.base, c.step, c.curve]);
 });
 
 test("拮抗型の効果:cap × v ÷ (v + k)。付けるほど伸びが小さくなり、cap をこえない", () => {
-  for (const id of ["weight", "float", "charm"]) {
+  for (const id of ["weight", "float"]) {
     const k = kind(id);
     assert.equal(kindEffect(k, 0), 0);
     let prev = 0;
@@ -51,18 +55,18 @@ test("拮抗型の効果:cap × v ÷ (v + k)。付けるほど伸びが小さく
   }
   // 拮抗型でない種類は、値そのまま。
   assert.equal(kindEffect(kind("reel"), 7), 7);
-  assert.equal(formatEffect(kind("weight"), 60), "印の速さ −20%");
+  assert.equal(formatEffect(kind("weight"), 112), "ウロコイン +30%");
   assert.equal(formatEffect(kind("float"), 60), "合わせの帯 +30%");
-  assert.equal(formatEffect(kind("charm"), 112), "ウロコイン +30%");
 });
 
-test("おもり:印の速さが −n%(端から端の時間が 1 ÷ (1 − n) 倍)。表の上限 50% より遅くしない", () => {
+test("印を遅くする道(markerSlow):版 8 では装備から入らない(お守りの「静め」で使う:D-392)。印の速さ −n% は端から端の時間が 1 ÷ (1 − n) 倍。表の上限 50% より遅くしない", () => {
   const g = 3;
   const plain = gameWith(g, []);
   const value = effectRange(kind("weight"), RARITY_ROWS[3], g, DEFAULT_CONFIG.gacha.gradeGrowth).max;
   const game = gameWith(g, [{ kind: "weight", rarity: "legend", value }]);
-  const slow = kindEffect(kind("weight"), value);
-  assert.ok(Math.abs(game.combat.markerSlow - slow) < 1e-12);
+  assert.equal(game.combat.markerSlow, 0, "おもりは印を遅くしない");
+  const slow = 0.25;
+  game.combat = { ...game.combat, markerSlow: slow };
   const strong = DEFAULT_CONTENT.fish.find((f) => f.stage === g && f.kind === FISH_KINDS.STRONG);
   for (const gm of [plain, game]) assert.equal(startQuickFight(gm, strong.id, "good").ok, true);
   assert.equal(fightSweepMs(plain), strong.minigame.sweepMs, "おもりなしは魚の値のまま");
@@ -97,15 +101,16 @@ test("浮き:合わせの成功帯とジャスト帯を +n%。成功帯は輪の
   assert.ok(b.successStart < a.successStart && b.justEnd - b.justStart > a.justEnd - a.justStart);
 });
 
-test("おまもり:ウロコイン +n%(豊漁と足し算)。付けていなければ倍率は前と同じ 1", () => {
+test("おもり(版 8:D-392):ウロコイン +n%(豊漁と足し算)。付けていなければ倍率は前と同じ 1。お守りの種類の装備は効かない", () => {
   const plain = gameWith(1, []);
   assert.equal(plain.rates.coins, 1);
   assert.equal(plain.combat.coinBonus, 0);
-  const game = gameWith(1, [{ kind: "charm", value: 112 }]);
+  const game = gameWith(1, [{ kind: "weight", value: 112 }]);
   assert.ok(Math.abs(game.rates.coins - 1.3) < 1e-12);
+  assert.equal(gameWith(1, [{ kind: "charm", value: 112 }]).rates.coins, 1, "特別な枠の装備は効かない");
   // 豊漁(ウロコイン +n%)と足し算。
   const both = gameWith(5, [
-    { kind: "charm", value: 112 },
+    { kind: "weight", value: 112 },
     { kind: "reel", value: 1, skills: [{ id: "fortune", level: 1 }] },
   ]);
   const fortuneOnly = gameWith(5, [{ kind: "reel", value: 1, skills: [{ id: "fortune", level: 1 }] }]);
@@ -129,16 +134,16 @@ test("ガチャの種類:6 つから同じ確率(10 万回で各 1/6 ± 1%)。1 
   }
 });
 
-test("保存の版 6(D-325):版 5 の本文はそのまま読め、新しい枠は空。6 枠を全部付けても、セーブコードの増えは 20 文字以内", async () => {
-  assert.equal(SAVE_VERSION, 7);
+test("保存の版 6(D-325):版 5 の本文はそのまま読め、新しい枠は空。ガチャの 5 枠を全部付けても、セーブコードの増えは 20 文字以内(版 8:D-392)", async () => {
+  assert.equal(SAVE_VERSION, 8);
   const v5 = JSON.parse(readText("tests/fixtures/compat_save_v5.json"));
   for (const c of v5.cases) {
     const r = decodeSaveCode(c.code);
     assert.equal(r.ok, true, c.name);
     if (r.ok) assert.ok(!["weight", "float", "charm"].some((k) => k in r.progress.gear.equipped), "新しい枠は空");
   }
-  // 糸・リール・ルアーだけを付けたときと、6 枠を全部付けたとき(装備は同じ 6 個)。
-  const items = EQUIP_KIND_ROWS.map((k, i) => ({
+  // 糸・リール・ルアーだけを付けたときと、ガチャの 5 枠を全部付けたとき(装備は同じ 5 個。お守りは装備の個体を持たない)。
+  const items = gachaKinds(EQUIP_KIND_ROWS).map((k, i) => ({
     id: i + 1,
     kind: k.id,
     rarity: "rare",
@@ -148,11 +153,11 @@ test("保存の版 6(D-325):版 5 の本文はそのまま読め、新しい枠�
   }));
   const make = (ids) => progressAt(3, "none", { gear: { items, equipped: Object.fromEntries(items.filter((it) => ids.includes(it.kind)).map((it) => [it.kind, it.id])), draws: 6, seed: 1, nextId: 7 } });
   const three = make(BASE_KIND_IDS);
-  const six = make(EQUIP_KIND_ROWS.map((k) => k.id));
+  const six = make(gachaKinds(EQUIP_KIND_ROWS).map((k) => k.id));
   assert.ok(encodeSaveCode(six).length - encodeSaveCode(three).length <= 20, `${encodeSaveCode(six).length - encodeSaveCode(three).length}`);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(six)), { ok: true, progress: six });
   const signed = await signSaveCode(six, CURRENT_KEY);
-  assert.match(signed, /^TSURI5-dev-7-/);
+  assert.match(signed, /^TSURI5-dev-8-/);
   assert.deepEqual((await readSaveCode(signed, { keys: [CURRENT_KEY] })).progress, six);
 });
 
@@ -160,13 +165,15 @@ test("互換の正解データ(compat_save_v6.json):保存の版 6 の署名な�
   const fixture = JSON.parse(readText("tests/fixtures/compat_save_v6.json"));
   assert.equal(fixture.version, 6);
   for (const c of fixture.cases) {
-    assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: c.progress }, c.name);
-    assert.deepEqual(parseSave(c.code), c.progress, `${c.name}:ブラウザの保存としても読める`);
-    // 書き出すと保存の版 7(グローブの欄が空で足される:D-335)。
-    const body = c.code.slice("TSURI6-".length, -9);
-    assert.equal(encodeSaveCode(c.progress), `TSURI7-${body}~0.1.~-${checksum(`${body}~0.1.~`)}`, `${c.name}:書き出しは版 7`);
-    assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: c.progress, signed: true, keyId: "dev", warning: null }, c.name);
-    assert.match(await signSaveCode(c.progress, CURRENT_KEY), /^TSURI5-dev-7-/, `${c.name}:署名つきの書き出しは版 7`);
+    // 版 8 で読むと、おもりは払い戻しに、おまもりはおもりになる(D-392)。
+    const want = await toV8(c.progress);
+    assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: want }, c.name);
+    assert.deepEqual(parseSave(c.code), want, `${c.name}:ブラウザの保存としても読める`);
+    // 書き出すと保存の版 8(グローブ・降臨・お守りの欄が足される)。読み直すと同じ。
+    assert.match(encodeSaveCode(want), /^TSURI8-.*~0\.1\.~~0\.\.\.~\.-[0-9a-f]{8}$/, `${c.name}:書き出しは版 8`);
+    assert.deepEqual(decodeSaveCode(encodeSaveCode(want)), { ok: true, progress: want }, c.name);
+    assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: want, signed: true, keyId: "dev", warning: null }, c.name);
+    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-8-/, `${c.name}:署名つきの書き出しは版 8`);
     // 署名なしのコードは、読み込みでは拒否する(D-324)。
     const unsigned = await readSaveCode(c.code, { keys: [CURRENT_KEY] });
     assert.deepEqual([unsigned.ok, unsigned.ok ? "" : unsigned.error], [false, "unsigned"]);
@@ -175,4 +182,17 @@ test("互換の正解データ(compat_save_v6.json):保存の版 6 の署名な�
     const r = decodeSaveCode(c.code);
     assert.deepEqual([r.ok, r.ok ? "" : r.error], [false, c.error], c.name);
   }
+});
+
+test("ガチャはお守りを出さない(D-392):種類はガチャの 5 種類から選ぶ。表のすべてを渡しても同じ", () => {
+  const crate = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG)[2];
+  const a = progressAt(3, "none", { coins: 1e9, gear: { items: [], equipped: {}, draws: 0, seed: 5, nextId: 1 } });
+  const b = structuredClone(a);
+  for (let i = 0; i < 10; i++) {
+    pullCrate(a, crate, 10, EQUIP_KIND_ROWS, DEFAULT_CONFIG.gacha);
+    pullCrate(b, crate, 10, gachaKinds(EQUIP_KIND_ROWS), DEFAULT_CONFIG.gacha);
+  }
+  assert.deepEqual(a.gear.items, b.gear.items);
+  const kinds = new Set(a.gear.items.map((it) => it.kind));
+  assert.deepEqual([...kinds].sort(), ["float", "line", "lure", "reel", "weight"]);
 });
