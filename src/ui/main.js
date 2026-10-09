@@ -49,6 +49,7 @@ import { playPull } from "./gacha_fx.js";
 import { glovePullView, retryLabel } from "./glove_view.js";
 import { drawScene } from "./draw.js";
 import { areaBackground } from "./area_bg.js";
+import { fishArt } from "./fish_art.js";
 import { createPlayLogRecorder, loadPlayLog, PLAY_LOG_KEY, playLogKeyFor } from "./play_log_view.js";
 import {
   addGrazeEffects,
@@ -535,6 +536,8 @@ function main() {
     };
     ctx.save();
     ctx.translate(shakeOffset(effects, now), 0);
+    // 魚のドット絵(D-386):いまの魚の絵(まだ読んでいない・絵のない魚は null で、丸い形)。
+    view.fishArt = fishArt(view.fish);
     drawScene(ctx, rect.width, rect.height, view, now);
     ctx.restore();
     drawEffects(ctx, rect.width, rect.height, effects, now);

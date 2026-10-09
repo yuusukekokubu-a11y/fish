@@ -1,7 +1,8 @@
-// 画面の絵を描く。背景は釣り場のドット絵(D-385。まだ読んでいない・絵のない釣り場は色の段)、ほかは簡素な図形。
+// 画面の絵を描く。背景は釣り場のドット絵(D-385。まだ読んでいない・絵のない釣り場は色の段)、魚もドット絵(D-386。絵のない魚は丸い形)、ほかは簡素な図形。
 
 import { PHASES } from "../core/fishing.js";
 import { ART_HORIZON } from "./area_bg.js";
+import { BOSS_DOT, FISH_DOT } from "./fish_art.js";
 
 const COLORS = {
   skyTop: "#7ec8e3",
@@ -33,6 +34,19 @@ function drawFish(ctx, x, y, size, color) {
   ctx.beginPath();
   ctx.arc(x - size * 0.5, y - size * 0.1, size * 0.1, 0, Math.PI * 2);
   ctx.fill();
+}
+
+/**
+ * 魚を描く。ドット絵(1 マス = 1 画素の canvas:D-386)があれば、それを (x, y) を真ん中にして拡大して写す(補間なし)。
+ * 1 マスの大きさは、魚 3px・ヌシ(36 マスの絵)6px。big なら魚を 4px にする(釣れたあとの大きな絵)。絵がなければ丸い形。
+ */
+function drawFishOrArt(ctx, x, y, size, color, art, big = false) {
+  if (!art) return drawFish(ctx, x, y, size, color);
+  const dot = art.width > 32 ? BOSS_DOT : big ? FISH_DOT + 1 : FISH_DOT;
+  const w = art.width * dot;
+  const h = art.height * dot;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(art, Math.round(x - w / 2), Math.round(y - h / 2), w, h);
 }
 
 /** 空と海。colors は釣り場の色({ sky: [上, 下], sea: [上, 下] }:D-278)。なければ港の色。 */
@@ -326,13 +340,13 @@ export function drawScene(ctx, w, h, view, timeMs) {
     const p = view.phase === PHASES.REELING ? { x: bobber.x, y: bobber.y + 20 } : { x: w * 0.5, y: h * 0.55 };
     drawCrate(ctx, p.x, p.y, view.phase === PHASES.REELING ? 16 : 30);
   } else if (view.phase === PHASES.REELING) {
-    drawFish(ctx, bobber.x, bobber.y + fishSize, fishSize, fishColor);
+    drawFishOrArt(ctx, bobber.x, bobber.y + fishSize, fishSize, fishColor, view.fishArt ?? null);
   } else if (view.phase === PHASES.BITE) {
     drawHookRing(ctx, bobber, view.hook);
   } else if (view.phase === PHASES.MINIGAME) {
-    drawFish(ctx, target.x + Math.sin(timeMs / 120) * 20, target.y + 60, fishSize, fishColor);
+    drawFishOrArt(ctx, target.x + Math.sin(timeMs / 120) * 20, target.y + 60, fishSize, fishColor, view.fishArt ?? null);
     drawGauge(ctx, w, h, view);
   } else if (view.phase === PHASES.RESULT && view.caught) {
-    drawFish(ctx, w * 0.5, h * 0.55, fishSize * 1.6, fishColor);
+    drawFishOrArt(ctx, w * 0.5, h * 0.55, fishSize * 1.6, fishColor, view.fishArt ?? null, true);
   }
 }

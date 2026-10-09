@@ -1,5 +1,6 @@
 // @ts-check
 // ドット絵の見本のページ(D-362・D-364・D-383)。3 つの粗さのクロダイを、同じ表示の大きさで並べる。
+// その下に、港の魚(D-386:ゲームと同じ大きさ。魚は 1 マス 3px、ヌシは 6px)。
 // 下に、背景の見本(6 つの釣り場・昼)を 1 ドット 3px(幅 390 CSS px)で出す。釣り場を切り替え、「ゲームの位置」で、水面・竿・ウキ・魚・ゲージの位置を重ねる。
 // - 大きさ:×1(幅 160 CSS px)・×2(320)・ゲームで使う大きさの想定 96・192。1 マス = 整数の画素の数なので、
 //   表示の幅は目安にいちばん近い値になる(粗さと画素比によって少しちがう。下に実際の値を出す)。
@@ -8,6 +9,7 @@
 
 import { BACKGROUNDS, BG_HORIZON } from "./bg/index.js";
 import { KURODAI } from "./fish/kurodai.js";
+import { FISH_MINATO } from "./fish/minato.js";
 import { artCanvas, artSize, checkArt, colorCount } from "./pixel.js";
 
 /** 大きさの選び方(表示の幅の目安。CSS px)。 */
@@ -175,7 +177,8 @@ function main() {
   const guideHost = /** @type {HTMLElement} */ (document.getElementById("guide-choices"));
   const areaHost = /** @type {HTMLElement} */ (document.getElementById("area-choices"));
   const state = { size: "x1", bg: "blue", guide: "off", area: /** @type {string} */ (BACKGROUNDS[0].areaId) };
-  const problems = [...KURODAI, ...BACKGROUNDS.map((b) => b.art)].flatMap((a) => checkArt(a));
+  const fishStage = /** @type {HTMLElement} */ (document.getElementById("fish-stage"));
+  const problems = [...KURODAI, ...Object.values(FISH_MINATO), ...BACKGROUNDS.map((b) => b.art)].flatMap((a) => checkArt(a));
   if (problems.length > 0) {
     problemsBox.hidden = false;
     problemsBox.textContent = `データの点検で問題があります:${problems.join("、")}`;
@@ -185,6 +188,7 @@ function main() {
     const size = SIZE_CHOICES.find((c) => c.id === state.size) ?? SIZE_CHOICES[0];
     const bg = BG_CHOICES.find((c) => c.id === state.bg) ?? BG_CHOICES[0];
     stage.style.background = bg.color;
+    fishStage.style.background = bg.color;
     stage.dataset.bg = bg.id;
     // 画面の幅をこえないように(横スクロールを出さない)。
     const max = Math.max(64, stage.clientWidth - 16);
@@ -197,6 +201,22 @@ function main() {
       state.bg = id;
       render();
     });
+    // 港の魚:ゲームと同じ大きさ(魚 3px・ヌシ 6px)。画面の幅をこえるときは小さくする。
+    fishStage.replaceChildren(
+      ...Object.values(FISH_MINATO).map((art) => {
+        const box = document.createElement("figure");
+        box.className = "sample fish";
+        box.dataset.art = art.id;
+        box.style.margin = "0";
+        const { canvas } = artCanvas(art, art.width * (art.width > 32 ? 6 : 3), dpr, { max: Math.max(64, fishStage.clientWidth - 16) });
+        canvas.setAttribute("role", "img");
+        canvas.setAttribute("aria-label", art.name);
+        const label = document.createElement("h2");
+        label.textContent = `${art.name}(${colorCount(art)} 色)`;
+        box.append(canvas, label);
+        return box;
+      }),
+    );
     // 背景の見本:画面の幅をこえるときは、こえない最大の整数の画素で描く。
     const area = BACKGROUNDS.find((b) => b.areaId === state.area) ?? BACKGROUNDS[0];
     bgStage.replaceChildren(backgroundBox(area.art, dpr, Math.max(130, bgStage.clientWidth), state.guide === "on"));
