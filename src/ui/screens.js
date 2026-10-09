@@ -25,26 +25,27 @@ import { mountSkills } from "./skill_screen.js";
  * @typedef {object} Screen
  * @property {string} id URL の「#」のあとに使う名前(小文字の英字)
  * @property {string} title 目次と、画面の上のバーに出す名前
+ * @property {string} [note] 目次に小さく出す一言(何ができる画面か:D-400)
  * @property {(container: HTMLElement, ctx: any) => void} mount
  * @property {(game: any) => "warn" | "full" | null} [badge] 目次の項目に出す「!」の印(黄:warn・赤:full)(D-216)
  */
 
 /** @type {readonly Screen[]} */
 export const SCREENS = Object.freeze([
-  { id: "areas", title: "釣り場", mount: mountAreas },
+  { id: "areas", title: "釣り場", note: "釣り場を移る", mount: mountAreas },
   // 降臨(D-396):満タンで呼べるときに「!」。
-  { id: "kourin", title: "降臨", mount: mountKourin, badge: (game) => (canSummon(game.progress, game.content, game.config.kourin) ? "warn" : null) },
-  { id: "equipment", title: "装備", mount: mountEquipment, badge: (game) => inventoryWarning(game).level },
-  { id: "skills", title: "スキル", mount: mountSkills },
-  { id: "crates", title: "クレート", mount: mountCrates },
-  { id: "shop", title: "店", mount: mountShop },
-  { id: "materials", title: "素材", mount: mountList(materialsView) },
-  { id: "status", title: "ステータス", mount: mountList(statusView) },
-  { id: "settings", title: "設定", mount: mountSettings },
+  { id: "kourin", title: "降臨", note: "ゲージを貯めて挑む", mount: mountKourin, badge: (game) => (canSummon(game.progress, game.content, game.config.kourin) ? "warn" : null) },
+  { id: "equipment", title: "装備", note: "付け替え・分解・ロック", mount: mountEquipment, badge: (game) => inventoryWarning(game).level },
+  { id: "skills", title: "スキル", note: "装備で育つ力の一覧", mount: mountSkills },
+  { id: "crates", title: "クレート", note: "ウロコインで装備を引く", mount: mountCrates },
+  { id: "shop", title: "店", note: "餌を買う", mount: mountShop },
+  { id: "materials", title: "素材", note: "持っている鱗", mount: mountList(materialsView) },
+  { id: "status", title: "ステータス", note: "いまの数値", mount: mountList(statusView) },
+  { id: "settings", title: "設定", note: "セーブコード・タイミング補正", mount: mountSettings },
 ]);
 
 /** デバッグ画面の行。?debug のときだけ、表の最後に足す(D-214)。 @type {Screen} */
-export const DEBUG_SCREEN = Object.freeze({ id: "debug", title: "デバッグ", mount: mountDebug });
+export const DEBUG_SCREEN = Object.freeze({ id: "debug", title: "デバッグ", note: "確かめ用", mount: mountDebug });
 
 /**
  * 使う画面の表。?debug のときだけ、デバッグ画面の行を最後に足す(D-214)。
@@ -55,11 +56,11 @@ export function screensFor(debug) {
 }
 
 /**
- * 目次の項目(表の順)。
- * @param {readonly { id: string, title: string }[]} screens
+ * 目次の項目(表の順)。note は一言(なければ空)。
+ * @param {readonly { id: string, title: string, note?: string }[]} screens
  */
 export function drawerItems(screens = SCREENS) {
-  return screens.map((s) => ({ id: s.id, label: s.title }));
+  return screens.map((s) => ({ id: s.id, label: s.title, note: s.note ?? "" }));
 }
 
 /**

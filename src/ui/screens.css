@@ -45,6 +45,13 @@
 .screen-back:active {
   box-shadow: var(--bevel-sunk);
 }
+.screen-icon {
+  flex: none;
+  display: flex;
+}
+.screen-icon:empty {
+  display: none;
+}
 .screen-title {
   flex: 1;
   margin: 0;

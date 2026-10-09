@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { ICON_IDS, iconUrl } from "../src/ui/icons.js";
 
 import {
   drawerItems,
@@ -9,6 +10,7 @@ import {
   initialNav,
   isPaused,
   SCREENS,
+  screensFor,
   screenFromHash,
   setDrawer,
   showScreen,
@@ -46,4 +48,14 @@ test("目次か全画面が開いていれば止める。全画面に移ると�
   assert.deepEqual(setDrawer(nav, true), nav);
   nav = showScreen(nav, null);
   assert.equal(isPaused(nav), false);
+});
+
+test("目次の印(D-400):画面の表(デバッグを含む)のすべてに印があり、SVG の data URI になる。一言(note)もある", () => {
+  for (const s of screensFor(true)) {
+    assert.ok(ICON_IDS.includes(s.id), `${s.id} の印`);
+    assert.match(iconUrl(s.id) ?? "", /^data:image\/svg\+xml,/);
+    assert.ok(typeof s.note === "string" && s.note.length > 0, `${s.id} の一言`);
+  }
+  assert.equal(iconUrl("nope"), null);
+  assert.deepEqual(drawerItems().map((i) => i.note).filter((n) => !n), []);
 });

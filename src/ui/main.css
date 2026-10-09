@@ -284,24 +284,35 @@ body {
   list-style: none;
 }
 .drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  min-height: 56px;
-  padding: 0 18px;
+  min-height: 60px;
+  padding: 6px 16px;
   border: 0;
   border-bottom: 2px solid rgba(42, 22, 8, 0.6);
   background: none;
   color: var(--text);
   font: inherit;
+  text-align: left;
+}
+.drawer-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.drawer-label {
   font-size: 17px;
   font-weight: bold;
-  text-align: left;
   text-shadow: 1px 1px 0 var(--ink);
 }
-.drawer-item::before {
-  content: "▶";
-  margin-right: 10px;
-  color: var(--gold);
-  font-size: 12px;
+.drawer-note {
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .drawer-item:active {
   background: rgba(0, 0, 0, 0.25);

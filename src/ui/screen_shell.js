@@ -7,6 +7,7 @@
 // - 画面の中のタップは、釣りの操作に届かない。端の安全領域(ノッチ・ホームバー)には、CSS で余白を取る。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
+import { iconElement } from "./icons.js";
 import { button, el } from "./list_view.js";
 import { hashFor, screenFromHash } from "./screens.js";
 
@@ -40,9 +41,10 @@ export function createScreenShell({ app, screens, ctx, onChange }) {
   const bar = el("header", "screen-bar");
   const back = button("←", "screen-back");
   back.setAttribute("aria-label", "戻る");
+  const icon = el("span", "screen-icon");
   const title = el("h1", "screen-title");
   const coins = el("span", "screen-coins");
-  bar.append(back, title, coins);
+  bar.append(back, icon, title, coins);
   const body = el("div", "screen-body");
   root.append(bar, body);
   app.append(root);
@@ -62,6 +64,9 @@ export function createScreenShell({ app, screens, ctx, onChange }) {
     body.replaceChildren();
     if (screen) {
       title.textContent = screen.title;
+      // 画面の印(目次と同じ:D-400)。
+      const mark = iconElement(screen.id);
+      icon.replaceChildren(...(mark ? [mark] : []));
       root.dataset.screen = screen.id;
       screen.mount(body, ctx);
       body.scrollTop = keepScroll ? scroll : 0;

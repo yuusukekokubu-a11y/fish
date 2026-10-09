@@ -1,12 +1,19 @@
-/* グローブ(特殊枠:D-332〜D-334)とお守りの枠(D-394)。6 枠とは見た目を分ける(横長・金の内側の輪)。色と箱の縁は theme.css の変数(D-398)。 */
+/* グローブ(特殊枠:D-332〜D-334)とお守りの枠(D-394)。6 枠とは見た目を分ける(金の内側の輪)。2 つを横に並べる(D-400)。色と箱の縁は theme.css の変数(D-398)。 */
+.special-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
+}
 .glove-slot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 2px 8px;
   width: 100%;
-  min-height: 48px;
-  margin-top: 6px;
-  padding: 6px 12px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 9px;
   box-sizing: border-box;
   border: var(--px) solid var(--ink);
   background: var(--panel);
