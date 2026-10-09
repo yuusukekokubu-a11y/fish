@@ -75,6 +75,31 @@ export function addResultEffects(effects, result, now, content = undefined) {
   if (result.reward.scales > 0) lines.push(`+${formatCount(result.reward.scales)} ${scaleName(result.fishId, content)}`);
   // 報酬の文字は空のあたりに出す(ダメージや「CRITICAL!」と重ならないように。帯の下)。
   lines.forEach((text, i) => effects.floats.push({ text, start: now + i * 120, ms: FLOAT_MS, y: 0.36 + i * 0.05 }));
+  addSizeEffects(effects, result.size, now, Boolean(result.firstCatch));
+}
+
+/** 冠の帯の文字と色(D-405)。 */
+const CROWN_BANNER = Object.freeze({
+  gold: { text: "金冠!", color: PX_COLORS.gold },
+  silver: { text: "銀冠!", color: "#e6eef2" },
+  mini: { text: "ミニ金冠!", color: PX_COLORS.goldHi },
+});
+
+/**
+ * 釣れた個体の大きさの演出(D-405):魚の下に「42.3cm」(冠つきの個体は冠の名前も)。
+ * 図鑑の最大・最小を更新したら「最大!」「最小!」。新しい冠を取ったら、その冠の帯と金の粒(初めての魚なら「はじめて!」に足す)。
+ * @param {any} effects @param {{ cm: number, crown: "gold" | "silver" | "mini" | null, best: "max" | "min" | null, newCrown: "gold" | "silver" | "mini" | null } | undefined} size
+ * @param {number} now @param {boolean} first
+ */
+export function addSizeEffects(effects, size, now, first) {
+  if (!size) return;
+  const crown = size.crown ? `${CROWN_BANNER[size.crown].text.replace("!", "")} ` : "";
+  const best = size.best === "max" ? "・最大!" : size.best === "min" ? "・最小!" : "";
+  effects.floats.push({ text: `${crown}${size.cm}cm${best}`, start: now + 240, ms: FLOAT_MS + 300, y: 0.7, size: 22, color: size.crown ? PX_COLORS.gold : PX_COLORS.white });
+  if (!size.newCrown) return;
+  const b = CROWN_BANNER[size.newCrown];
+  effects.banner = { text: first ? `はじめて!・${b.text}` : b.text, start: now, ms: BANNER_MS, color: b.color };
+  addBurst(effects, CAUGHT_FISH.x, CAUGHT_FISH.y, now, { count: 16, colors: [PX_COLORS.gold, PX_COLORS.goldHi, PX_COLORS.white], speed: 230, size: 6, ms: 900, gravity: 160, spin: 0.5 });
 }
 
 /**

@@ -1,0 +1,86 @@
+{
+  "note": "互換の正解データ(D-405)。保存の版 11(図鑑:魚の id:釣った数.最小の倍率.最大の倍率。倍率は × 1000)。code は署名なし(TSURI11-本文-印)、signed は仮の鍵(dev。秘密ではない)で署名したセーブコード(TSURI5-dev-11-…)。これからの版でも、このコードが読めて同じ結果になることをテストで守る。消さない・書き換えない。",
+  "version": 11,
+  "cases": [
+    {
+      "name": "初めの状態(図鑑の欄は空)",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        }
+      },
+      "code": "TSURI11-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~.~-1615624c",
+      "signed": "TSURI5-dev-11-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~.~-Z08PdDsafNYziyEa7lNR9A"
+    },
+    {
+      "name": "アジ 37 匹(ミニ金冠と金冠)・クロダイ 4 匹(銀冠)",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [
+          "aji",
+          "kurodai"
+        ],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        },
+        "dex": {
+          "aji": {
+            "count": 37,
+            "min": 812,
+            "max": 1203
+          },
+          "kurodai": {
+            "count": 4,
+            "min": 940,
+            "max": 1150
+          }
+        }
+      },
+      "code": "TSURI11-0~1.0~~aji,kurodai~0..1~~~~0.0.0~~0~0.1.~~0.......~.~aji:11.mk.xf,kurodai:4.q4.vy-c0371750",
+      "signed": "TSURI5-dev-11-0~1.0~~aji,kurodai~0..1~~~~0.0.0~~0~0.1.~~0.......~.~aji:11.mk.xf,kurodai:4.q4.vy-B7FdwfdK5_r6cYIYljxgKg"
+    }
+  ],
+  "rejected": [
+    {
+      "name": "表にない魚",
+      "code": "TSURI11-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~.~nope:1.rs.rs-a4762fb3",
+      "error": "content"
+    },
+    {
+      "name": "釣った数 0",
+      "code": "TSURI11-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~.~aji:0.rs.rs-dd2f360a",
+      "error": "content"
+    },
+    {
+      "name": "倍率が範囲の外",
+      "code": "TSURI11-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~.~aji:1.m0.rs-bdc00b4b",
+      "error": "content"
+    },
+    {
+      "name": "最小が最大より大きい",
+      "code": "TSURI11-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~.~aji:1.ws.rs-23560ae2",
+      "error": "content"
+    },
+    {
+      "name": "同じ魚が 2 回",
+      "code": "TSURI11-0~1.0~~~0..1~~~~0.0.0~~0~0.1.~~0.......~.~aji:1.rs.rs,aji:1.rs.rs-408c0ffc",
+      "error": "content"
+    }
+  ]
+}

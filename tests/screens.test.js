@@ -16,8 +16,8 @@ import {
   showScreen,
 } from "../src/ui/screens.js";
 
-test("目次は画面の表から作られ、釣り場・降臨・装備・スキル・クレート・店・素材・ステータス・設定の 9 項目", () => {
-  assert.deepEqual(drawerItems().map((i) => i.label), ["釣り場", "降臨", "装備", "スキル", "クレート", "店", "素材", "ステータス", "設定"]);
+test("目次は画面の表から作られ、釣り場・図鑑・降臨・装備・スキル・クレート・店・素材・ステータス・設定の 10 項目", () => {
+  assert.deepEqual(drawerItems().map((i) => i.label), ["釣り場", "図鑑", "降臨", "装備", "スキル", "クレート", "店", "素材", "ステータス", "設定"]);
   for (const s of SCREENS) {
     assert.equal(typeof s.mount, "function", s.id);
     assert.match(s.id, /^[a-z]+$/);
@@ -25,10 +25,10 @@ test("目次は画面の表から作られ、釣り場・降臨・装備・ス�
 });
 
 test("表に 1 行足すだけで、目次に項目が増える", () => {
-  const more = [...SCREENS, { id: "zukan", title: "図鑑", mount: () => {} }];
-  assert.deepEqual(drawerItems(more).map((i) => i.label), ["釣り場", "降臨", "装備", "スキル", "クレート", "店", "素材", "ステータス", "設定", "図鑑"]);
-  assert.equal(screenFromHash("#zukan", more), "zukan");
-  assert.equal(screenFromHash("#zukan"), null, "元の表にはない");
+  const more = [...SCREENS, { id: "suisou", title: "水槽", mount: () => {} }];
+  assert.deepEqual(drawerItems(more).map((i) => i.label), ["釣り場", "図鑑", "降臨", "装備", "スキル", "クレート", "店", "素材", "ステータス", "設定", "水槽"]);
+  assert.equal(screenFromHash("#suisou", more), "suisou");
+  assert.equal(screenFromHash("#suisou"), null, "元の表にはない");
 });
 
 test("URL の「#」のあとで画面を表す。表にない名前や空はメイン画面", () => {

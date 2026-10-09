@@ -178,6 +178,19 @@ export const DEFAULT_CONFIG = Object.freeze({
     coinFish: 5, // ウロコインの区切り = そのレベルの強い魚 × これ
     charmK: 15, // お守りの効果 = 上限 × L ÷(L + charmK)
   }),
+  // 魚の図鑑と大きさ(D-405)。倍率は 0〜1 の数 u から区分けの直線で作る。冠は倍率で決める(金冠 1.20 以上・銀冠 1.12 以上・ミニ金冠 0.85 以下)。
+  // u の区分け:ミニ金冠 1%・ふつう 94%・銀冠 4%・金冠 1%。
+  dex: Object.freeze({
+    bands: Object.freeze([
+      Object.freeze({ from: 0, to: 0.01, min: 0.8, max: 0.85 }),
+      Object.freeze({ from: 0.01, to: 0.95, min: 0.851, max: 1.119 }),
+      Object.freeze({ from: 0.95, to: 0.99, min: 1.12, max: 1.199 }),
+      Object.freeze({ from: 0.99, to: 1, min: 1.2, max: 1.25 }),
+    ]),
+    gold: 1.2,
+    silver: 1.12,
+    mini: 0.85,
+  }),
   // 餌(D-263):所持数の上限。
   bait: Object.freeze({ max: 99 }),
   // グローブ(D-332〜D-334):保管の上限、釣れるクレートの出現率(弱い魚の投ごと。D-337 で決めた)、仕切り直しのストックが増える魚の数。

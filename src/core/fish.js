@@ -17,13 +17,14 @@ export const FISH_KINDS = Object.freeze({ WEAK: "weak", STRONG: "strong", BOSS: 
  * 行の項目:
  * - id:小文字の英数字とハイフン。保存は id で持つので、名前を変えても変えない(D-228)。
  * - name:画面に出す名前。kind:"weak"(弱い魚)・"strong"(強い魚)・"boss"(ヌシ)。stage:解放される段階(通し番号 g)。
- * - color・size:見た目(色と大きさ)。
+ * - color・size:見た目(色と、絵の大きさの px)。cm:標準の大きさ(実在の魚の一般的な大きさ。ヌシは同じ魚の約 1.6 倍)。
+ *   釣れた個体の大きさは、cm × 倍率(図鑑:D-405)。ないときは size を使う(確かめ用の大きな表)。
  * 式から作るもの:reward: { coins, scales }(ウロコインと、落とす「その魚の鱗」の数。弱い魚は 0)、
  * minigame(強い魚とヌシだけ):{ sweepMs(印が端から端まで), zoneWidth(命中範囲の幅), hp(体力), timeLimitMs(制限時間) }。
- * @param {{ id: string, name: string, kind: string, stage: number, color: string, size: number }} row
+ * @param {{ id: string, name: string, kind: string, stage: number, color: string, size: number, cm?: number }} row
  * @param {object} [formula] 式の数(config.formula)
  */
-export function defineFish({ id, name, kind, stage, color, size }, formula = DEFAULT_CONFIG.formula) {
+export function defineFish({ id, name, kind, stage, color, size, cm }, formula = DEFAULT_CONFIG.formula) {
   const known = Object.values(FISH_KINDS).includes(kind) && Number.isSafeInteger(stage) && stage >= 1;
   return Object.freeze({
     id,
@@ -33,6 +34,7 @@ export function defineFish({ id, name, kind, stage, color, size }, formula = DEF
     reward: Object.freeze(known ? { coins: fishCoins(kind, stage, formula), scales: fishScales(kind, stage, formula) } : { coins: 0, scales: 0 }),
     color,
     size,
+    cm: cm ?? size,
     minigame: known && kind !== FISH_KINDS.WEAK ? Object.freeze(fishMinigame(kind, stage, formula)) : null,
   });
 }
@@ -64,125 +66,125 @@ export function stagesFromFish(fish, formula = DEFAULT_CONFIG.formula) {
  */
 export const FISH_ROWS = Object.freeze([
   // 段階 1
-  { id: "aji", name: "アジ", kind: "weak", stage: 1, color: "#a8dadc", size: 22 },
-  { id: "kurodai", name: "クロダイ", kind: "strong", stage: 1, color: "#f4a261", size: 34 },
-  { id: "nushi-kurodai", name: "ヌシ・クロダイ", kind: "boss", stage: 1, color: "#9c4f1c", size: 52 },
+  { id: "aji", name: "アジ", kind: "weak", stage: 1, color: "#a8dadc", size: 22, cm: 25 },
+  { id: "kurodai", name: "クロダイ", kind: "strong", stage: 1, color: "#f4a261", size: 34, cm: 40 },
+  { id: "nushi-kurodai", name: "ヌシ・クロダイ", kind: "boss", stage: 1, color: "#9c4f1c", size: 52, cm: 64 },
   // 段階 2
-  { id: "iwashi", name: "イワシ", kind: "weak", stage: 2, color: "#bcd4e6", size: 20 },
-  { id: "suzuki", name: "スズキ", kind: "strong", stage: 2, color: "#e76f51", size: 36 },
-  { id: "nushi-suzuki", name: "ヌシ・スズキ", kind: "boss", stage: 2, color: "#9d2f17", size: 54 },
+  { id: "iwashi", name: "イワシ", kind: "weak", stage: 2, color: "#bcd4e6", size: 20, cm: 18 },
+  { id: "suzuki", name: "スズキ", kind: "strong", stage: 2, color: "#e76f51", size: 36, cm: 70 },
+  { id: "nushi-suzuki", name: "ヌシ・スズキ", kind: "boss", stage: 2, color: "#9d2f17", size: 54, cm: 112 },
   // 段階 3
-  { id: "saba", name: "サバ", kind: "weak", stage: 3, color: "#90be6d", size: 24 },
-  { id: "hirame", name: "ヒラメ", kind: "strong", stage: 3, color: "#ddb892", size: 38 },
-  { id: "nushi-hirame", name: "ヌシ・ヒラメ", kind: "boss", stage: 3, color: "#8a6a3f", size: 56 },
+  { id: "saba", name: "サバ", kind: "weak", stage: 3, color: "#90be6d", size: 24, cm: 35 },
+  { id: "hirame", name: "ヒラメ", kind: "strong", stage: 3, color: "#ddb892", size: 38, cm: 60 },
+  { id: "nushi-hirame", name: "ヌシ・ヒラメ", kind: "boss", stage: 3, color: "#8a6a3f", size: 56, cm: 96 },
   // 段階 4
-  { id: "kisu", name: "キス", kind: "weak", stage: 4, color: "#f1e3c8", size: 24 },
-  { id: "warasa", name: "ワラサ", kind: "strong", stage: 4, color: "#b8c0ff", size: 40 },
-  { id: "nushi-warasa", name: "ヌシ・ワラサ", kind: "boss", stage: 4, color: "#5a63c8", size: 58 },
+  { id: "kisu", name: "キス", kind: "weak", stage: 4, color: "#f1e3c8", size: 24, cm: 20 },
+  { id: "warasa", name: "ワラサ", kind: "strong", stage: 4, color: "#b8c0ff", size: 40, cm: 70 },
+  { id: "nushi-warasa", name: "ヌシ・ワラサ", kind: "boss", stage: 4, color: "#5a63c8", size: 58, cm: 112 },
   // 段階 5
-  { id: "kawahagi", name: "カワハギ", kind: "weak", stage: 5, color: "#f9c74f", size: 26 },
-  { id: "buri", name: "ブリ", kind: "strong", stage: 5, color: "#7b8cde", size: 44 },
-  { id: "nushi-buri", name: "ヌシ・ブリ", kind: "boss", stage: 5, color: "#2f3e9e", size: 60 },
+  { id: "kawahagi", name: "カワハギ", kind: "weak", stage: 5, color: "#f9c74f", size: 26, cm: 22 },
+  { id: "buri", name: "ブリ", kind: "strong", stage: 5, color: "#7b8cde", size: 44, cm: 90 },
+  { id: "nushi-buri", name: "ヌシ・ブリ", kind: "boss", stage: 5, color: "#2f3e9e", size: 60, cm: 144 },
   // 磯 段階 1(g=6)
-  { id: "bera", name: "ベラ", kind: "weak", stage: 6, color: "#f28482", size: 22 },
-  { id: "mejina", name: "メジナ", kind: "strong", stage: 6, color: "#457b9d", size: 36 },
-  { id: "nushi-mejina", name: "ヌシ・メジナ", kind: "boss", stage: 6, color: "#1d3557", size: 54 },
+  { id: "bera", name: "ベラ", kind: "weak", stage: 6, color: "#f28482", size: 22, cm: 20 },
+  { id: "mejina", name: "メジナ", kind: "strong", stage: 6, color: "#457b9d", size: 36, cm: 35 },
+  { id: "nushi-mejina", name: "ヌシ・メジナ", kind: "boss", stage: 6, color: "#1d3557", size: 54, cm: 56 },
   // 磯 段階 2(g=7)
-  { id: "kasago", name: "カサゴ", kind: "weak", stage: 7, color: "#e76f51", size: 24 },
-  { id: "ishidai", name: "イシダイ", kind: "strong", stage: 7, color: "#d9d9d9", size: 38 },
-  { id: "nushi-ishidai", name: "ヌシ・イシダイ", kind: "boss", stage: 7, color: "#495057", size: 56 },
+  { id: "kasago", name: "カサゴ", kind: "weak", stage: 7, color: "#e76f51", size: 24, cm: 22 },
+  { id: "ishidai", name: "イシダイ", kind: "strong", stage: 7, color: "#d9d9d9", size: 38, cm: 45 },
+  { id: "nushi-ishidai", name: "ヌシ・イシダイ", kind: "boss", stage: 7, color: "#495057", size: 56, cm: 72 },
   // 磯 段階 3(g=8)
-  { id: "mebaru", name: "メバル", kind: "weak", stage: 8, color: "#8d99ae", size: 24 },
-  { id: "budai", name: "ブダイ", kind: "strong", stage: 8, color: "#80b918", size: 40 },
-  { id: "nushi-budai", name: "ヌシ・ブダイ", kind: "boss", stage: 8, color: "#2b9348", size: 58 },
+  { id: "mebaru", name: "メバル", kind: "weak", stage: 8, color: "#8d99ae", size: 24, cm: 22 },
+  { id: "budai", name: "ブダイ", kind: "strong", stage: 8, color: "#80b918", size: 40, cm: 40 },
+  { id: "nushi-budai", name: "ヌシ・ブダイ", kind: "boss", stage: 8, color: "#2b9348", size: 58, cm: 64 },
   // 磯 段階 4(g=9)
-  { id: "ainame", name: "アイナメ", kind: "weak", stage: 9, color: "#bc8a5f", size: 26 },
-  { id: "ishigakidai", name: "イシガキダイ", kind: "strong", stage: 9, color: "#c9ada7", size: 42 },
-  { id: "nushi-ishigakidai", name: "ヌシ・イシガキダイ", kind: "boss", stage: 9, color: "#6d597a", size: 60 },
+  { id: "ainame", name: "アイナメ", kind: "weak", stage: 9, color: "#bc8a5f", size: 26, cm: 35 },
+  { id: "ishigakidai", name: "イシガキダイ", kind: "strong", stage: 9, color: "#c9ada7", size: 42, cm: 50 },
+  { id: "nushi-ishigakidai", name: "ヌシ・イシガキダイ", kind: "boss", stage: 9, color: "#6d597a", size: 60, cm: 80 },
   // 磯 段階 5(g=10)
-  { id: "soi", name: "ソイ", kind: "weak", stage: 10, color: "#6c757d", size: 26 },
-  { id: "kue", name: "クエ", kind: "strong", stage: 10, color: "#a68a64", size: 46 },
-  { id: "nushi-kue", name: "ヌシ・クエ", kind: "boss", stage: 10, color: "#582f0e", size: 62 },
+  { id: "soi", name: "ソイ", kind: "weak", stage: 10, color: "#6c757d", size: 26, cm: 35 },
+  { id: "kue", name: "クエ", kind: "strong", stage: 10, color: "#a68a64", size: 46, cm: 80 },
+  { id: "nushi-kue", name: "ヌシ・クエ", kind: "boss", stage: 10, color: "#582f0e", size: 62, cm: 128 },
   // 川 段階 1(g=11)
-  { id: "oikawa", name: "オイカワ", kind: "weak", stage: 11, color: "#c3d6b8", size: 22 },
-  { id: "yamame", name: "ヤマメ", kind: "strong", stage: 11, color: "#8fb3a1", size: 36 },
-  { id: "nushi-yamame", name: "ヌシ・ヤマメ", kind: "boss", stage: 11, color: "#4a6b5d", size: 54 },
+  { id: "oikawa", name: "オイカワ", kind: "weak", stage: 11, color: "#c3d6b8", size: 22, cm: 13 },
+  { id: "yamame", name: "ヤマメ", kind: "strong", stage: 11, color: "#8fb3a1", size: 36, cm: 25 },
+  { id: "nushi-yamame", name: "ヌシ・ヤマメ", kind: "boss", stage: 11, color: "#4a6b5d", size: 54, cm: 40 },
   // 川 段階 2(g=12)
-  { id: "funa", name: "フナ", kind: "weak", stage: 12, color: "#b5a882", size: 24 },
-  { id: "ayu", name: "アユ", kind: "strong", stage: 12, color: "#c9c27a", size: 38 },
-  { id: "nushi-ayu", name: "ヌシ・アユ", kind: "boss", stage: 12, color: "#7d7531", size: 56 },
+  { id: "funa", name: "フナ", kind: "weak", stage: 12, color: "#b5a882", size: 24, cm: 25 },
+  { id: "ayu", name: "アユ", kind: "strong", stage: 12, color: "#c9c27a", size: 38, cm: 22 },
+  { id: "nushi-ayu", name: "ヌシ・アユ", kind: "boss", stage: 12, color: "#7d7531", size: 56, cm: 35 },
   // 川 段階 3(g=13)
-  { id: "ugui", name: "ウグイ", kind: "weak", stage: 13, color: "#d4a5a5", size: 24 },
-  { id: "namazu", name: "ナマズ", kind: "strong", stage: 13, color: "#6b705c", size: 40 },
-  { id: "nushi-namazu", name: "ヌシ・ナマズ", kind: "boss", stage: 13, color: "#3a3d32", size: 58 },
+  { id: "ugui", name: "ウグイ", kind: "weak", stage: 13, color: "#d4a5a5", size: 24, cm: 28 },
+  { id: "namazu", name: "ナマズ", kind: "strong", stage: 13, color: "#6b705c", size: 40, cm: 55 },
+  { id: "nushi-namazu", name: "ヌシ・ナマズ", kind: "boss", stage: 13, color: "#3a3d32", size: 58, cm: 88 },
   // 川 段階 4(g=14)
-  { id: "nigoi", name: "ニゴイ", kind: "weak", stage: 14, color: "#c8c8b4", size: 26 },
-  { id: "nijimasu", name: "ニジマス", kind: "strong", stage: 14, color: "#e5989b", size: 42 },
-  { id: "nushi-nijimasu", name: "ヌシ・ニジマス", kind: "boss", stage: 14, color: "#a4505a", size: 60 },
+  { id: "nigoi", name: "ニゴイ", kind: "weak", stage: 14, color: "#c8c8b4", size: 26, cm: 45 },
+  { id: "nijimasu", name: "ニジマス", kind: "strong", stage: 14, color: "#e5989b", size: 42, cm: 40 },
+  { id: "nushi-nijimasu", name: "ヌシ・ニジマス", kind: "boss", stage: 14, color: "#a4505a", size: 60, cm: 64 },
   // 川 段階 5(g=15)
-  { id: "dojou", name: "ドジョウ", kind: "weak", stage: 15, color: "#a98467", size: 26 },
-  { id: "itou", name: "イトウ", kind: "strong", stage: 15, color: "#9c6644", size: 46 },
-  { id: "nushi-itou", name: "ヌシ・イトウ", kind: "boss", stage: 15, color: "#5a3a24", size: 62 },
+  { id: "dojou", name: "ドジョウ", kind: "weak", stage: 15, color: "#a98467", size: 26, cm: 12 },
+  { id: "itou", name: "イトウ", kind: "strong", stage: 15, color: "#9c6644", size: 46, cm: 100 },
+  { id: "nushi-itou", name: "ヌシ・イトウ", kind: "boss", stage: 15, color: "#5a3a24", size: 62, cm: 160 },
   // 沖 段階 1(g=16)
-  { id: "muroaji", name: "ムロアジ", kind: "weak", stage: 16, color: "#a9bcd0", size: 22 },
-  { id: "hiramasa", name: "ヒラマサ", kind: "strong", stage: 16, color: "#ffd166", size: 36 },
-  { id: "nushi-hiramasa", name: "ヌシ・ヒラマサ", kind: "boss", stage: 16, color: "#b08a1e", size: 54 },
+  { id: "muroaji", name: "ムロアジ", kind: "weak", stage: 16, color: "#a9bcd0", size: 22, cm: 35 },
+  { id: "hiramasa", name: "ヒラマサ", kind: "strong", stage: 16, color: "#ffd166", size: 36, cm: 100 },
+  { id: "nushi-hiramasa", name: "ヌシ・ヒラマサ", kind: "boss", stage: 16, color: "#b08a1e", size: 54, cm: 160 },
   // 沖 段階 2(g=17)
-  { id: "isaki", name: "イサキ", kind: "weak", stage: 17, color: "#9aa5b1", size: 24 },
-  { id: "kanpachi", name: "カンパチ", kind: "strong", stage: 17, color: "#d4a373", size: 38 },
-  { id: "nushi-kanpachi", name: "ヌシ・カンパチ", kind: "boss", stage: 17, color: "#8a5a2b", size: 56 },
+  { id: "isaki", name: "イサキ", kind: "weak", stage: 17, color: "#9aa5b1", size: 24, cm: 35 },
+  { id: "kanpachi", name: "カンパチ", kind: "strong", stage: 17, color: "#d4a373", size: 38, cm: 90 },
+  { id: "nushi-kanpachi", name: "ヌシ・カンパチ", kind: "boss", stage: 17, color: "#8a5a2b", size: 56, cm: 144 },
   // 沖 段階 3(g=18)
-  { id: "sawara", name: "サワラ", kind: "weak", stage: 18, color: "#b8c4d6", size: 24 },
-  { id: "shiira", name: "シイラ", kind: "strong", stage: 18, color: "#90be6d", size: 40 },
-  { id: "nushi-shiira", name: "ヌシ・シイラ", kind: "boss", stage: 18, color: "#3f7d20", size: 58 },
+  { id: "sawara", name: "サワラ", kind: "weak", stage: 18, color: "#b8c4d6", size: 24, cm: 80 },
+  { id: "shiira", name: "シイラ", kind: "strong", stage: 18, color: "#90be6d", size: 40, cm: 100 },
+  { id: "nushi-shiira", name: "ヌシ・シイラ", kind: "boss", stage: 18, color: "#3f7d20", size: 58, cm: 160 },
   // 沖 段階 4(g=19)
-  { id: "soudagatsuo", name: "ソウダガツオ", kind: "weak", stage: 19, color: "#6d8ba8", size: 26 },
-  { id: "katsuo", name: "カツオ", kind: "strong", stage: 19, color: "#5e7ca8", size: 42 },
-  { id: "nushi-katsuo", name: "ヌシ・カツオ", kind: "boss", stage: 19, color: "#253f6b", size: 60 },
+  { id: "soudagatsuo", name: "ソウダガツオ", kind: "weak", stage: 19, color: "#6d8ba8", size: 26, cm: 40 },
+  { id: "katsuo", name: "カツオ", kind: "strong", stage: 19, color: "#5e7ca8", size: 42, cm: 60 },
+  { id: "nushi-katsuo", name: "ヌシ・カツオ", kind: "boss", stage: 19, color: "#253f6b", size: 60, cm: 96 },
   // 沖 段階 5(g=20)
-  { id: "mutsu", name: "ムツ", kind: "weak", stage: 20, color: "#7a6f8a", size: 26 },
-  { id: "kihada", name: "キハダ", kind: "strong", stage: 20, color: "#f4d35e", size: 46 },
-  { id: "nushi-kihada", name: "ヌシ・キハダ", kind: "boss", stage: 20, color: "#a88b1a", size: 62 },
+  { id: "mutsu", name: "ムツ", kind: "weak", stage: 20, color: "#7a6f8a", size: 26, cm: 50 },
+  { id: "kihada", name: "キハダ", kind: "strong", stage: 20, color: "#f4d35e", size: 46, cm: 130 },
+  { id: "nushi-kihada", name: "ヌシ・キハダ", kind: "boss", stage: 20, color: "#a88b1a", size: 62, cm: 208 },
   // 外洋 段階 1(g=21)
-  { id: "tobiuo", name: "トビウオ", kind: "weak", stage: 21, color: "#9fc5e8", size: 22 },
-  { id: "makajiki", name: "マカジキ", kind: "strong", stage: 21, color: "#3d5a80", size: 36 },
-  { id: "nushi-makajiki", name: "ヌシ・マカジキ", kind: "boss", stage: 21, color: "#1d2d50", size: 54 },
+  { id: "tobiuo", name: "トビウオ", kind: "weak", stage: 21, color: "#9fc5e8", size: 22, cm: 30 },
+  { id: "makajiki", name: "マカジキ", kind: "strong", stage: 21, color: "#3d5a80", size: 36, cm: 220 },
+  { id: "nushi-makajiki", name: "ヌシ・マカジキ", kind: "boss", stage: 21, color: "#1d2d50", size: 54, cm: 352 },
   // 外洋 段階 2(g=22)
-  { id: "sanma", name: "サンマ", kind: "weak", stage: 22, color: "#a7b4c2", size: 24 },
-  { id: "binnaga", name: "ビンナガ", kind: "strong", stage: 22, color: "#5c8dbc", size: 38 },
-  { id: "nushi-binnaga", name: "ヌシ・ビンナガ", kind: "boss", stage: 22, color: "#2c4f7c", size: 56 },
+  { id: "sanma", name: "サンマ", kind: "weak", stage: 22, color: "#a7b4c2", size: 24, cm: 30 },
+  { id: "binnaga", name: "ビンナガ", kind: "strong", stage: 22, color: "#5c8dbc", size: 38, cm: 90 },
+  { id: "nushi-binnaga", name: "ヌシ・ビンナガ", kind: "boss", stage: 22, color: "#2c4f7c", size: 56, cm: 144 },
   // 外洋 段階 3(g=23)
-  { id: "kamasu", name: "カマス", kind: "weak", stage: 23, color: "#c9b18a", size: 24 },
-  { id: "mebachi", name: "メバチ", kind: "strong", stage: 23, color: "#2f4b7c", size: 40 },
-  { id: "nushi-mebachi", name: "ヌシ・メバチ", kind: "boss", stage: 23, color: "#162447", size: 58 },
+  { id: "kamasu", name: "カマス", kind: "weak", stage: 23, color: "#c9b18a", size: 24, cm: 35 },
+  { id: "mebachi", name: "メバチ", kind: "strong", stage: 23, color: "#2f4b7c", size: 40, cm: 150 },
+  { id: "nushi-mebachi", name: "ヌシ・メバチ", kind: "boss", stage: 23, color: "#162447", size: 58, cm: 240 },
   // 外洋 段階 4(g=24)
-  { id: "urumeiwashi", name: "ウルメイワシ", kind: "weak", stage: 24, color: "#7fa6a3", size: 26 },
-  { id: "kurokajiki", name: "クロカジキ", kind: "strong", stage: 24, color: "#22313f", size: 42 },
-  { id: "nushi-kurokajiki", name: "ヌシ・クロカジキ", kind: "boss", stage: 24, color: "#0b1622", size: 60 },
+  { id: "urumeiwashi", name: "ウルメイワシ", kind: "weak", stage: 24, color: "#7fa6a3", size: 26, cm: 25 },
+  { id: "kurokajiki", name: "クロカジキ", kind: "strong", stage: 24, color: "#22313f", size: 42, cm: 300 },
+  { id: "nushi-kurokajiki", name: "ヌシ・クロカジキ", kind: "boss", stage: 24, color: "#0b1622", size: 60, cm: 480 },
   // 外洋 段階 5(g=25)
-  { id: "datsu", name: "ダツ", kind: "weak", stage: 25, color: "#b0c4de", size: 26 },
-  { id: "kuromaguro", name: "クロマグロ", kind: "strong", stage: 25, color: "#1b3a6b", size: 46 },
-  { id: "nushi-kuromaguro", name: "ヌシ・クロマグロ", kind: "boss", stage: 25, color: "#0a1a3a", size: 62 },
+  { id: "datsu", name: "ダツ", kind: "weak", stage: 25, color: "#b0c4de", size: 26, cm: 80 },
+  { id: "kuromaguro", name: "クロマグロ", kind: "strong", stage: 25, color: "#1b3a6b", size: 46, cm: 200 },
+  { id: "nushi-kuromaguro", name: "ヌシ・クロマグロ", kind: "boss", stage: 25, color: "#0a1a3a", size: 62, cm: 320 },
   // 深海 段階 1(g=26)
-  { id: "sokodara", name: "ソコダラ", kind: "weak", stage: 26, color: "#8c8a93", size: 22 },
-  { id: "ankou", name: "アンコウ", kind: "strong", stage: 26, color: "#6b5d4f", size: 36 },
-  { id: "nushi-ankou", name: "ヌシ・アンコウ", kind: "boss", stage: 26, color: "#3b3026", size: 54 },
+  { id: "sokodara", name: "ソコダラ", kind: "weak", stage: 26, color: "#8c8a93", size: 22, cm: 40 },
+  { id: "ankou", name: "アンコウ", kind: "strong", stage: 26, color: "#6b5d4f", size: 36, cm: 70 },
+  { id: "nushi-ankou", name: "ヌシ・アンコウ", kind: "boss", stage: 26, color: "#3b3026", size: 54, cm: 112 },
   // 深海 段階 2(g=27)
-  { id: "hadakaiwashi", name: "ハダカイワシ", kind: "weak", stage: 27, color: "#5e6b8c", size: 24 },
-  { id: "akamutsu", name: "アカムツ", kind: "strong", stage: 27, color: "#c0392b", size: 38 },
-  { id: "nushi-akamutsu", name: "ヌシ・アカムツ", kind: "boss", stage: 27, color: "#7b1e1e", size: 56 },
+  { id: "hadakaiwashi", name: "ハダカイワシ", kind: "weak", stage: 27, color: "#5e6b8c", size: 24, cm: 8 },
+  { id: "akamutsu", name: "アカムツ", kind: "strong", stage: 27, color: "#c0392b", size: 38, cm: 30 },
+  { id: "nushi-akamutsu", name: "ヌシ・アカムツ", kind: "boss", stage: 27, color: "#7b1e1e", size: 56, cm: 48 },
   // 深海 段階 3(g=28)
-  { id: "hiuchidai", name: "ヒウチダイ", kind: "weak", stage: 28, color: "#d35400", size: 24 },
-  { id: "rabuka", name: "ラブカ", kind: "strong", stage: 28, color: "#5d6d7e", size: 40 },
-  { id: "nushi-rabuka", name: "ヌシ・ラブカ", kind: "boss", stage: 28, color: "#2e3640", size: 58 },
+  { id: "hiuchidai", name: "ヒウチダイ", kind: "weak", stage: 28, color: "#d35400", size: 24, cm: 15 },
+  { id: "rabuka", name: "ラブカ", kind: "strong", stage: 28, color: "#5d6d7e", size: 40, cm: 150 },
+  { id: "nushi-rabuka", name: "ヌシ・ラブカ", kind: "boss", stage: 28, color: "#2e3640", size: 58, cm: 240 },
   // 深海 段階 4(g=29)
-  { id: "ginzame", name: "ギンザメ", kind: "weak", stage: 29, color: "#b8b8c8", size: 26 },
-  { id: "ryuuguunotsukai", name: "リュウグウノツカイ", kind: "strong", stage: 29, color: "#e8e8f0", size: 42 },
-  { id: "nushi-ryuuguunotsukai", name: "ヌシ・リュウグウノツカイ", kind: "boss", stage: 29, color: "#a83232", size: 60 },
+  { id: "ginzame", name: "ギンザメ", kind: "weak", stage: 29, color: "#b8b8c8", size: 26, cm: 80 },
+  { id: "ryuuguunotsukai", name: "リュウグウノツカイ", kind: "strong", stage: 29, color: "#e8e8f0", size: 42, cm: 400 },
+  { id: "nushi-ryuuguunotsukai", name: "ヌシ・リュウグウノツカイ", kind: "boss", stage: 29, color: "#a83232", size: 60, cm: 640 },
   // 深海 段階 5(g=30)
-  { id: "kinmedai", name: "キンメダイ", kind: "weak", stage: 30, color: "#e74c3c", size: 26 },
-  { id: "shiirakansu", name: "シーラカンス", kind: "strong", stage: 30, color: "#4a5a6a", size: 46 },
-  { id: "nushi-shiirakansu", name: "ヌシ・シーラカンス", kind: "boss", stage: 30, color: "#1f2a35", size: 62 },
+  { id: "kinmedai", name: "キンメダイ", kind: "weak", stage: 30, color: "#e74c3c", size: 26, cm: 40 },
+  { id: "shiirakansu", name: "シーラカンス", kind: "strong", stage: 30, color: "#4a5a6a", size: 46, cm: 160 },
+  { id: "nushi-shiirakansu", name: "ヌシ・シーラカンス", kind: "boss", stage: 30, color: "#1f2a35", size: 62, cm: 256 },
 ]);
 
 export const FISH_LIST = Object.freeze(FISH_ROWS.map((r) => defineFish(r)));
@@ -214,7 +216,7 @@ export const DEFAULT_CONTENT = makeContent();
 // 魚の id の形(小文字の英数字とハイフン、40 字まで)。保存の点検でも使う。
 export const FISH_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const MINIGAME_KEYS = ["sweepMs", "zoneWidth", "hp", "timeLimitMs"];
-const FISH_KEYS = "id,name,kind,stage,reward,color,size,minigame";
+const FISH_KEYS = "id,name,kind,stage,reward,color,size,cm,minigame";
 const isCountAtLeast = (n, min) => Number.isSafeInteger(n) && n >= min;
 
 /**
@@ -233,6 +235,7 @@ export function checkContent(content) {
     if (!isCountAtLeast(f.stage, 1) || !content.stageByNumber.has(f.stage)) problems.push(`段階が表にない:${f.id}`);
     if (!isCountAtLeast(f.reward.coins, 0) || !isCountAtLeast(f.reward.scales, 0)) problems.push(`報酬の数がおかしい:${f.id}`);
     if (typeof f.color !== "string" || !(f.size > 0)) problems.push(`見た目の設定:${f.id}`);
+    if (!(f.cm > 0)) problems.push(`標準の大きさ(cm)がない:${f.id}`);
     if ((f.kind === FISH_KINDS.WEAK) !== (f.minigame === null)) problems.push(`ミニゲームの設定:${f.id}`);
     if (f.minigame && !MINIGAME_KEYS.every((k) => Number.isFinite(f.minigame[k]) && f.minigame[k] > 0)) {
       problems.push(`ミニゲームの数がおかしい:${f.id}`);

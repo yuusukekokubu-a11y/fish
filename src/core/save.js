@@ -1,5 +1,5 @@
 // @ts-check
-// 保存の形(版 10:D-223・D-232・D-247・D-267・D-280・D-300・D-325・D-335・D-392・D-397・D-403)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 11:D-223・D-232・D-247・D-267・D-280・D-300・D-325・D-335・D-392・D-397・D-403・D-405)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
 // 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 15 の欄に分ける:
@@ -17,6 +17,7 @@
 //     .呼んでいるキャラの番号.残りの体力.挑戦の回数.払った区切りの数(呼んでいなければ、あとの 4 つは空)
 //     (版 8 で足し、版 9 で 4 キャラのレイドに、版 10 でゲージをウロコパワーと注入に変えた:D-397・D-403)
 //   ~ お守り:付けている能力の番号(なければ空).能力ごとのレベルを表の順に「,」で(最後の 0 は書かない。charms.js の表の順)
+//   ~ 図鑑(版 11 で足した:D-405):「魚の id:釣った数.最小の倍率.最大の倍率」を魚の表の順に「,」で(記録のある魚だけ。倍率は × 1000)
 // 装備の種類の番号 5(お守り)は、版 8 からは装備の個体を持たない(ガチャで出ない降臨専用の枠:D-392)。
 // 装備 1 個:前の個体の番号との差.種類とレア度の番号.グレード.基本効果の値 のあとに、スキルを「英大文字 1 字(スキルの番号)+ レベル」で並べる。
 //   例:「1.b.5.2s」+「B7C7D7」。種類とレア度の番号 = 種類の番号 × レア度の数 + レア度の番号。
@@ -33,6 +34,7 @@ import { DEFAULT_CONTENT } from "./fish.js";
 import { AUTO_SCRAP_ROWS, effectRange, emptyGear, makeCrates, RARITY_ROWS, refundFor } from "./gear.js";
 import { CHARM_ROWS, emptyCharms, isEmptyCharms } from "./charms.js";
 import { emptyKourin, isEmptyKourin, KOURIN_ROWS } from "./kourin.js";
+import { DEX_MAX, DEX_MIN } from "./dex.js";
 import { abilityAllows, emptyGloves, GLOVE_ABILITY_ROWS, GLOVE_RARITY_ROWS } from "./glove.js";
 import { COUNT_MAX, ROD_STEPS } from "./rod.js";
 import { itemLevelRange } from "./skills.js";
@@ -40,7 +42,7 @@ import { itemLevelRange } from "./skills.js";
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -48,7 +50,7 @@ export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_
 /** スキルの番号を書く文字(26 個まで)。 */
 const SKILL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SEED_MAX = 4294967295;
-const FIELDS = 15;
+const FIELDS = 16;
 
 /**
  * 進み具合。
@@ -66,6 +68,7 @@ const FIELDS = 15;
  * @property {string[]} [skillsSeen] 出会ったスキルの id(スキルの表の順。1 つ以上のときだけ持つ:D-300)
  * @property {import("./glove.js").GloveBag} [gloves] グローブの持ち物(既定の形でないときだけ持つ:D-335)
  * @property {KourinState} [kourin] 降臨のゲージと、呼び出したヌシ(既定の形でないときだけ持つ:D-392)
+ * @property {import("./dex.js").Dex} [dex] 魚の図鑑(記録のある魚だけ。なければ持たない:D-405)
  * @property {import("./charms.js").CharmBag} [charms] お守り(何か持っているときだけ持つ:D-392)
  */
 
@@ -207,6 +210,8 @@ export const UPGRADES = Object.freeze({
     parts[13] = [num(power), p[2], "", "", p[3], p[4], p[5], p[6]].join(".");
     return parts.join("~");
   },
+  // 版 10 → 11(D-405):図鑑の欄を空で足す(前に釣れた魚は、図鑑では記録なし)。
+  10: (body) => (body.split("~").length === 15 ? `${body}~` : null),
 });
 
 /**
@@ -292,6 +297,7 @@ export function encodeSave(progress, content = DEFAULT_CONTENT) {
     ...encodeGloves(progress.gloves ?? emptyGloves()),
     encodeKourin(progress.kourin ?? emptyKourin()),
     encodeCharms(progress.charms ?? emptyCharms()),
+    encodeDex(progress.dex ?? {}, content),
   ].join("~");
 }
 
@@ -310,6 +316,31 @@ function encodeKourin(k) {
   const totals = perChar((id) => k.fills[id]?.total ?? 0);
   const scales = perChar((id) => k.fills[id]?.scales ?? 0);
   return `${num(k.power)}.${cleared}.${totals}.${scales}.${tail}`;
+}
+
+/** 図鑑の欄(D-405):魚の表の順に「id:数.最小.最大」。 @param {import("./dex.js").Dex} dex @param {SaveContent} content */
+function encodeDex(dex, content) {
+  return content.fish
+    .filter((f) => dex[f.id]?.count > 0)
+    .map((f) => `${f.id}:${num(dex[f.id].count)}.${num(dex[f.id].min)}.${num(dex[f.id].max)}`)
+    .join(",");
+}
+
+/**
+ * 図鑑の欄を読む。表にある魚・重なりなし・釣った数 1 以上・倍率は範囲の中で最小 ≤ 最大。壊れていれば null。
+ * @param {string} text @param {SaveContent} content @returns {import("./dex.js").Dex | null}
+ */
+function decodeDex(text, content) {
+  /** @type {import("./dex.js").Dex} */
+  const dex = {};
+  for (const item of list(text)) {
+    const m = /^([a-z0-9-]+):([0-9a-z]+)\.([0-9a-z]+)\.([0-9a-z]+)$/.exec(item);
+    if (!m || dex[m[1]] || !content.byId.has(m[1])) return null;
+    const [count, min, max] = [m[2], m[3], m[4]].map(readNum);
+    if (count === null || min === null || max === null || count < 1 || min < DEX_MIN || max > DEX_MAX || min > max) return null;
+    dex[m[1]] = { count, min, max };
+  }
+  return dex;
 }
 
 /** お守りの欄(D-392)。 @param {import("./charms.js").CharmBag} bag */
@@ -478,7 +509,7 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (typeof body !== "string") return fail;
   const parts = body.split("~");
   if (parts.length !== FIELDS) return fail;
-  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText, areaText, skillSeenText, gloveHead, gloveItems, kourinText, charmText] = parts;
+  const [coinText, rodText, scaleText, seenText, gachaText, equipText, itemText, lockText, baitText, areaText, skillSeenText, gloveHead, gloveItems, kourinText, charmText, dexText] = parts;
 
   const coins = readNum(coinText);
   if (coins === null) return fail;
@@ -588,5 +619,10 @@ export function decodeSave(body, content = DEFAULT_CONTENT, config = DEFAULT_CON
   if (!kourin || !charms) return fail;
   if (!isEmptyKourin(kourin)) progress.kourin = kourin;
   if (!isEmptyCharms(charms)) progress.charms = charms;
+
+  // 図鑑(D-405):記録のある魚だけ。なければ持たない。
+  const dex = decodeDex(dexText, content);
+  if (!dex) return fail;
+  if (Object.keys(dex).length > 0) progress.dex = dex;
   return { ok: true, progress };
 }

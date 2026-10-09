@@ -54,6 +54,7 @@ import {
 import { initialProgress } from "./save.js";
 import { charmEffect } from "./charms.js";
 import { addCatchPower, copyKourin, settleRaid } from "./kourin.js";
+import { copyDex, recordCatch } from "./dex.js";
 
 export { FISH_KINDS, triggeredStats, zoneBand };
 export { bossSeed, drawCast, makeBaitCast, makeBossCast, resolveCast };
@@ -100,6 +101,8 @@ function ownProgress(progress) {
   copyGloveField(progress, own);
   // 降臨とお守り(あるときだけ:D-392)。
   if (progress.kourin) own.kourin = copyKourin(progress.kourin);
+  // 魚の図鑑(あるときだけ:D-405)。
+  if (progress.dex) own.dex = copyDex(progress.dex);
   if (progress.charms) own.charms = { levels: { ...progress.charms.levels }, equipped: progress.charms.equipped };
   return own;
 }
@@ -308,6 +311,8 @@ function finish(game, outcome, reason) {
     if (kind === FISH_KINDS.BOSS) markBossDefeated(p);
     // 降臨のウロコパワー(D-403)。魚の段階で増える。餌の強い魚は弱い魚と同じ。
     addCatchPower(p, game.content, kind, Boolean(game.cast.bait), fish.stage, game.config.kourin);
+    // 図鑑と大きさ(D-405)。乱数はシードとその魚を釣った数から(魚の系統は使わない)。
+    if (game.config.dex) result.size = recordCatch(p, fish, game.content.fish.findIndex((f) => f.id === fish.id), game.seed, game.config.dex);
   } else {
     game.counts.escaped += 1;
   }
