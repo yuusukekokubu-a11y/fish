@@ -12,6 +12,7 @@ import { ART_HORIZON, areaBackground, hasAreaArt } from "../src/ui/area_bg.js";
 import { areaOfFishStage, fishArt, hasFishArt } from "../src/ui/fish_art.js";
 import { FISH_MINATO } from "../src/art/fish/minato.js";
 import { FISH_ISO } from "../src/art/fish/iso.js";
+import { FISH_KAWA } from "../src/art/fish/kawa.js";
 import { FISH_ROWS } from "../src/core/fish.js";
 import { KURODAI } from "../src/art/fish/kurodai.js";
 import { artSize, checkArt, colorCount, drawArt, fitScale, PALETTE_LIMITS, PIXEL_CHARS } from "../src/art/pixel.js";
@@ -74,8 +75,8 @@ test("ゲームの背景(D-385):表の 6 つの釣り場には絵があり、あ
   assert.equal(areaBackground(null), null);
 });
 
-test("港・磯の魚(D-386・D-387):弱い魚 5・強い魚 5 は 32 × 32 で 16 色まで、ヌシ 5 は飾りつきの 36 × 36 で 24 色まで。どれも点検に通る", () => {
-  for (const [arts, lo, hi] of [[FISH_MINATO, 1, 5], [FISH_ISO, 6, 10]]) {
+test("港・磯・川の魚(D-386〜D-388):弱い魚 5・強い魚 5 は 32 × 32 で 16 色まで、ヌシ 5 は飾りつきの 36 × 36 で 24 色まで。どれも点検に通る", () => {
+  for (const [arts, lo, hi] of [[FISH_MINATO, 1, 5], [FISH_ISO, 6, 10], [FISH_KAWA, 11, 15]]) {
     const rows = FISH_ROWS.filter((r) => r.stage >= lo && r.stage <= hi);
     assert.deepEqual(Object.keys(arts).sort(), rows.map((r) => r.id).sort(), `段階 ${lo}〜${hi} の魚 15 匹(ヌシを含む)が全部ある`);
     for (const r of rows) {
@@ -92,11 +93,12 @@ test("港・磯の魚(D-386・D-387):弱い魚 5・強い魚 5 は 32 × 32 で 
       }
     }
   }
-  // ゲームで使う:段階 → 釣り場。港と磯は絵があり、まだ絵のない釣り場は丸い形。画面がないとき(テスト)は読まない。
+  // ゲームで使う:段階 → 釣り場。港・磯・川は絵があり、まだ絵のない釣り場は丸い形。画面がないとき(テスト)は読まない。
   assert.deepEqual([1, 5, 6, 30].map(areaOfFishStage), ["minato", "minato", "iso", "shinkai"]);
   assert.equal(hasFishArt("minato"), true);
   assert.equal(hasFishArt("iso"), true);
-  assert.equal(hasFishArt("kawa"), false);
+  assert.equal(hasFishArt("kawa"), true);
+  assert.equal(hasFishArt("oki"), false);
   assert.equal(fishArt({ id: "aji", stage: 1 }), null);
 });
 
@@ -223,6 +225,7 @@ test("ゲームを開くときは、絵のデータを読み込まない。背�
     "src/art/bg/oki.js",
     "src/art/bg/shinkai.js",
     "src/art/fish/iso.js",
+    "src/art/fish/kawa.js",
     "src/art/fish/minato.js",
     "src/art/pixel.js",
   ]);

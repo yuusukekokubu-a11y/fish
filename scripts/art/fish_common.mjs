@@ -53,6 +53,7 @@ export function inPoly(u, v, poly) {
  * - tones:体の段の色の名前(背 → 腹)と、その境目(0〜1 の並び、tones より 1 つ少ない)。
  * - pattern(info):模様の色の名前(なければ null)。info は { u, v, t〔体の上下の割合 0〜1〕, x, y }。
  * - colors:outline・fin・finDark・pupil・eyeRing・eyeHi・mouth・gill の名前 → 色。ほかの名前の色もここに入れる。
+ * - fins の 1 つに color(色の名前)を書くと、そのひれはその色 1 色で、輪郭を付けない(ナマズのひげ:D-388)。
  * - scale:魚の長さのマス数(既定 30)。cx・cy:口先の x(既定 1)と中心線の y(既定 16)。flatTail:尾の筋を描かない。
  * - vScale:縦の強調(既定 1.35)。細い魚が 32 マスで糸のようにならないよう、少しふっくら描く(荒めで可愛い:D-372)。
  */
@@ -67,12 +68,14 @@ export function renderFish(spec) {
   const region = (u, v) => {
     if (u >= 0 && u <= bodyEnd && v >= TOP(u) && v <= BOT(u)) return "body";
     if (inPoly(u, v, spec.tail)) return "tail";
-    for (const f of spec.fins ?? []) if (f.kind !== "over" && inPoly(u, v, f.poly)) return "fin";
+    for (const f of spec.fins ?? []) if (f.kind !== "over" && inPoly(u, v, f.poly)) return f.color ? `fin:${f.color}` : "fin";
     return null;
   };
   // 1 マスを 3 × 3 に分けて多数決(5 つ以上が魚なら魚。部分は、いちばん多いもの)。
   const grid = Array.from({ length: N }, () => new Array(N).fill(null));
   const info = Array.from({ length: N }, () => new Array(N).fill(null));
+  // 色を決めたひれ(ナマズのひげなど:color を書いたひれ)のマスの色。輪郭も付けない。
+  const own = Array.from({ length: N }, () => new Array(N).fill(null));
   for (let y = 0; y < N; y++) {
     for (let x = 0; x < N; x++) {
       const count = {};
@@ -89,8 +92,9 @@ export function renderFish(spec) {
         }
       }
       if (total < 5) continue;
-      const r = Object.keys(count).sort((a, b) => count[b] - count[a] || (a === "body" ? -1 : 1))[0];
-      grid[y][x] = r;
+      const r = Object.keys(count).sort((a, b) => count[b] - count[a] || (a === "body" ? -1 : b === "body" ? 1 : 0))[0];
+      grid[y][x] = r.startsWith("fin:") ? "fin" : r;
+      if (r.startsWith("fin:")) own[y][x] = r.slice(4);
       const u = (x + 0.5 - ox) / L;
       const v = (y + 0.5 - oy) / L / vs;
       const top = TOP(Math.min(u, bodyEnd));
@@ -120,7 +124,7 @@ export function renderFish(spec) {
       for (const f of spec.fins ?? []) if (f.kind === "over" && inPoly(i.u, i.v, f.poly)) c = f.color ?? "fin";
       const p = spec.pattern?.({ ...i, region: r });
       if (p) c = p;
-      out[y][x] = c;
+      out[y][x] = own[y][x] ?? c;
     }
   }
   // えらぶたの線:体の上 2 割〜下 8 割を、縦に 1 本。
@@ -134,7 +138,7 @@ export function renderFish(spec) {
   // 輪郭:外に面したマス。
   for (let y = 0; y < N; y++) {
     for (let x = 0; x < N; x++) {
-      if (!grid[y][x]) continue;
+      if (!grid[y][x] || own[y][x]) continue;
       if (!at(x - 1, y) || !at(x + 1, y) || !at(x, y - 1) || !at(x, y + 1)) out[y][x] = spec.outlineOf?.(grid[y][x], out[y][x]) ?? "outline";
     }
   }
