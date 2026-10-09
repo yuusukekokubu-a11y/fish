@@ -78,6 +78,11 @@
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
+  /* スクロールの棒は出さない(指でなぞれば動く)。 */
+  scrollbar-width: none;
+}
+.fx-stage::-webkit-scrollbar {
+  display: none;
 }
 /* 光の筋:一番良いレア度の色の放射。溜めの間はゆっくり、開いた後は明るく回る。 */
 .fx-rays {
