@@ -6,6 +6,7 @@ import { critSeed } from "./combat.js";
 import { AREA_ROWS, areaOfStage, makeAreas } from "./areas.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { availableFish, effectiveMinigame, FISH_KINDS, FISH_LIST, pickWeighted } from "./fish.js";
+import { softenMinigame } from "./formula.js";
 import { zoneAt } from "./minigame.js";
 import { createRng } from "./rng.js";
 
@@ -49,11 +50,13 @@ export function resolveCast(raw, config, list, range) {
 
 /**
  * ヌシ戦の 1 回ぶん。乱数は、シードと「何回目の挑戦か」から作る(魚の系統は使わない:D-115)。
- * @param {any} boss @param {any} config @param {number} seed @param {number} attempt
+ * soften はお守り「和らぎ」の効果(くせを弱める割合:D-397)。0 なら魚の表のまま。
+ * @param {any} boss @param {any} config @param {number} seed @param {number} attempt @param {number} [soften]
  */
-export function makeBossCast(boss, config, seed, attempt) {
+export function makeBossCast(boss, config, seed, attempt, soften = 0) {
   const minigameSeed = bossSeed(seed, attempt);
-  const minigame = /** @type {any} */ (effectiveMinigame(boss, config.minigame));
+  const base = /** @type {any} */ (effectiveMinigame(boss, config.minigame));
+  const minigame = soften > 0 ? softenMinigame(base, "boss", boss.stage, soften, config.formula) : base;
   const zone = zoneAt(createRng(minigameSeed ^ 0x2545f491)(), {
     zoneWidth: minigame.zoneWidth,
     zoneMargin: config.minigame.zoneMargin,

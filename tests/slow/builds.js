@@ -62,7 +62,7 @@ function erf(x) {
  * hitRate が 1 以上なら、いつも命中。
  * @param {number} hitRate @param {number} w0
  */
-function hitChance(hitRate, w0) {
+export function hitChance(hitRate, w0) {
   if (hitRate >= 1) return () => 1;
   // erf(w0 / 2 / (sigma√2)) = hitRate となる sigma を 2 分探索で求める。
   let lo = 1e-6;
@@ -77,7 +77,7 @@ function hitChance(hitRate, w0) {
 }
 
 /** テストだけで使う、シードつきの小さな乱数(mulberry32)。遊び方の命中・外れを決める(ゲームの乱数の系統には触らない)。 */
-function playRng(seed) {
+export function playRng(seed) {
   let a = (seed ^ 0x9e3779b9) >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;

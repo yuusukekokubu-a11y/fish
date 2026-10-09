@@ -320,3 +320,38 @@ export function startQuickFight(game, fishId, grade) {
   // 強い魚のジャストなら、初撃が入る(体力以上なら、その場で釣り上げ:D-256)。hook は画面の演出に使う。
   return result && result.action === "hook" ? { ok: true, hook: /** @type {any} */ (result) } : { ok: false, error: "始められませんでした" };
 }
+
+/**
+ * 降臨のデバッグ(D-397):ゲージを満タンにする(鱗の分は 0)。
+ * @param {any} progress @param {any} config
+ */
+export function debugFillGauge(progress, config) {
+  const c = config.kourin;
+  progress.kourin = { ...(progress.kourin ?? { cleared: {}, raid: null }), gauge: c.full * c.unit, fromScales: 0 };
+}
+
+/**
+ * 降臨のデバッグ:呼んでいるキャラの残りの体力を決める(1 以上)。呼んでいなければ false。
+ * @param {any} progress @param {number} hp
+ */
+export function debugRaidHp(progress, hp) {
+  const raid = progress.kourin?.raid;
+  if (!raid || !Number.isSafeInteger(hp) || hp < 1) return false;
+  raid.hp = hp;
+  return true;
+}
+
+/**
+ * 降臨のデバッグ:お守りのレベルを決める(0 で持たない。付けていたものを 0 にしたら外す)。
+ * @param {any} progress @param {string} id @param {number} level
+ */
+export function debugCharmLevel(progress, id, level) {
+  if (!Number.isSafeInteger(level) || level < 0) return false;
+  const bag = progress.charms ?? { levels: {}, equipped: null };
+  if (level === 0) delete bag.levels[id];
+  else bag.levels[id] = level;
+  if (bag.equipped !== null && !(bag.levels[bag.equipped] > 0)) bag.equipped = null;
+  if (Object.keys(bag.levels).length === 0 && bag.equipped === null) delete progress.charms;
+  else progress.charms = bag;
+  return true;
+}

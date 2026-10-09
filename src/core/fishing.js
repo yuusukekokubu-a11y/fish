@@ -23,8 +23,8 @@ import {
   widenRing,
   widenZone,
 } from "./combat.js";
-import { areaOfStage, inNewestArea, poolRange, setArea } from "./areas.js";
-import { baitCount, baitFish, refundBait, setBait, willUseBait } from "./bait.js";
+import { inNewestArea, poolRange, setArea } from "./areas.js";
+import { baitCount, baitFish, setBait, willUseBait } from "./bait.js";
 import { DEFAULT_CONFIG } from "./config.js";
 import { applyGear, copyGear, emptyGear } from "./gear.js";
 import { applySkillsToCombat, scaledReward, scaledWait, skillRates, skillStates, triggerAmounts } from "./skills.js";
@@ -48,20 +48,17 @@ import { drawZone, isHit, markerPosition } from "./minigame.js";
 import { createRng, normalizeSeed } from "./rng.js";
 import {
   addCount,
-  COUNT_MAX,
-  canChallengeStep,
-  canCraft,
-  canEvolve,
-  craftRod,
-  currentStage,
-  evolveRod,
   markBossDefeated,
   ROD_STEPS,
 } from "./rod.js";
 import { initialProgress } from "./save.js";
+import { charmEffect } from "./charms.js";
+import { addCatchGauge, copyKourin, settleRaid } from "./kourin.js";
 
 export { FISH_KINDS, triggeredStats, zoneBand };
 export { bossSeed, drawCast, makeBaitCast, makeBossCast, resolveCast };
+// 竿の工程と、ヌシ・降臨に挑む(800 行に余裕を持たせるため、challenge.js に分けた)。
+export * from "./challenge.js";
 
 export const PHASES = Object.freeze({
   CASTING: "casting", // 投げる
@@ -102,7 +99,7 @@ function ownProgress(progress) {
   // グローブの持ち物(あるときだけ:D-335)。
   copyGloveField(progress, own);
   // 降臨とお守り(あるときだけ:D-392)。
-  if (progress.kourin) own.kourin = { gauge: progress.kourin.gauge, raid: progress.kourin.raid ? { ...progress.kourin.raid } : null };
+  if (progress.kourin) own.kourin = copyKourin(progress.kourin);
   if (progress.charms) own.charms = { levels: { ...progress.charms.levels }, equipped: progress.charms.equipped };
   return own;
 }
@@ -120,6 +117,9 @@ export function refreshCombat(game) {
   game.combat = normalizeCombat(applySkillsToCombat(geared, game.skills, content.skills), config.combat, config.combatLimits);
   // おもり(版 8 から。前はおまもり:D-392):獲得ウロコインの倍率に足す(豊漁と足し算:D-320)。なければ倍率はそのまま。
   if (game.combat.coinBonus > 0) game.rates = { ...game.rates, coins: game.rates.coins + game.combat.coinBonus };
+  // お守り「静め」(どの戦いにも:D-396)。印の速さを遅くする割合に足す(上限は fightSweepMs が守る)。
+  const slow = charmEffect(game.progress.charms, "shizume", false, config.kourin.charmK);
+  if (slow > 0) game.combat = { ...game.combat, markerSlow: game.combat.markerSlow + slow };
   return game.combat;
 }
 
@@ -191,7 +191,7 @@ function drawGameCast(game) {
 }
 
 /** いまの釣り場の魚で、引いた数から投を決め直す(乱数は引かない)。餌の投とヌシ戦は変えない。 */
-function reresolve(game, cast) {
+export function reresolve(game, cast) {
   if (!cast || !cast.raw || cast.bait || cast.kind === FISH_KINDS.BOSS) return cast;
   return resolveCast(cast.raw, game.config, game.content.fish, poolRange(game.progress, game.content));
 }
@@ -271,6 +271,7 @@ const NO_REWARD = Object.freeze({ coins: 0, scales: 0 });
 
 function finish(game, outcome, reason) {
   if (game.cast.crate) return finishCrate(game, outcome, reason);
+  if (game.cast.raid) return finishRaid(game, outcome, reason);
   const { fish, kind } = game.cast;
   const caught = outcome === OUTCOMES.CAUGHT;
   const reward = caught ? scaledFishReward(game, fish) : NO_REWARD;
@@ -305,6 +306,8 @@ function finish(game, outcome, reason) {
     if (reward.scales > 0) p.scales[fish.id] = addCount(p.scales[fish.id] ?? 0, reward.scales);
     if (firstCatch) p.seen.push(fish.id);
     if (kind === FISH_KINDS.BOSS) markBossDefeated(p);
+    // 降臨のゲージ(D-396・D-397)。餌の強い魚は弱い魚と同じ。
+    addCatchGauge(p, game.content, kind, Boolean(game.cast.bait), game.config.kourin);
   } else {
     game.counts.escaped += 1;
   }
@@ -312,6 +315,19 @@ function finish(game, outcome, reason) {
   if (kind !== FISH_KINDS.BOSS) {
     game.missStreak = reason === REASONS.EARLY || reason === REASONS.LATE ? game.missStreak + 1 : 0;
   }
+  enter(game, PHASES.RESULT);
+}
+
+/**
+ * 降臨の挑戦の結果(D-396)。残りの体力を保存し、区切りの報酬を払う(kourin.js)。魚の報酬・図鑑・数には入れない。
+ */
+function finishRaid(game, outcome, reason) {
+  const caught = outcome === OUTCOMES.CAUGHT;
+  const { fight } = game;
+  const raid = settleRaid(game, caught);
+  const result = { fishId: null, kind: FISH_KINDS.BOSS, raid, outcome, reason, reward: NO_REWARD, firstCatch: false, hook: null, hits: fight.hits, misses: fight.misses, crits: fight.crits };
+  game.results.push(result);
+  game.lastResult = result;
   enter(game, PHASES.RESULT);
 }
 
@@ -460,7 +476,7 @@ function fightZoneWidth(game) {
  * 条件発動型の「最初の命中」の効果は、戦闘中の一時的な上乗せ(fight.boosts)に積む(D-186)。
  * 強い魚をジャストで合わせたら、初撃を入れる(D-256)。初撃の結果を返す(なければ null)。
  */
-function startFight(game, grade) {
+export function startFight(game, grade) {
   const { minigame, zone, minigameSeed } = game.cast;
   const t = game.triggers ?? {};
   /** @type {object[]} */
@@ -475,9 +491,13 @@ function startFight(game, grade) {
     combo: 0,
     // 連撃の最大段数(遊びの記録:D-348)。
     maxCombo: 0,
-    hp: minigame.hp,
+    // 降臨は、残りの体力から始める(最大は降臨の体力:D-397)。
+    hp: minigame.startHp ?? minigame.hp,
     maxHp: minigame.hp,
-    timeLimitMs: fightTimeLimit(minigame.timeLimitMs, game.combat, game.config.combatLimits, minigame.limitBaseMs),
+    // お守り「刻」(ヌシ戦と降臨:D-397):延長の上限の外で、制限時間 ×(1 + 効果)。
+    timeLimitMs: Math.round(fightTimeLimit(minigame.timeLimitMs, game.combat, game.config.combatLimits, minigame.limitBaseMs) * (1 + bossCharm(game, "toki"))),
+    // お守り「破り」(ヌシ戦と降臨):1 命中・かすりのダメージの倍率。
+    damageRate: 1 + bossCharm(game, "yaburi"),
     // 自動回復の端数(くせ「regen」:D-382)と、回復した合計。
     regenCarry: 0,
     regenTotal: 0,
@@ -502,6 +522,16 @@ function startFight(game, grade) {
   enter(game, PHASES.MINIGAME);
   if (grade === HOOK_GRADES.JUST && game.cast.kind === FISH_KINDS.STRONG) return justStrike(game);
   return null;
+}
+
+/** ヌシ戦と降臨で、付けているお守り id の効果(ほかの戦いは 0:D-397)。 */
+function bossCharm(game, id) {
+  return game.cast.kind === FISH_KINDS.BOSS ? charmEffect(game.progress.charms, id, true, game.config.kourin.charmK) : 0;
+}
+
+/** お守り「破り」を効かせたダメージ(四捨五入。0 にはしない)。 */
+function charmDamage(fight, damage) {
+  return fight.damageRate > 1 ? Math.max(1, Math.round(damage * fight.damageRate)) : damage;
 }
 
 /**
@@ -552,7 +582,7 @@ function fightTap(game, at = game.phaseMs) {
     const raw = Math.min(limits.maxHitDamage, hitDamage(stats, stages, limits));
     // 防御で減らす(通常の計算のあと。最小 1。実効防御 100% 以上はいつも 1:D-235)。
     const effDefense = effectiveDefense(game.cast.minigame.defense ?? 0, stats.penetration ?? 0);
-    const damage = defendedDamage(raw, effDefense);
+    const damage = charmDamage(fight, defendedDamage(raw, effDefense));
     fight.boosts = consumeBoosts(fight.boosts);
     // 勢い:クリティカルのあと、次の命中に効く(次の 1 回だけ)。
     const afterCrit = game.triggers?.afterCrit;
@@ -636,7 +666,7 @@ function grazeTap(game, position, ratio) {
   const stats = effectiveStats(combat, config.formula ?? null);
   const raw = Math.max(1, Math.round(Math.min(limits.maxHitDamage, hitDamage(stats, 0, limits)) * ratio));
   const effDefense = effectiveDefense(game.cast.minigame.defense ?? 0, stats.penetration ?? 0);
-  const damage = defendedDamage(raw, effDefense);
+  const damage = charmDamage(fight, defendedDamage(raw, effDefense));
   fight.hp = Math.max(0, fight.hp - damage);
   fight.grazes += 1;
   const result = { action: "graze", damage, rawDamage: raw, effDefense, defended: damage < raw, hp: fight.hp, maxHp: fight.maxHp, position, combo: fight.combo };
@@ -703,80 +733,4 @@ function hookSuccess(game, grade, auto) {
   // 強い魚のジャストなら初撃が入る(体力以上なら、その場で釣り上げ:D-256)。
   const strike = startFight(game, grade);
   return strike ? { action: "hook", grade, strike, ...mark } : { action: "hook", grade, ...mark };
-}
-
-/** 今の段階の表の行(製作の鱗・ヌシ・進化の鱗)。 */
-export function gameStage(game) {
-  return currentStage(game.progress, game.content);
-}
-
-/** いちばん新しい釣り場にいるか(製作・ヌシ戦・進化・餌はここでだけ:D-274)。 */
-export function inNewestGameArea(game) {
-  return inNewestArea(game.progress, game.content);
-}
-
-/** 竿を製作できるか(いちばん新しい釣り場でだけ)。 */
-export function canCraftRod(game) {
-  return inNewestGameArea(game) && canCraft(game.progress, game.content);
-}
-
-/** 竿を製作する(鱗を使う)。 */
-export function craftGameRod(game) {
-  return canCraftRod(game) && craftRod(game.progress, game.content);
-}
-
-/** 竿を進化できるか(いちばん新しい釣り場でだけ)。 */
-export function canEvolveRod(game) {
-  return inNewestGameArea(game) && canEvolve(game.progress, game.content);
-}
-
-/**
- * 竿を進化する。次の段階の魚は、次に投げるときから一覧に加わる。
- * 段階が進んだら、残りの餌を、進化の前の段階の価格で払い戻す(D-263)。結果は game.baitRefund({ count, coins })に置く。
- */
-export function evolveGameRod(game) {
-  const before = game.progress.rodStage;
-  const done = canEvolveRod(game) && evolveRod(game.progress, game.content);
-  game.baitRefund = null;
-  game.areaUnlocked = null;
-  if (done && game.progress.rodStage !== before) {
-    const refund = refundBait(game.progress, before, COUNT_MAX, game.config.formula);
-    if (refund.count > 0) game.baitRefund = refund;
-    // 釣り場の最後のヌシのあと:次の釣り場が解放され、そのまま移る(古い釣り場の欄は持たない:D-273)。
-    const area = areaOfStage(game.content, game.progress.rodStage);
-    if (area !== areaOfStage(game.content, before)) {
-      delete game.progress.area;
-      game.areaUnlocked = area;
-      // 投げている・待っている投は、新しい釣り場の魚に決め直す(乱数は引き直さない)。
-      if (game.phase === PHASES.CASTING || game.phase === PHASES.WAITING) game.cast = reresolve(game, game.cast);
-      if (game.pendingCast) game.pendingCast = reresolve(game, game.pendingCast);
-    }
-  }
-  // 段階が上がると、成長型のスキルの最大レベルが伸びる(D-167)。
-  if (done) refreshCombat(game);
-  return done;
-}
-
-/**
- * ヌシに挑めるか(D-101)。工程が製作済みかヌシ撃破で、魚が掛かっていない(投げる・待つの間)とき。
- */
-export function canChallengeBoss(game) {
-  const phaseOk = game.phase === PHASES.CASTING || game.phase === PHASES.WAITING;
-  return phaseOk && inNewestGameArea(game) && canChallengeStep(game.progress) && !!gameStage(game);
-}
-
-/**
- * ヌシに挑む。釣りを止めて、合わせなしで体力制の戦いから始める。
- * 待っていた魚は取っておき、戦いのあとにそこから続ける。負けても鱗は減らない。
- */
-export function challengeBoss(game) {
-  if (!canChallengeBoss(game)) return false;
-  const boss = game.content.byId.get(gameStage(game).boss);
-  game.pendingCast = game.cast;
-  game.cast = makeBossCast(boss, game.config, game.seed, game.bossAttempts);
-  game.bossAttempts += 1;
-  game.hookGrade = null;
-  game.autoHooked = false;
-  startFight(game, null);
-  return true;
 }

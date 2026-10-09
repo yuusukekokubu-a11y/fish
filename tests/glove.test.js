@@ -441,10 +441,10 @@ test("互換の正解データ(compat_save_v7.json):保存の版 7 の署名な�
     const want = await toV8(c.progress);
     assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: want }, c.name);
     assert.deepEqual(parseSave(c.code), want, `${c.name}:ブラウザの保存としても読める`);
-    assert.match(encodeSaveCode(want), /^TSURI8-/, `${c.name}:書き出しは版 8`);
+    assert.match(encodeSaveCode(want), /^TSURI9-/, `${c.name}:書き出しは版 8`);
     assert.deepEqual(decodeSaveCode(encodeSaveCode(want)), { ok: true, progress: want }, `${c.name}:版 8 で往復`);
     assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: want, signed: true, keyId: "dev", warning: null }, c.name);
-    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-8-/, `${c.name}:署名つきの書き出しは版 8`);
+    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-9-/, `${c.name}:署名つきの書き出しは版 8`);
     assert.match(c.signed, /^TSURI5-dev-7-/);
   }
   for (const c of fixture.rejected) {

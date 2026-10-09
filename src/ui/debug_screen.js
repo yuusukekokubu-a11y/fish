@@ -8,7 +8,8 @@
 
 import { currentArea, unlockedAreas } from "../core/areas.js";
 import { setUseBait } from "../core/bait.js";
-import { moveArea } from "../core/fishing.js";
+import { moveArea, refreshCombat } from "../core/fishing.js";
+import { CHARM_ROWS } from "../core/charms.js";
 import { AUTO_SCRAP_ROWS, autoScrapSetting, EQUIP_KIND_ROWS, gachaKinds, RARITY_ROWS, setAutoScrap } from "../core/gear.js";
 import { GLOVE_ABILITY_ROWS, GLOVE_RARITY_ROWS } from "../core/glove.js";
 import { SKILL_ROWS } from "../core/skills.js";
@@ -17,6 +18,9 @@ import {
   addDebugGlove,
   addDebugItem,
   applyPreset,
+  debugCharmLevel,
+  debugFillGauge,
+  debugRaidHp,
   DEBUG_PRESETS,
   debugFields,
   debugLevelMax,
@@ -262,6 +266,32 @@ export function mountDebug(container, ctx) {
     presets.append(b);
   }
 
+  // 降臨(D-397):ゲージを満タン・残りの体力・お守りのレベル。
+  const kourinBox = section("降臨");
+  const fill = button("ゲージを満タンにする", "secondary-button debug-kourin-fill");
+  fill.addEventListener("click", () => {
+    debugFillGauge(game.progress, game.config);
+    ctx.storage.save(game.progress);
+    say("ゲージを満タンにしました");
+  });
+  const hp = input("1", "number");
+  const setHp = button("残りの体力を決める", "secondary-button debug-kourin-hp");
+  setHp.addEventListener("click", () => {
+    if (!debugRaidHp(game.progress, Number(hp.value))) return say("呼んでいないか、数がおかしい", true);
+    ctx.storage.save(game.progress);
+    say(`残りの体力を ${hp.value} にしました`);
+  });
+  const charm = select(CHARM_ROWS.map((c) => [c.id, c.name]));
+  const charmLv = input("1", "number");
+  const setCharm = button("お守りのレベルを決める", "secondary-button debug-kourin-charm");
+  setCharm.addEventListener("click", () => {
+    if (!debugCharmLevel(game.progress, charm.value, Number(charmLv.value))) return say("レベルがおかしい", true);
+    refreshCombat(game);
+    ctx.storage.save(game.progress);
+    say("お守りのレベルを決めました(付けるのは降臨の画面で)");
+  });
+  kourinBox.append(fill, field("残りの体力", hp), setHp, field("お守り", charm), field("レベル(0 で持たない)", charmLv), setCharm);
+
   // すぐ戦う。
   const fight = section("すぐ戦う");
   const target = select(quickFightTargets(game.content).map((/** @type {{ id: string, label: string }} */ t) => [t.id, t.label]));
@@ -320,5 +350,5 @@ export function mountDebug(container, ctx) {
   artLink.href = "src/art/samples.html";
   artBox.append(artLink);
 
-  container.append(values, logBox, artBox, perfBox, areaBox, baitBox, make, gloveBox, presets, fight, url, reset);
+  container.append(values, logBox, artBox, perfBox, areaBox, baitBox, kourinBox, make, gloveBox, presets, fight, url, reset);
 }

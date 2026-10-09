@@ -11,6 +11,8 @@ import { mountAreas } from "./area_screen.js";
 import { mountCrates } from "./crate_screen.js";
 import { mountDebug } from "./debug_screen.js";
 import { mountEquipment } from "./equip_screen.js";
+import { mountKourin } from "./kourin_screen.js";
+import { canSummon } from "../core/kourin.js";
 import { inventoryWarning } from "./gear_view.js";
 import { mountList } from "./list_view.js";
 import { materialsView, statusView } from "./screen_views.js";
@@ -30,6 +32,8 @@ import { mountSkills } from "./skill_screen.js";
 /** @type {readonly Screen[]} */
 export const SCREENS = Object.freeze([
   { id: "areas", title: "釣り場", mount: mountAreas },
+  // 降臨(D-396):満タンで呼べるときに「!」。
+  { id: "kourin", title: "降臨", mount: mountKourin, badge: (game) => (canSummon(game.progress, game.content, game.config.kourin) ? "warn" : null) },
   { id: "equipment", title: "装備", mount: mountEquipment, badge: (game) => inventoryWarning(game).level },
   { id: "skills", title: "スキル", mount: mountSkills },
   { id: "crates", title: "クレート", mount: mountCrates },

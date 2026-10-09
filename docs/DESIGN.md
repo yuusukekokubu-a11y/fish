@@ -50,9 +50,12 @@
 | `src/core/skills.js` | スキル(D-167・D-195〜D-198・D-210)。スキルの表(`SKILL_ROWS`)、最大レベル・装備 1 個のレベルの範囲(`levelRange`)、装着中の装備からのスキルの状態(`skillStates`)、戦闘の数値の表への反映(`applySkillsToCombat`)、報酬と待ち時間の倍率(`skillRates`・`scaledReward`・`scaledWait`)。スキルを足すときは、ここに行を足すだけ(下の「スキルを足す手順」)。 |
 | `src/core/rng.js` | シードで固定できる乱数(D-021)。 |
 | `src/core/minigame.js` | ミニゲームの印の動きと判定。 |
-| `src/core/fishing.js` | 釣りの 1 サイクルの場面の進み方(合わせ・体力制・休み)と、報酬。 |
+| `src/core/fishing.js` | 釣りの 1 サイクルの場面の進み方(合わせ・体力制・休み)と、報酬。お守りの効果(静め・刻・破り)のフック。 |
+| `src/core/challenge.js` | 竿の工程(製作・進化)と、ヌシ・降臨に挑む(`challengeBoss`・`challengeRaid`)。fishing.js を 800 行以内にするため分けた。fishing.js がまとめて書き出す(D-397)。 |
+| `src/core/kourin.js` | 降臨(D-396・D-397)。キャラの表(`KOURIN_ROWS`。行は並べ替えない)、ゲージ(`addCatchGauge`・`scaleOffers`・`planDonation`・`donateScales`)、呼ぶ(`summonRaid`)、降臨の投(`makeRaidCast`・`raidMinigame`・`raidSeed`)、挑戦の終わりと区切りの報酬(`settleRaid`)。数は `config.kourin`。 |
+| `src/core/charms.js` | お守り(D-394・D-396)。表(`CHARM_ROWS`:上限 `cap` と効く戦い `scope`。行は並べ替えない)、効果(`charmValue`・`activeCharm`・`charmEffect`)、付け替え(`equipCharm`)。 |
 | `src/core/rod.js` | 竿の工程(製作・ヌシ撃破・進化)、竿の名前、次に要る鱗、数の上限(D-114・D-116)。 |
-| `src/core/save.js` | 保存の形式(版 8)の本文の書き出し(`encodeSave`)と点検つきの読み込み(`decodeSave`)、古い版の本文の読み替え(`UPGRADES`・`upgradeSave`)(D-223・D-232・D-247)。ブラウザへの読み書きは UI が行う。 |
+| `src/core/save.js` | 保存の形式(版 9)の本文の書き出し(`encodeSave`)と点検つきの読み込み(`decodeSave`)、古い版の本文の読み替え(`UPGRADES`・`upgradeSave`)(D-223・D-232・D-247)。ブラウザへの読み書きは UI が行う。 |
 | `src/core/savecode.js` | 署名なしのセーブコード `TSURI5-本文-印` の書き出しと読み込み(`TSURI1`〜`TSURI4` も読み替えて読む)、本文の読み込み(`decodeBody`)、ブラウザの保存の読み込み(`parseSave`)(D-065・D-232・D-247)。ブラウザの保存はこの形。 |
 | `src/core/skills_seen.js` | 出会ったスキル(D-300・D-301)。引いた装備のスキルを `skillsSeen` に記録し、装備ごとの初めてのスキル(NEW)を返す(`noteSkillsSeen`)。結果には使わない。 |
 | `src/core/signed_code.js` | 署名つきのセーブコード `TSURI5-鍵の番号-保存の版-本文-署名` の書き出し(`signSaveCode`)と読み込み(`readSaveCode`。署名なしの古い形式も注意つきで)(D-291〜D-297)。鍵は受け取るだけ。 |
@@ -145,7 +148,7 @@
 ### 保存とセーブコード(D-065・D-223・D-232・D-247・D-267・D-280・D-300・D-307)
 
 - ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データ・FISH2〜FISH7・読み替えの仕組みと古い版のテストは削除した)。
-- 装備のロック(D-246・D-247)で版 2、餌と自動分解(D-267)で版 3、釣り場(D-280)で版 4、出会ったスキル(D-300)で版 5、装着の枠 6 つ(D-325。本文の形は同じ。版 5 までの読み手が新しい種類の番号を読めないので区切った)で版 6、グローブ(D-335)で版 7、降臨とお守り(D-394。おもりとお守りの入れ替え:おもりは払い戻し、おまもりはおもりに。読み替えに config を渡す)で版 8 にした。今の版は 8。
+- 装備のロック(D-246・D-247)で版 2、餌と自動分解(D-267)で版 3、釣り場(D-280)で版 4、出会ったスキル(D-300)で版 5、装着の枠 6 つ(D-325。本文の形は同じ。版 5 までの読み手が新しい種類の番号を読めないので区切った)で版 6、グローブ(D-335)で版 7、降臨とお守り(D-394。おもりとお守りの入れ替え:おもりは払い戻し、おまもりはおもりに。読み替えに config を渡す)で版 8、降臨の欄の形を変えて(D-397。4 キャラのレイド。版 8 → 9 では降臨の欄を空にする)版 9 にした。今の版は 9。
 - 遊びの記録(D-348)は、ゲームの保存とは別の場所(`tsuri:playlog`・デバッグは `tsuri:debug-playlog`)に JSON で置く。セーブコードには入れない。
 - 保存の中身は、セーブコードと同じ 1 行の文字列 `TSURI4-本文-印`(`save.js`・`savecode.js`)。ブラウザの保存場所は `tsuri:save`(デバッグは `tsuri:debug-save`)。
 - 本文は 11 の欄を「~」で区切る(版 1 は 1〜7 の 7 つ、版 2 は 8 つ、版 3 は 9 つ、版 4 は 10)。数は 36 進数(英小文字と数字)。
@@ -160,6 +163,9 @@
   9. 餌と自動分解(版 3 で足した):`餌の所持数.スイッチ(0 か 1).自動分解の表の番号`(表は `AUTO_SCRAP_ROWS`:0 オフ・1 ノーマルまで・2 レアまで・3 エピックまで。例 `0.0.0`・`2r.1.3`)。
   10. いまいる釣り場(版 4 で足した):古い釣り場にいるときだけ、その釣り場の id(例 `minato`)。いちばん新しい釣り場なら空。
   11. 出会ったスキル(版 5 で足した:D-300・D-307):スキルの表の順の印。表の i 番目に出会っていれば 2 の i 乗を足した数を 36 進数で(出会いなしは `0`。20 個全部でも 4 けた)。表の数より大きい印・数でない・先頭の 0 つきは拒否する。版 4 → 5 の読み替えでは、持ち物の装備(装着中を含む)に付いているスキルを出会ったにする(NEW が一斉に出ないように)。計算本体の中では `skillsSeen`(スキルの表の順の id の一覧。1 つ以上のときだけ持つ)。
+  12〜13. グローブ(版 7 で足した:D-335)。
+  14. 降臨(版 9 の形:D-397):`ゲージ.鱗から入れた分.倒したレベル(キャラの表の順に「,」、最後の 0 は書かない).呼んでいるキャラの番号.残りの体力.挑戦の回数.払った区切りの数`(呼んでいなければ後ろの 4 つは空。何もなければ `0.0.....`)。ゲージは 1 点 = `config.kourin.unit`(64)の整数で、満タン以下・鱗の分は上限以下でゲージ以下。払った区切りは区切りの数より少ない。
+  15. お守り(版 8 で足した:D-394):`付けている能力の番号.能力ごとのレベル(表の順に「,」、最後の 0 は書かない)`。レベルの上限はない(D-397)。
 - 計算本体の中では、ロック中の装備だけが `locked: true` を持ち、ロックなしは欄を持たない(`setLocked` が外すときに消す)。保存の往復で同じ形になり、引いた装備・版 1 から読んだ装備の形は前と同じ。餌の所持数 `bait`(1 個以上)・スイッチ `useBait`(入っているとき)・自動分解 `autoScrap`(オフ以外)・いまいる釣り場 `area`(古い釣り場にいるとき)も、同じく、あるときだけ欄を持つ(D-271・D-282)。
 - 魚は id で書く(名前を変えても変わらない:D-228)。装備の種類・レア度・スキルは表の番号で書くので、**表の行は並べ替えず、足すのは最後に**。スキルは 26 個まで(こえるときは版を上げる)。
 - 点検(`decodeSave`):先頭の 0 や記号のある数、安全な整数をこえる数、表にない魚の id、0 の鱗、重複した鱗・釣れた魚・個体の番号・スキル・装着の枠、範囲外の段階・工程・グレード・値・レベル、最後の段階以外の進化済み、レア度の数より多いスキル、持ち物にない装着の番号、枠と種類のずれ、上限(300 個:D-355)をこえる持ち物、次の個体の番号が持ち物の番号以下、ロックの欄が「0」「1」以外か持ち物と数がちがう(版 2 なのに欄がない、を含む)、餌の所持数が上限(99)をこえる・スイッチが「0」「1」以外・自動分解の番号が表にない、表にない釣り場・未解放の釣り場(最初の段階が竿の段階より上)、頭打ち型のスキルのレベルが 1 でない、を拒否する。
@@ -255,7 +261,16 @@
   - 魚(D-386):`scripts/art/fish_common.mjs` の `renderFish(spec)` が、形の数(背と腹の線 `top`・`bot`、`bodyEnd`、尾 `tail`・ひれ `fins` の多角形、目・口・えらぶた)と色の決まり(`tones` と `toneCuts` の段、`pattern(info)` の模様、`vScale` の縦の強調)から 32 × 32 の色の並びを作る(1 マスを 3 × 3 に分けた多数決・外に面したマスは輪郭)。`decorateBoss` がヌシの縁と冠を足す。`fins` の 1 つに `color` を書くと、そのひれは 1 色で輪郭なし(ひげ:D-388)。釣り場ごとのスクリプトが、魚の spec とヌシの並びを `writeFishModule` に渡して(D-387) `src/art/fish/<釣り場>.js` に `FISH_<釣り場>`(魚の id → 絵)を書き出す。ゲームでは `src/ui/fish_art.js` の `fishArt(魚)` が、魚の段階から釣り場を決めてあとで読み、1 マス 1 画素の canvas を返す。`draw.js` の `drawFishOrArt` が拡大して描く(絵がなければ丸い形)。新しい釣り場の魚を足すときは、スクリプトを 1 つ足し、`fish_art.js` の `LOADERS`・`tsconfig.json`・見本のページの `FISH_AREAS`・`tests/art.test.js`(魚の点検と、あとで読むファイルの一覧)に足す。
   - ほかの釣り場(D-384):共通の道具 `scripts/art/bg_common.mjs`(`makeScene` の帯・雲・鳥、`seaWaves`・`deepRipples`、`writeBackground` の書き出しと点検)を使い、釣り場ごとに `scripts/art/bg_<id>.mjs` を置く。一覧 `src/art/bg/index.js` は釣り場の表と同じ並び(テストが確かめる)。釣り場を足すときは、スクリプトを 1 つ足し、書き出して、一覧と `tsconfig.json` に足す。
   - 夜の背景(D-393):`writeBackground` が昼と一緒に `<id>_night.js` も書く(色の名前ごとに夜の色へ置き換え、空に星と月。`night: { moon }` で月の位置、`null` で月なし)。一覧の `night`、ゲームでは `areaBackground(id, true)`。釣り場を足すときは、`area_bg.js` の `NIGHT_LOADERS`・一覧・`tsconfig.json`・`tests/art.test.js` のあとで読むファイルの一覧にも足す。
-  - 降臨ヌシの紫の冠(D-393):`fish_art.js` の `kourinPalette` が、ヌシの絵の色の並びの冠の色(`CROWN_GOLD`)と縁の色(魚の表のヌシの色)を置き換える。`fishArt(魚, "kourin")` は別の canvas として取っておく。
+  - ヌシの紫の冠(D-393):`fish_art.js` の `kourinPalette` が、ヌシの絵の色の並びの冠の色(`CROWN_GOLD`)と縁の色(魚の表のヌシの色)を置き換える。`fishArt(魚, "kourin")` は別の canvas として取っておく(いまは見本のページだけ:D-397)。
+  - 降臨のキャラ(D-396):`scripts/art/kourin_chars.mjs` が `src/art/kourin.js`(`KOURIN_CHARS`。64 × 64 マス・24 色まで)を書く(引数にフォルダを渡すと、4 体を並べた見本の画像も書く)。形は「点が体のどの部分か」を返す関数(管 `tube`・だ円 `ellipse`・多角形)で決め、1 マスを 3 × 3 に分けて多数決で塗る。形の座標は 1 辺 48 の目盛りで書き、64 マスへ広げる。紫の冠と光(縁の光・もや・光の点)は `decorate`。ゲームでは `fish_art.js` の `kourinArt(id)` があとで読み、`draw.js` の `drawRaidArt` が画面の幅いっぱいに描く。
+
+### 降臨の作り(D-396・D-397)
+
+- 計算は `src/core/kourin.js`。ゲージは `finish` の釣り上げで `addCatchGauge`(港では貯まらない)。降臨の投は `makeRaidCast`(`kind` は boss、`raid: { char, level }`、`minigame.startHp` に残りの体力)。挑むのは `challengeRaid`(`challenge.js`。ヌシ戦と同じく `pendingCast` に待っていた魚を取っておき、挑戦の回数を進めてから `startFight`)。
+- 戦いの終わりは `fishing.js` の `finish` が `finishRaid` に回し、`settleRaid` が残りの体力を保存して、越えた区切りの報酬を払う。結果は `{ fishId: null, kind: "boss", raid: { char, level, defeated, damage, hpLeft, maxHp, rewards } }`(魚の報酬・図鑑・数・遊びの記録には入れない)。
+- 降臨の体力:`raidMinigame` が `fishMinigame("boss", レベル, 表, [キャラのくせ])` の体力 × `hpRatio`。防御の壁は下限を置かず、ふつうの貫通 + margin(川より前のレベルでも削れるように)。
+- 画面:`kourin_view.js`(文字)・`kourin_screen.js`(画面の部品)・`kourin.css`。戦いの見た目は `kourin_fx.js`(夜にするか `raidNight`・文 `raidMessage`・報酬の文字 `addRaidEffects`)。`main.js` は背景の絵を `{ id, night }` で持ち、夜に変わるときも 0.5 秒で重ねる。
+- 数の確かめ:`tests/slow/kourin.test.js`(4 キャラを倒すまでの回数・ゲージの速さ)。
 
 ### 目次と全画面の作り、画面を足す手順(D-152〜D-155・D-161〜D-164)
 
@@ -314,7 +329,7 @@
 - 印を遅くする道(版 7 まではおもり。版 8 からはお守りの「静め」で使う):`markerSlow`(0〜`combatLimits.maxMarkerSlow` = 0.5)。`fishing.js` の `fightSweepMs(game)` が、魚の `sweepMs` ÷(1 − markerSlow)を返す。戦闘の判定(`fightTap`・`currentMarker`)と画面の印(`main.js`)は、どちらもこれを使う。
 - 浮き:`hookWiden`。`combat.js` の `widenRing(輪, 割合, 上限)` が、成功帯とジャスト帯を広げる(成功帯は輪の `maxHookSuccessRatio` = 0.6、ジャスト帯は成功帯の `maxHookJustRatio` = 0.5 まで。元から広い分は狭めない)。`currentHookTiming` が使うので、判定と画面の輪が同じになる。
 - おもり(版 8 から。版 7 まではおまもり):`coinBonus`。`refreshCombat` が、0 より大きいときだけ `game.rates.coins`(豊漁の倍率)に足す。
-- お守り(D-394):装備の種類の表の 5 番は `special`(ガチャで出ない・個体なし)。`gachaKinds` がガチャと画面の枠から除き、`applyGear` も飛ばす。お守りは `src/core/charms.js` の表と `progress.charms`(能力ごとのレベル・付けている能力)で持つ。
+- お守り(D-394・D-397):装備の種類の表の 5 番は `special`(ガチャで出ない・個体なし)。`gachaKinds` がガチャと画面の枠から除き、`applyGear` も飛ばす。お守りは `src/core/charms.js` の表と `progress.charms`(能力ごとのレベル・付けている能力)で持つ。付けている 1 つだけ効く:静めは `refreshCombat` が `markerSlow` に足す。刻・破りは `startFight` が、ヌシ戦と降臨(`kind` が boss)のときだけ `fight.timeLimitMs` ×(1 + 効果)・`fight.damageRate` にする(命中とかすりのダメージに掛ける)。和らぎは `formula.js` の `softenMinigame` で、ヌシの投(`makeBossCast` の `soften`)と降臨の投のくせを弱める。
 - どれも 0 なら、前と同じ数で計算する(乱数の引き方も変えない)。
 
 ### グローブと釣れるクレートの作り(D-332〜D-337)

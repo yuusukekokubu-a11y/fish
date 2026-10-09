@@ -1,0 +1,74 @@
+// 降臨の画面の文字(D-396・D-397)。
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { DEFAULT_CONFIG } from "../src/core/config.js";
+import { createGame } from "../src/core/fishing.js";
+import { kourinView, charmEffectText } from "../src/ui/kourin_view.js";
+import { addRaidEffects, raidMessage, raidNight, rewardText } from "../src/ui/kourin_fx.js";
+import { createEffects } from "../src/ui/effects.js";
+import { DEFAULT_CONTENT } from "../src/core/fish.js";
+import { progressAt } from "./helpers.js";
+
+const U = DEFAULT_CONFIG.kourin.unit;
+
+test("港では「港を越えると」。磯からはゲージ・納める鱗・4 キャラ(Lv・くせ・倒すと授かるお守り)", () => {
+  assert.equal(kourinView(createGame(1, { progress: progressAt(3) })).unlocked, false);
+  const stage = DEFAULT_CONTENT.stageByNumber.get(7);
+  const game = createGame(1, { progress: progressAt(7, "crafted", { scales: { [stage.craft.scale]: 3 }, kourin: { gauge: 120 * U, fromScales: 40 * U, cleared: { kani: 2 }, raid: null } }) });
+  const v = kourinView(game);
+  assert.equal(v.unlocked, true);
+  assert.deepEqual([v.gauge.text, v.gauge.scaleText, v.gauge.ratio], ["ゲージ 120 / 300 点", "鱗から 40 / 150 点", 0.4]);
+  assert.deepEqual([v.donate.label, v.donate.disabled], ["余りの鱗を納める(3 枚で +30 点)", false]);
+  assert.equal(v.raid, null);
+  assert.deepEqual(
+    v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.canSummon]),
+    [
+      ["大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", false],
+      ["大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", false],
+      ["大ダコ", "Lv1", "自動回復", "倒すと 和らぎの守り", "まだ討伐していない", false],
+      ["大イカ", "Lv1", "制限時間が短い", "倒すと 刻の守り", "まだ討伐していない", false],
+    ],
+  );
+});
+
+test("呼んでいるキャラ(残りの体力・報酬の区切り・挑戦の回数)と、お守り(レベル・効果・付けているか)", () => {
+  const game = createGame(1, {
+    progress: progressAt(13, "none", {
+      kourin: { gauge: 0, fromScales: 0, cleared: { tako: 4 }, raid: { char: "tako", hp: 1234, tries: 2, paid: 3 } },
+      charms: { levels: { shizume: 15, toki: 5 }, equipped: "toki" },
+    }),
+  });
+  const v = kourinView(game);
+  assert.deepEqual([v.raid?.name, v.raid?.level, v.raid?.stepsText, v.raid?.triesText, v.raid?.canChallenge], ["降臨・大ダコ", 5, "報酬 3 / 10", "挑戦 2 回", true]);
+  assert.match(v.raid?.hpText ?? "", /^残り 1234 \/ /);
+  assert.deepEqual(
+    v.charms.map((c) => [c.name, c.levelText, c.effectText, c.equipped]),
+    [
+      ["静めの守り", "Lv15", "印の速さ −20%", false],
+      ["刻の守り", "Lv5", "制限時間 +15%(ヌシ戦・降臨)", true],
+    ],
+  );
+  assert.equal(charmEffectText("yaburi", 0.25), "ダメージ +25%(ヌシ戦・降臨)");
+  assert.equal(charmEffectText("yawaragi", 0.3), "くせ −30%(ヌシ戦・降臨)");
+});
+
+test("夜の背景は降臨の戦いと結果の間だけ。文と、区切りの報酬の文字", () => {
+  const game = createGame(1, { progress: progressAt(13) });
+  assert.equal(raidNight(game), false);
+  const fake = { cast: { raid: { char: "ebi", level: 3 }, fish: { name: "降臨・大エビ" } }, phase: "minigame", lastResult: null };
+  assert.equal(raidNight(fake), true);
+  assert.equal(raidMessage(fake), "降臨・大エビ Lv3との勝負!");
+  const after = { ...fake, phase: "result", lastResult: { raid: { defeated: false, damage: 1500, hpLeft: 250, maxHp: 1000, rewards: [] } } };
+  assert.equal(raidMessage(after), "1500 ダメージ!(残り 25%)");
+  assert.equal(raidMessage({ ...after, lastResult: { raid: { defeated: true, rewards: [] } } }), "降臨・大エビ Lv3を討伐した!");
+  assert.equal(raidMessage(game), null);
+  assert.equal(rewardText({ type: "coins", coins: 1200 }, DEFAULT_CONTENT), "+1200 ウロコイン");
+  assert.equal(rewardText({ type: "charm", charm: "toki", level: 1, fresh: true }, DEFAULT_CONTENT), "刻の守りを授かった!");
+  assert.equal(rewardText({ type: "charm", charm: "toki", level: 4, fresh: false }, DEFAULT_CONTENT), "刻の守り Lv4");
+  assert.equal(rewardText({ type: "item", item: { kind: "reel" }, scrapped: true }, DEFAULT_CONTENT), "クレート 1 回:リール(自動分解)");
+  const fx = createEffects();
+  addRaidEffects(fx, { raid: { defeated: true, rewards: [{ type: "coins", coins: 5 }, { type: "charm", charm: "toki", level: 1, fresh: true }] } }, 0, DEFAULT_CONTENT);
+  assert.equal(fx.banner.text, "討伐!");
+  assert.deepEqual(fx.floats.map((f) => f.text), ["+5 ウロコイン", "刻の守りを授かった!"]);
+});

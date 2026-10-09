@@ -193,11 +193,12 @@ export function fishZoneWidth(kind, g, f, limits = DEFAULT_CONFIG.minigame) {
  * 強い魚とヌシのミニゲームの設定。ヌシのくせ(fishQuirks)があれば、ここで数を変える(D-381・D-382)。
  * - regenPerSec:自動回復(1 秒あたりの回復量)。くせ「regen」のときだけ持つ。
  * - limitBaseMs:糸・粘りで延びる上限を数える、くせの前の制限時間。くせ「short」のときだけ持つ。
- * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f]
+ * quirkIds を渡すと、釣り場のくせの代わりに、そのくせを付ける(降臨のキャラ:D-396)。
+ * @param {"strong" | "boss"} kind @param {number} g @param {FormulaConfig} [f] @param {readonly string[]} [quirkIds]
  */
-export function fishMinigame(kind, g, f) {
+export function fishMinigame(kind, g, f, quirkIds) {
   const c = conf(f);
-  const quirks = fishQuirks(kind, g, c);
+  const quirks = quirkIds ?? fishQuirks(kind, g, c);
   const q = c.quirks;
   const limits = DEFAULT_CONFIG.minigame;
   let sweepMs = fishSweepMs(kind, g, c);
@@ -241,6 +242,27 @@ export function fishMinigame(kind, g, f) {
     ...(regenRatio > 0 ? { regenPerSec: Math.max(1, Math.round(hp * regenRatio)) } : {}),
     ...(timeLimitMs !== baseTimeMs ? { limitBaseMs: baseTimeMs } : {}),
   };
+}
+
+/**
+ * くせを弱める(お守り「和らぎ」:D-397)。くせの数(命中範囲・防御・印の速さ・回復・制限時間)を、くせなしの値へ ratio の割合だけ近づける。
+ * 体力はそのまま。ratio が 0 以下なら、そのまま返す。
+ * @param {ReturnType<typeof fishMinigame>} mg @param {"strong" | "boss"} kind @param {number} g @param {number} ratio @param {FormulaConfig} [f]
+ */
+export function softenMinigame(mg, kind, g, ratio, f) {
+  if (!(ratio > 0)) return mg;
+  const c = conf(f);
+  const w = Math.min(1, ratio);
+  const toward = (/** @type {number} */ now, /** @type {number} */ base) => now + (base - now) * w;
+  const out = {
+    ...mg,
+    sweepMs: Math.round(toward(mg.sweepMs, fishSweepMs(kind, g, c))),
+    zoneWidth: Math.round(toward(mg.zoneWidth, fishZoneWidth(kind, g, c)) * 1000) / 1000,
+    timeLimitMs: Math.round(toward(mg.timeLimitMs, mg.limitBaseMs ?? mg.timeLimitMs) / 100) * 100,
+    defense: Math.round(toward(mg.defense, fishDefense(kind, g, c)) * 1000) / 1000,
+  };
+  if (mg.regenPerSec) out.regenPerSec = Math.max(1, Math.round(mg.regenPerSec * (1 - w)));
+  return out;
 }
 
 /**

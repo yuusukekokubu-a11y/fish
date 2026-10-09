@@ -49,6 +49,20 @@ function drawFishOrArt(ctx, x, y, size, color, art, big = false) {
   ctx.drawImage(art, Math.round(x - w / 2), Math.round(y - h / 2), w, h);
 }
 
+/**
+ * 降臨のキャラ(64 × 64 マス:D-396)を、画面の幅いっぱいに描く(1 マス = 幅 ÷ 64 の整数。体力のバーより上に収まらなければ小さくする)。
+ * ゆっくり上下に揺らす。
+ */
+function drawRaidArt(ctx, w, h, art, timeMs) {
+  const room = h * 0.8 - 56 - 48;
+  const dot = Math.max(1, Math.min(Math.floor(w / art.width), Math.floor(room / art.height)));
+  const size = art.width * dot;
+  const x = Math.round((w - size) / 2);
+  const y = Math.round(48 + (room - art.height * dot) / 2 + Math.sin(timeMs / 500) * 4);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(art, x, y, size, art.height * dot);
+}
+
 /** 空と海。colors は釣り場の色({ sky: [上, 下], sea: [上, 下] }:D-278)。なければ港の色。 */
 function paintBackground(ctx, w, h, waterY, colors) {
   const skyColors = colors?.sky ?? [COLORS.skyTop, COLORS.skyBottom];
@@ -343,6 +357,10 @@ export function drawScene(ctx, w, h, view, timeMs) {
     drawFishOrArt(ctx, bobber.x, bobber.y + fishSize, fishSize, fishColor, view.fishArt ?? null);
   } else if (view.phase === PHASES.BITE) {
     drawHookRing(ctx, bobber, view.hook);
+  } else if (view.raidArt && (view.phase === PHASES.MINIGAME || view.phase === PHASES.RESULT)) {
+    // 降臨のキャラ(D-396):戦いと結果の間は、画面の幅いっぱい。
+    drawRaidArt(ctx, w, h, view.raidArt, timeMs);
+    if (view.phase === PHASES.MINIGAME) drawGauge(ctx, w, h, view);
   } else if (view.phase === PHASES.MINIGAME) {
     drawFishOrArt(ctx, target.x + Math.sin(timeMs / 120) * 20, target.y + 60, fishSize, fishColor, view.fishArt ?? null);
     drawGauge(ctx, w, h, view);
