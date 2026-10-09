@@ -38,6 +38,27 @@ export function kourinPalette(palette, glow) {
   return palette.map((c) => swap[c.toLowerCase()] ?? c);
 }
 
+/**
+ * 珍しい魚(ゴールデン:D-406)の色の並び:元の魚の色を、明るさを保って金色に置き換える(輪郭は濃い金茶)。
+ * @param {readonly string[]} palette
+ */
+export function goldPalette(palette) {
+  return palette.map((c) => {
+    if (!c) return c;
+    const n = parseInt(c.slice(1), 16);
+    const lum = (((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255;
+    // 暗い(輪郭・目)→ 金茶、中 → 金、明るい → 淡い金。
+    /** @type {[number, number[]][]} */
+    const stops = [[0, [58, 36, 8]], [0.35, [168, 112, 24]], [0.6, [236, 186, 52]], [0.85, [255, 226, 128]], [1, [255, 246, 214]]];
+    let i = 0;
+    while (i < stops.length - 2 && lum > stops[i + 1][0]) i++;
+    const [l0, a] = stops[i];
+    const [l1, b] = stops[i + 1];
+    const t = Math.min(1, Math.max(0, (lum - l0) / (l1 - l0)));
+    return `#${a.map((v, k) => Math.round(v + (b[k] - v) * t).toString(16).padStart(2, "0")).join("")}`;
+  });
+}
+
 /** 画面の 1 マスの大きさ(CSS px)。魚は 3px(32 マスで 96px)、ヌシは 6px(魚の部分が 192px:D-372)。 */
 export const FISH_DOT = 3;
 export const BOSS_DOT = 6;
@@ -63,7 +84,8 @@ export function hasFishArt(areaId) {
 /**
  * 魚の絵(1 マス = 1 画素の canvas)。まだ読んでいなければ読み始めて、いまは null を返す。
  * 画面(document)がないとき(テスト)・絵のない魚は null。variant が "kourin" なら、降臨ヌシの色(紫の冠)にする。
- * @param {{ id: string, stage: number, color?: string } | null | undefined} fish
+ * 珍しい魚(rare と base を持つ)は、元の魚の絵を金色にして使う(D-406)。
+ * @param {{ id: string, stage: number, color?: string, rare?: boolean, base?: string } | null | undefined} fish
  * @param {"kourin"} [variant]
  * @returns {HTMLCanvasElement | null}
  */
@@ -86,9 +108,9 @@ export function fishArt(fish, variant) {
       })
       .catch(() => areas.delete(areaId));
   }
-  const base = entry.arts?.[fish.id];
+  const base = entry.arts?.[fish.rare && fish.base ? fish.base : fish.id];
   if (!base || !entry.draw) return null;
-  const art = variant === "kourin" && fish.color ? { ...base, palette: kourinPalette(base.palette, fish.color) } : base;
+  const art = fish.rare ? { ...base, palette: goldPalette(base.palette) } : variant === "kourin" && fish.color ? { ...base, palette: kourinPalette(base.palette, fish.color) } : base;
   const canvas = document.createElement("canvas");
   canvas.width = art.width;
   canvas.height = art.height;

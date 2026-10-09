@@ -146,7 +146,8 @@ test("「!」が出る前のタップは、何も変えない(逃げない・数
 
 test("連打は成功しない:「!」の直後からタップし続けると、全部の魚で最初のタップが早すぎ", () => {
   // ヌシは掛からない(挑戦ボタンで、合わせなしで始まる)ので、弱い魚と強い魚の全種類で確かめる。
-  for (const fish of FISH_LIST.filter((f) => f.kind !== FISH_KINDS.BOSS)) {
+  // 珍しい魚(D-406)は、弱い魚と同じ合わせなので、元の弱い魚で確かめる(まれにしか出ないため)。
+  for (const fish of FISH_LIST.filter((f) => f.kind !== FISH_KINDS.BOSS && !f.rare)) {
     const game = untilBite(fish.id);
     update(game, 16);
     const r = tap(game);
@@ -192,7 +193,7 @@ test("早すぎ・遅すぎは、どちらも「続けて逃した数」に入�
 });
 
 test("弱い魚は、どの段階でも成功帯の合わせで釣り上げ。ジャストならウロコイン × 1.5(四捨五入、最小 1:D-258)", () => {
-  for (const fish of FISH_LIST.filter((f) => f.kind === FISH_KINDS.WEAK)) {
+  for (const fish of FISH_LIST.filter((f) => f.kind === FISH_KINDS.WEAK && !f.rare)) {
     for (const [at, grade] of [
       ["successStart", "good"],
       ["justStart", "just"],

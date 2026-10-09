@@ -280,6 +280,8 @@ function finish(game, outcome, reason) {
   const reward = caught ? scaledFishReward(game, fish) : NO_REWARD;
   const firstCatch = caught && !game.progress.seen.includes(fish.id);
   const result = { fishId: fish.id, kind, outcome, reason, reward, firstCatch, hook: game.hookGrade ?? null };
+  // 珍しい魚(D-406)。画面の「珍しい魚!」に使う。
+  if (fish.rare) result.rare = true;
   // 自動合わせで掛けた(D-334)。
   if (game.autoHooked) result.auto = true;
   // 弱い魚のジャストのウロコインの倍率(D-258)。画面の「×1.5」に使う。
@@ -310,7 +312,7 @@ function finish(game, outcome, reason) {
     if (firstCatch) p.seen.push(fish.id);
     if (kind === FISH_KINDS.BOSS) markBossDefeated(p);
     // 降臨のウロコパワー(D-403)。魚の段階で増える。餌の強い魚は弱い魚と同じ。
-    addCatchPower(p, game.content, kind, Boolean(game.cast.bait), fish.stage, game.config.kourin);
+    addCatchPower(p, game.content, fish.rare ? FISH_KINDS.STRONG : kind, Boolean(game.cast.bait), fish.stage, game.config.kourin);
     // 図鑑と大きさ(D-405)。乱数はシードとその魚を釣った数から(魚の系統は使わない)。
     if (game.config.dex) result.size = recordCatch(p, fish, game.content.fish.findIndex((f) => f.id === fish.id), game.seed, game.config.dex);
   } else {

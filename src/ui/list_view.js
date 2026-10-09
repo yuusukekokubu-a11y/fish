@@ -7,7 +7,7 @@
  * 一覧の中身。行の detail は押すと出る [見出し, 中身] の一覧(null なら押せない)。
  * @typedef {object} ListView
  * @property {string | null} header
- * @property {{ title: string, rows: { label: string, value: string, detail: string[][] | null }[], collapsible?: boolean, open?: boolean }[]} sections
+ * @property {{ title: string, rows: { label: string, value: string, detail: string[][] | null, tone?: string }[], collapsible?: boolean, open?: boolean }[]} sections
  *   collapsible のグループは、見出しを押すと閉じる・開く(open が初めの状態:D-272)。
  */
 
@@ -51,7 +51,8 @@ export function renderListView(container, view) {
     for (const row of section.rows) {
       const item = el("li");
       const head = button("", "menu-row");
-      head.append(el("span", "menu-label", row.label), el("span", "menu-value", row.value));
+      // row.tone があれば名前に色を付ける(例:"gold" は珍しい魚:D-406)。
+      head.append(el("span", row.tone ? `menu-label tone-${row.tone}` : "menu-label", row.label), el("span", "menu-value", row.value));
       item.append(head);
       if (row.detail) {
         const detail = el("dl", "menu-detail");

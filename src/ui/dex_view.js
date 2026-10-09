@@ -11,7 +11,7 @@ import { groupByArea, stageLabel } from "./area_view.js";
 import { formatCount } from "./format.js";
 
 /** 区分の言い方。 */
-const KIND_NAMES = /** @type {Record<string, string>} */ ({ weak: "弱い魚", strong: "強い魚", boss: "ヌシ" });
+const KIND_NAMES = /** @type {Record<string, string>} */ ({ weak: "弱い魚", strong: "強い魚", boss: "ヌシ", rare: "珍しい魚" });
 
 /** 冠の名前と印(色だけでなく文字でも分かるように:D-154)。 */
 export const CROWN_TEXT = Object.freeze({ gold: "金冠", silver: "銀冠", mini: "ミニ金冠" });
@@ -44,18 +44,20 @@ export function dexView({ game }) {
     const rows = group.items.map((/** @type {any} */ f) => {
       const e = dex[f.id];
       const seen = progress.seen.includes(f.id) || Boolean(e);
-      if (!seen) return { label: "???", value: "", detail: null };
+      // 珍しい魚(D-406)は、釣る前も「???(珍しい魚)」と分かり、名前は金色で ★ を付ける。
+      if (!seen) return { label: f.rare ? "???(珍しい魚)" : "???", value: "", detail: null };
       registered += 1;
       const got = entryCrowns(e, c);
       crowns += Number(got.gold) + Number(got.silver) + Number(got.mini);
       const marks = crownMarks(got);
       const detail = [
-        ["釣れる場所", `${stageLabel(content, f.stage)} の${KIND_NAMES[f.kind] ?? f.kind}`],
+        ["釣れる場所", `${stageLabel(content, f.stage)} の${KIND_NAMES[f.rare ? "rare" : f.kind] ?? f.kind}`],
         ["標準の大きさ", `${f.cm} cm`],
         ["釣った大きさ", e ? `${sizeCm(f.cm, e.min)} 〜 ${sizeCm(f.cm, e.max)} cm` : "記録なし(これから釣ると記録されます)"],
         ...(["gold", "silver", "mini"].map((k) => [CROWN_TEXT[/** @type {"gold"} */ (k)], got[/** @type {"gold"} */ (k)] ? "取った" : "まだ"])),
       ];
-      return { label: marks ? `${f.name} ${marks}` : f.name, value: e ? `${formatCount(e.count)} 匹` : "記録なし", detail };
+      const name = f.rare ? `★${f.name}` : f.name;
+      return { label: marks ? `${name} ${marks}` : name, tone: f.rare ? "gold" : undefined, value: e ? `${formatCount(e.count)} 匹` : "記録なし", detail };
     });
     return { title: group.title, rows, collapsible: true, open: group.open };
   });

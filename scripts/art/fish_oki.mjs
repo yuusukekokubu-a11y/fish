@@ -4,6 +4,7 @@
 // 書き出すのは src/art/fish/oki.js(手で直さない)。使い方:node scripts/art/fish_oki.mjs
 
 import { writeFishModule } from "./fish_common.mjs";
+import { EXTRA_FISH } from "./fish_extra.mjs";
 
 /** どの魚にも使う目と口の色。 */
 const EYE = { pupil: "#14161c", eyeRing: "#d9dde0", eyeHi: "#ffffff", mouth: "#3a2a2a" };
@@ -443,7 +444,7 @@ await writeFishModule({
   areaName: "沖",
   script: "scripts/art/fish_oki.mjs",
   decision: "D-389",
-  fish: [MUROAJI, ISAKI, SAWARA, SOUDAGATSUO, MUTSU, HIRAMASA, KANPACHI, SHIIRA, KATSUO, KIHADA],
+  fish: [MUROAJI, ISAKI, SAWARA, SOUDAGATSUO, MUTSU, HIRAMASA, KANPACHI, SHIIRA, KATSUO, KIHADA, ...EXTRA_FISH.oki],
   bosses: [
     ["hiramasa", "#b08a1e", 5],
     ["kanpachi", "#8a5a2b", 5],

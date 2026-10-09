@@ -117,10 +117,11 @@ test("ゲームの背景(D-385):表の 6 つの釣り場には絵があり、あ
   assert.equal(areaBackground(null), null);
 });
 
-test("6 つの釣り場の魚(D-386〜D-391):弱い魚 5・強い魚 5 は 32 × 32 で 16 色まで、ヌシ 5 は飾りつきの 36 × 36 で 24 色まで。どれも点検に通る", () => {
+test("6 つの釣り場の魚(D-386〜D-391・D-406):弱い魚 10・強い魚 5 は 32 × 32 で 16 色まで、ヌシ 5 は飾りつきの 36 × 36 で 24 色まで。どれも点検に通る", () => {
   for (const [arts, lo, hi] of [[FISH_MINATO, 1, 5], [FISH_ISO, 6, 10], [FISH_KAWA, 11, 15], [FISH_OKI, 16, 20], [FISH_GAIYOU, 21, 25], [FISH_SHINKAI, 26, 30]]) {
-    const rows = FISH_ROWS.filter((r) => r.stage >= lo && r.stage <= hi);
-    assert.deepEqual(Object.keys(arts).sort(), rows.map((r) => r.id).sort(), `段階 ${lo}〜${hi} の魚 15 匹(ヌシを含む)が全部ある`);
+    // 珍しい魚(ゴールデン)は、元の魚の絵の色を金に替えて使うので、絵の表には持たない(D-406)。
+    const rows = FISH_ROWS.filter((r) => r.stage >= lo && r.stage <= hi && !r.rare);
+    assert.deepEqual(Object.keys(arts).sort(), rows.map((r) => r.id).sort(), `段階 ${lo}〜${hi} の魚 20 匹(ヌシを含む)が全部ある`);
     for (const r of rows) {
       const a = arts[r.id];
       assert.equal(a.id, r.id);

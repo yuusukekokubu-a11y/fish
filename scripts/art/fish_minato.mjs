@@ -5,6 +5,7 @@
 
 import { KURODAI } from "../../src/art/fish/kurodai.js";
 import { writeFishModule } from "./fish_common.mjs";
+import { EXTRA_FISH } from "./fish_extra.mjs";
 
 /** どの魚にも使う目と口の色。 */
 const EYE = { pupil: "#14161c", eyeRing: "#d9dde0", eyeHi: "#ffffff", mouth: "#3a2a2a" };
@@ -363,7 +364,7 @@ await writeFishModule({
   areaName: "港",
   script: "scripts/art/fish_minato.mjs",
   decision: "D-386",
-  fish: [AJI, IWASHI, SABA, KISU, KAWAHAGI, { id: "kurodai", name: "クロダイ", grid: kuroGrid }, SUZUKI, HIRAME, WARASA, BURI],
+  fish: [AJI, IWASHI, SABA, KISU, KAWAHAGI, { id: "kurodai", name: "クロダイ", grid: kuroGrid }, SUZUKI, HIRAME, WARASA, BURI, ...EXTRA_FISH.minato],
   bosses: [
     ["kurodai", "#9c4f1c", 6],
     ["suzuki", "#9d2f17", 5],

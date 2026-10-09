@@ -26,18 +26,26 @@ import { hookGood, progressAt } from "./helpers.js";
 
 const LIMITS = DEFAULT_CONFIG.minigame;
 
-test("各段階に、弱い魚・強い魚・ヌシが 1 種類ずつあり、設定表の点検に問題がない", () => {
+test("各段階に、弱い魚 2 種類・強い魚・ヌシが 1 種類ずつあり(D-406)、設定表の点検に問題がない", () => {
   assert.deepEqual(checkContent(DEFAULT_CONTENT), []);
   for (const { stage } of STAGE_LIST) {
-    const at = FISH_LIST.filter((f) => f.stage === stage);
-    assert.deepEqual(at.map((f) => f.kind).sort(), [FISH_KINDS.BOSS, FISH_KINDS.STRONG, FISH_KINDS.WEAK]);
+    const at = FISH_LIST.filter((f) => f.stage === stage && !f.rare);
+    assert.deepEqual(at.map((f) => f.kind).sort(), [FISH_KINDS.BOSS, FISH_KINDS.STRONG, FISH_KINDS.WEAK, FISH_KINDS.WEAK]);
+  }
+  // 珍しい魚は、釣り場ごとに 2 種類(段階 1 と 3 に)。弱い魚の区分で、元の魚がある。
+  const rares = FISH_LIST.filter((f) => f.rare);
+  assert.equal(rares.length, 12);
+  for (const f of rares) {
+    assert.equal(f.kind, FISH_KINDS.WEAK);
+    assert.ok(FISH_LIST.some((b) => b.id === f.base && !b.rare), f.id);
+    assert.ok([1, 3].includes(((f.stage - 1) % 5) + 1), f.id);
   }
   assert.equal(DEFAULT_CONTENT.maxStage, STAGE_LIST.length);
 });
 
 test("港・磯・川・沖・外洋・深海の魚の名前(D-277・D-347・D-377)。マグロは外洋の最後(クロマグロ)", () => {
   const RANGE = { 港: [1, 5], 磯: [6, 10], 川: [11, 15], 沖: [16, 20], 外洋: [21, 25], 深海: [26, 30] };
-  const names = (kind, area) => FISH_LIST.filter((f) => f.kind === kind && f.stage >= RANGE[area][0] && f.stage <= RANGE[area][1]).map((f) => f.name);
+  const names = (kind, area) => FISH_LIST.filter((f) => f.kind === kind && !f.rare && f.stage >= RANGE[area][0] && f.stage <= RANGE[area][1] && (kind !== FISH_KINDS.WEAK || FISH_LIST.find((x) => x.kind === kind && !x.rare && x.stage === f.stage) === f)).map((f) => f.name);
   assert.deepEqual(names(FISH_KINDS.WEAK, "港"), ["アジ", "イワシ", "サバ", "キス", "カワハギ"]);
   assert.deepEqual(names(FISH_KINDS.STRONG, "港"), ["クロダイ", "スズキ", "ヒラメ", "ワラサ", "ブリ"]);
   assert.deepEqual(names(FISH_KINDS.BOSS, "港"), ["ヌシ・クロダイ", "ヌシ・スズキ", "ヌシ・ヒラメ", "ヌシ・ワラサ", "ヌシ・ブリ"]);
@@ -58,10 +66,11 @@ test("港・磯・川・沖・外洋・深海の魚の名前(D-277・D-347・D-3
   assert.deepEqual(names(FISH_KINDS.BOSS, "深海"), ["ヌシ・アンコウ", "ヌシ・アカムツ", "ヌシ・ラブカ", "ヌシ・リュウグウノツカイ", "ヌシ・シーラカンス"]);
   // マグロは外洋の最後(クロマグロ:D-272・D-347)。
   assert.deepEqual(FISH_LIST.filter((f) => /マグロ/.test(f.name)).map((f) => [f.id, f.stage]), [["kuromaguro", 25], ["nushi-kuromaguro", 25]]);
-  assert.deepEqual(FISH_LIST.map((f) => f.stage), Array.from({ length: 30 }, (_, i) => i + 1).flatMap((g) => [g, g, g]));
+  const base = FISH_LIST.filter((f) => !f.rare && FISH_LIST.find((x) => x.kind === f.kind && !x.rare && x.stage === f.stage) === f);
+  assert.deepEqual(base.map((f) => f.stage), Array.from({ length: 30 }, (_, i) => i + 1).flatMap((g) => [g, g, g]));
   // 識別名はローマ字の固定文字列。ヌシは「nushi-」+ 強い魚の識別名(D-377)。
   assert.deepEqual(
-    FISH_LIST.filter((f) => f.stage >= 21).map((f) => f.id),
+    base.filter((f) => f.stage >= 21).map((f) => f.id),
     ["tobiuo", "makajiki", "sanma", "binnaga", "kamasu", "mebachi", "urumeiwashi", "kurokajiki", "datsu", "kuromaguro", "sokodara", "ankou", "hadakaiwashi", "akamutsu", "hiuchidai", "rabuka", "ginzame", "ryuuguunotsukai", "kinmedai", "shiirakansu"]
       .flatMap((id, i) => (i % 2 === 1 ? [id, `nushi-${id}`] : [id])),
   );
@@ -92,7 +101,7 @@ test("ヌシの体力は同じ段階の強い魚より多く、制限時間は�
 
 test("段階 1 の魚のミニゲームの手触りは前のまま", () => {
   const [normal, strong] = [availableFish(1, FISH_KINDS.WEAK), availableFish(1, FISH_KINDS.STRONG)];
-  assert.equal(normal.length, 1);
+  assert.equal(normal.length, 2, "弱い魚は段階ごとに 2 種類(D-406)");
   assert.equal(strong.length, 1);
   // 印の速さと当たり範囲の幅は Issue #4 のまま。体力と制限時間は体力制で足した(D-063)。
   assert.equal(strong[0].minigame.sweepMs, 900);
@@ -153,10 +162,15 @@ test("強い魚ごとの設定が、当たり範囲の幅と印の動きに反�
 });
 
 test("重みは段階ごとに 2 倍で、境界の値で正しく選ぶ", () => {
-  const list = availableFish(3, FISH_KINDS.WEAK);
+  // 同じ段階の 2 種類は、その段階の重みを半分ずつ(D-406)。ここは強い魚(段階ごとに 1 種類)で確かめる。
+  const list = availableFish(3, FISH_KINDS.STRONG);
   assert.deepEqual(list.map((f) => fishWeight(f)), [1, 2, 4]);
   // 釣り場の中の位置で数える(磯の段階 1〜3 も 1・2・4:D-275)。
-  assert.deepEqual(availableFish(8, FISH_KINDS.WEAK, undefined, 6).map((f) => fishWeight(f, 6)), [1, 2, 4]);
+  assert.deepEqual(availableFish(8, FISH_KINDS.STRONG, undefined, 6).map((f) => fishWeight(f, 6)), [1, 2, 4]);
+  // 弱い魚:段階 1 の 2 種類は合計 1(半分ずつ)。[0, 0.5/7) は 1 種類目、[0.5/7, 1/7) は 2 種類目。
+  const weak = availableFish(3, FISH_KINDS.WEAK);
+  assert.equal(pickWeighted(weak, 0.4999 / 7).id, weak[0].id);
+  assert.equal(pickWeighted(weak, 0.5001 / 7).id, weak[1].id);
   // 合計 7 のうち、[0, 1/7) は段階 1、[1/7, 3/7) は段階 2、[3/7, 1) は段階 3。
   assert.equal(pickWeighted(list, 0).stage, 1);
   assert.equal(pickWeighted(list, 0.9999 / 7).stage, 1);
@@ -169,12 +183,14 @@ test("重みは段階ごとに 2 倍で、境界の値で正しく選ぶ", () =>
 test("表の行は項目名つきで、数値を持たない(数値は式から:D-136・D-225)", () => {
   for (const row of FISH_ROWS) {
     // cm は標準の大きさ(図鑑:D-405)。見た目と同じく、魚ごとに決める事実の数。
-    assert.deepEqual(Object.keys(row), ["id", "name", "kind", "stage", "color", "size", "cm"], row.id);
+    assert.deepEqual(Object.keys(row), row.rare ? ["id", "name", "kind", "stage", "color", "size", "cm", "rare", "base"] : ["id", "name", "kind", "stage", "color", "size", "cm"], row.id);
     assert.ok(["weak", "strong", "boss"].includes(row.kind), row.id);
     assert.ok(!Object.values(row).some((v) => typeof v === "object"), `${row.id} に数の表がない`);
   }
   // 行から作った中の形(報酬は reward にまとまる、段階は魚の表から作り、進化の鱗はヌシ)。
-  assert.deepEqual(FISH_LIST[1].reward, { coins: 5, scales: 1 });
+  assert.deepEqual(FISH_LIST.find((f) => f.id === "kurodai").reward, { coins: 5, scales: 1 });
+  // 珍しい魚は弱い魚 × 15(強い魚の 3 倍:D-406)。鱗は落とさない。
+  assert.deepEqual(FISH_LIST.find((f) => f.id === "gold-aji").reward, { coins: 15, scales: 0 });
   assert.deepEqual(STAGE_LIST[0].evolve, { scale: "nushi-kurodai", count: 1 });
   assert.deepEqual(STAGE_LIST.map((s) => s.craft.scale), ["kurodai", "suzuki", "hirame", "warasa", "buri", "mejina", "ishidai", "budai", "ishigakidai", "kue", "yamame", "ayu", "namazu", "nijimasu", "itou", "hiramasa", "kanpachi", "shiira", "katsuo", "kihada", "makajiki", "binnaga", "mebachi", "kurokajiki", "kuromaguro", "ankou", "akamutsu", "rabuka", "ryuuguunotsukai", "shiirakansu"]);
 });

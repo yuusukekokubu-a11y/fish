@@ -60,8 +60,8 @@ test("新しい魚ほど出やすい(区分ごとに、釣り場の中で段階�
   for (const [stage, first] of [[5, 1], [10, 6]]) {
     const casts = castsAt(11, stage, 40000);
     for (const kind of [FISH_KINDS.WEAK, FISH_KINDS.STRONG]) {
-      const counts = FISH_LIST.filter((f) => f.kind === kind && f.stage >= first && f.stage <= stage).map((f) => casts.filter((c) => c.fish.id === f.id).length);
-      assert.equal(counts.length, 5);
+      // 段階ごとの回数(弱い魚は段階ごとに 2 種類の合計。珍しい魚は数えない:D-406)。
+      const counts = Array.from({ length: 5 }, (_, i) => casts.filter((c) => c.fish.kind === kind && !c.fish.rare && c.fish.stage === first + i).length);
       for (let i = 1; i < counts.length; i++) assert.ok(counts[i] > counts[i - 1], `${kind}:${counts}`);
     }
   }
@@ -119,8 +119,12 @@ test("全段階で、待ち時間の平均は 3〜6 秒、強い魚は 2000 回�
 
 test("報酬:段階が上の魚ほどウロコインが多い。弱い魚は鱗なし、強い魚とヌシは鱗 1", () => {
   for (const kind of Object.values(FISH_KINDS)) {
-    const list = FISH_LIST.filter((f) => f.kind === kind).sort((a, b) => a.stage - b.stage);
-    for (let i = 1; i < list.length; i++) assert.ok(list[i].reward.coins > list[i - 1].reward.coins, list[i].name);
+    // 同じ段階の 2 種類は同じウロコイン(D-406)。珍しい魚は別に数える。
+    const list = FISH_LIST.filter((f) => f.kind === kind && !f.rare).sort((a, b) => a.stage - b.stage);
+    for (let i = 1; i < list.length; i++) {
+      if (list[i].stage === list[i - 1].stage) assert.equal(list[i].reward.coins, list[i - 1].reward.coins, list[i].name);
+      else assert.ok(list[i].reward.coins > list[i - 1].reward.coins, list[i].name);
+    }
     for (const f of list) assert.equal(f.reward.scales, kind === FISH_KINDS.WEAK ? 0 : 1, f.name);
   }
 });
@@ -157,7 +161,8 @@ test("初めて釣れた魚だけ firstCatch になり、一覧に加わる", ()
   const firsts = game.results.filter((r) => r.firstCatch).map((r) => r.fishId);
   assert.deepEqual(firsts, [...new Set(firsts)]);
   assert.deepEqual([...game.progress.seen].sort(), [...firsts].sort());
-  assert.deepEqual([...game.progress.seen].sort(), ["aji", "kurodai"]);
+  // 段階 1 の弱い魚は 2 種類(アジ・ハゼ)と、まれに珍しい魚(ゴールデンアジ)(D-406)。
+  assert.deepEqual([...game.progress.seen].sort(), ["aji", "gold-aji", "haze", "kurodai"]);
 });
 
 test("次の段階の魚は、進化したあとの次の投げから初めて出る", () => {

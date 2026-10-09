@@ -33,7 +33,9 @@ const F = DEFAULT_CONFIG.formula;
 
 test("魚と段階の数値は全部、通し番号 g の式から作られている", () => {
   for (const f of DEFAULT_CONTENT.fish) {
-    assert.deepEqual(f.reward, { coins: fishCoins(f.kind, f.stage), scales: fishScales(f.kind, f.stage) }, f.id);
+    // 珍しい魚は弱い魚 × rareCoinRatio(D-406)。
+    const coins = f.rare ? round2(fishCoins(f.kind, f.stage) * F.rareCoinRatio) : fishCoins(f.kind, f.stage);
+    assert.deepEqual(f.reward, { coins, scales: fishScales(f.kind, f.stage) }, f.id);
     assert.deepEqual(f.minigame, f.kind === FISH_KINDS.WEAK ? null : fishMinigame(f.kind, f.stage), f.id);
   }
   for (const s of DEFAULT_CONTENT.stages) {

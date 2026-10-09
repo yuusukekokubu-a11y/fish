@@ -5,7 +5,7 @@
 import { critSeed } from "./combat.js";
 import { AREA_ROWS, areaOfStage, makeAreas } from "./areas.js";
 import { DEFAULT_CONFIG } from "./config.js";
-import { availableFish, effectiveMinigame, FISH_KINDS, FISH_LIST, pickWeighted } from "./fish.js";
+import { availableFish, effectiveMinigame, FISH_KINDS, FISH_LIST, pickWeighted, rareFish } from "./fish.js";
 import { softenMinigame } from "./formula.js";
 import { zoneAt } from "./minigame.js";
 import { createRng } from "./rng.js";
@@ -41,11 +41,26 @@ export function resolveCast(raw, config, list, range) {
   const kind = strong ? FISH_KINDS.STRONG : FISH_KINDS.WEAK;
   // 区分の中での位置を 0〜1 に引きのばし、その値で種類を選ぶ。
   const v = strong ? u / strongChance : (u - strongChance) / (1 - strongChance);
-  const fish = pickWeighted(availableFish(range.max, kind, list, range.min), v, range.min);
+  const fish = strong ? pickWeighted(availableFish(range.max, kind, list, range.min), v, range.min) : pickWeak(v, config, list, range);
   const minigame = effectiveMinigame(fish, config.minigame);
   if (!minigame || seedValue === null) return { waitMs, kind, fish, minigame: null, zone: null, minigameSeed: null, raw };
   const zone = zoneAt(seedValue, { zoneWidth: minigame.zoneWidth, zoneMargin: config.minigame.zoneMargin });
   return { waitMs, kind, fish, minigame, zone, minigameSeed: Math.floor(seedValue * 4294967296), raw };
+}
+
+/**
+ * 弱い魚を選ぶ(D-406)。v の上の端 rareChance の分を、釣り場の珍しい魚に割り当てる(乱数は引かない。引く順番と数は変わらない)。
+ * 珍しい魚がいなければ、今までどおり弱い魚から選ぶ。
+ * @param {number} v @param {any} config @param {readonly any[]} list @param {{ min: number, max: number }} range
+ */
+function pickWeak(v, config, list, range) {
+  const rares = rareFish(range.max, list, range.min);
+  const chance = rares.length > 0 ? config.rareChance ?? 0 : 0;
+  if (chance > 0 && v >= 1 - chance) {
+    const w = Math.min(rares.length - 1, Math.floor(((v - (1 - chance)) / chance) * rares.length));
+    return rares[w];
+  }
+  return pickWeighted(availableFish(range.max, FISH_KINDS.WEAK, list, range.min), chance > 0 ? v / (1 - chance) : v, range.min);
 }
 
 /**

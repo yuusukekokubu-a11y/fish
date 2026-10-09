@@ -4,6 +4,7 @@
 // 書き出すのは src/art/fish/gaiyou.js(手で直さない)。使い方:node scripts/art/fish_gaiyou.mjs
 
 import { writeFishModule } from "./fish_common.mjs";
+import { EXTRA_FISH } from "./fish_extra.mjs";
 
 /** どの魚にも使う目と口の色。 */
 const EYE = { pupil: "#14161c", eyeRing: "#d9dde0", eyeHi: "#ffffff", mouth: "#3a2a2a" };
@@ -409,7 +410,7 @@ await writeFishModule({
   areaName: "外洋",
   script: "scripts/art/fish_gaiyou.mjs",
   decision: "D-390",
-  fish: [TOBIUO, SANMA, KAMASU, URUMEIWASHI, DATSU, MAKAJIKI, BINNAGA, MEBACHI, KUROKAJIKI, KUROMAGURO],
+  fish: [TOBIUO, SANMA, KAMASU, URUMEIWASHI, DATSU, MAKAJIKI, BINNAGA, MEBACHI, KUROKAJIKI, KUROMAGURO, ...EXTRA_FISH.gaiyou],
   bosses: [
     ["makajiki", "#1d2d50", 9],
     ["binnaga", "#2c4f7c", 5],

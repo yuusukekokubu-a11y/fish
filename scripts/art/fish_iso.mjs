@@ -4,6 +4,7 @@
 // 書き出すのは src/art/fish/iso.js(手で直さない)。使い方:node scripts/art/fish_iso.mjs
 
 import { writeFishModule } from "./fish_common.mjs";
+import { EXTRA_FISH } from "./fish_extra.mjs";
 
 /** どの魚にも使う目と口の色。 */
 const EYE = { pupil: "#14161c", eyeRing: "#d9dde0", eyeHi: "#ffffff", mouth: "#3a2a2a" };
@@ -424,7 +425,7 @@ await writeFishModule({
   areaName: "磯",
   script: "scripts/art/fish_iso.mjs",
   decision: "D-387",
-  fish: [BERA, KASAGO, MEBARU, AINAME, SOI, MEJINA, ISHIDAI, BUDAI, ISHIGAKIDAI, KUE],
+  fish: [BERA, KASAGO, MEBARU, AINAME, SOI, MEJINA, ISHIDAI, BUDAI, ISHIGAKIDAI, KUE, ...EXTRA_FISH.iso],
   bosses: [
     ["mejina", "#1d3557", 6],
     ["ishidai", "#495057", 6],
