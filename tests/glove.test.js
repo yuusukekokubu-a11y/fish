@@ -9,6 +9,8 @@ import { createGame, currentHookTiming, fightSweepMs, OUTCOMES, PHASES, REASONS,
 import { makeCrates } from "../src/core/gear.js";
 import {
   abilityAllows,
+  canOpenFragmentCrate,
+  copyGloves,
   coverLimit,
   crateRng,
   dismantleGlove,
@@ -16,9 +18,9 @@ import {
   equipGlove,
   GLOVE_ABILITY_ROWS,
   GLOVE_RARITY_ROWS,
-  gloveRefund,
   gloveValue,
   openCrate,
+  openFragmentCrate,
   setGloveLocked,
 } from "../src/core/glove.js";
 import { gloveEffect, gloveOutOfRange, inGrazeBand, retryStock } from "../src/core/glove_play.js";
@@ -27,6 +29,7 @@ import { decodeSaveCode, encodeSaveCode, parseSave } from "../src/core/savecode.
 import { readSaveCode, signSaveCode } from "../src/core/signed_code.js";
 import { CURRENT_KEY } from "../src/ui/save_sign.js";
 import { startQuickFight } from "../src/ui/debug_view.js";
+import { fragmentView } from "../src/ui/glove_view.js";
 import { progressAt, readText, toV8, withDefense } from "./helpers.js";
 
 const SEED = 777;
@@ -183,7 +186,7 @@ test("釣れるクレート:合わせの成功でグローブが手に入る(グ
   assert.equal(game.progress.gloves.items.length, 1);
 });
 
-test("持ち物:上限 20(いっぱいなら開けない)。装着は 1 つ。分解でウロコイン(ロック中は分解できない)", () => {
+test("持ち物:上限 20(いっぱいなら開けない)。装着は 1 つ。分解でグローブの欠片 1 個(ロック中は分解できない:D-410)", () => {
   const bag = { items: [], equipped: null, nextId: 1, rolls: 0 };
   for (let i = 0; i < 20; i++) assert.ok(openCrate(bag, SEED, i, 2, 20));
   assert.equal(openCrate(bag, SEED, 20, 2, 20), null);
@@ -192,20 +195,37 @@ test("持ち物:上限 20(いっぱいなら開けない)。装着は 1 つ。�
   assert.equal(equipGlove(bag, 5), true);
   assert.equal(bag.equipped, 5, "付け替え(1 つだけ)");
   assert.equal(equipGlove(bag, 99), false);
-  const crates = makeCrates(DEFAULT_CONTENT, DEFAULT_CONFIG);
   setGloveLocked(bag, 4, true);
-  assert.equal(dismantleGlove(bag, 4, crates), 0, "ロック中");
-  const refund = gloveRefund(bag.items.find((g) => g.id === 5), crates);
-  assert.ok(refund >= 1);
-  assert.equal(dismantleGlove(bag, 5, crates), refund);
+  assert.equal(dismantleGlove(bag, 4), 0, "ロック中");
+  assert.equal(bag.fragments ?? 0, 0);
+  assert.equal(dismantleGlove(bag, 5), 1);
   assert.equal(bag.equipped, null, "装着中を分解したら外れる");
-  assert.equal(bag.items.length, 19);
-  // 戻りは、グレードのクレートの価格の 1〜2 割。
-  for (const r of GLOVE_RARITY_ROWS) {
-    const price = crates[1].price;
-    const v = gloveRefund({ id: 1, ability: "retry", rarity: r.id, grade: 2 }, crates);
-    assert.ok(v >= Math.floor(price * 0.1) && v <= price * 0.2, `${r.id}:${v} / ${price}`);
+  assert.deepEqual([bag.items.length, bag.fragments], [19, 1]);
+  assert.equal(dismantleGlove(bag, 99), 0, "持ち物にない");
+});
+
+test("欠片のクレート(D-410):欠片 5 個で 1 回。グレードは渡した段階、乱数は欠片の塩と次の個体の番号から(同じなら同じグローブ)。保管がいっぱいなら開けない", () => {
+  const need = DEFAULT_CONFIG.glove.fragmentsPerCrate;
+  assert.equal(need, 5);
+  const bag = { items: [], equipped: null, nextId: 7, rolls: 3, fragments: 4 };
+  assert.equal(canOpenFragmentCrate(bag, need, 20), false, "4 個では開けない");
+  assert.equal(openFragmentCrate(bag, SEED, 9, need, 20), null);
+  bag.fragments = 11;
+  const twin = copyGloves(bag);
+  const g = openFragmentCrate(bag, SEED, 9, need, 20);
+  assert.ok(g);
+  assert.deepEqual([g.id, g.grade, bag.nextId, bag.fragments, bag.rolls], [7, 9, 8, 6, 3], "判定の回数(rolls)は変えない");
+  assert.deepEqual(openFragmentCrate(twin, SEED, 9, need, 20), g, "同じ種と番号なら同じグローブ");
+  const full = { items: Array.from({ length: 20 }, (_, i) => ({ id: i + 1, ability: "retry", rarity: "normal", grade: 1 })), equipped: null, nextId: 21, rolls: 0, fragments: 5 };
+  assert.equal(openFragmentCrate(full, SEED, 9, need, 20), null, "いっぱい");
+  // 100 回開けると、レア度は排出率どおりに散らばる(ノーマル 50%・レア 30%・エピック 15%・レジェンド 5% の目安)。
+  const many = { items: [], equipped: null, nextId: 1, rolls: 0, fragments: 5 * 400 };
+  const counts = {};
+  for (let i = 0; i < 400; i++) {
+    const x = openFragmentCrate(many, SEED, 3, need, 1000);
+    counts[x.rarity] = (counts[x.rarity] ?? 0) + 1;
   }
+  assert.ok(counts.normal > 150 && counts.normal < 250 && counts.legend > 5 && counts.legend < 40, JSON.stringify(counts));
 });
 
 test("対応段階:グレード g + 延長(+0〜+3)ちょうどまで効き、1 つ上では効かない(「対応外」)", () => {
@@ -413,20 +433,26 @@ test("保存の版 7:グローブが往復で元に戻る。壊れた系(能力�
   });
   const body = encodeSave(p);
   assert.deepEqual(decodeSave(body), { ok: true, progress: p });
+  // 欠片の数(版 12:D-410)も往復で元に戻る。欠片だけ持っていても progress.gloves を持つ。
+  const withFragments = { ...p, gloves: { ...p.gloves, fragments: 7 } };
+  assert.deepEqual(decodeSave(encodeSave(withFragments)), { ok: true, progress: withFragments });
+  const onlyFragments = progressAt(1, "none", { gloves: { items: [], equipped: null, nextId: 1, rolls: 0, fragments: 2 } });
+  assert.deepEqual(decodeSave(encodeSave(onlyFragments)).progress.gloves, onlyFragments.gloves);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p)), { ok: true, progress: p });
   const parts = body.split("~");
   const withGloves = (head, items) => [...parts.slice(0, 11), head, items, ...parts.slice(13)].join("~");
   assert.equal(decodeSave(withGloves(parts[11], parts[12])).ok, true);
   const bad = {
-    "存在しない能力": withGloves("0.2.", `1.${(10 * 4).toString(36)}.1`),
-    "ノーマルの自動合わせ": withGloves("0.2.", "1.0.1"),
-    "グレード 0": withGloves("0.2.", "1.4.0"),
-    "グレードが表より上": withGloves("0.2.", `1.4.${(DEFAULT_CONTENT.maxStage + 1).toString(36)}`),
-    "装着の番号が持ち物にない": withGloves("0.2.5", "1.4.1"),
-    "上限をこえる": withGloves("0.m.", Array.from({ length: 21 }, () => "1.4.1").join(",")),
-    "次の番号が持ち物以下": withGloves("0.1.", "1.4.1"),
-    "形がちがう": withGloves("0.2", "1.4.1"),
-    "ロックの印が 1 でない": withGloves("0.2.", "1.4.1.2"),
+    "存在しない能力": withGloves("0.2..0", `1.${(10 * 4).toString(36)}.1`),
+    "ノーマルの自動合わせ": withGloves("0.2..0", "1.0.1"),
+    "グレード 0": withGloves("0.2..0", "1.4.0"),
+    "グレードが表より上": withGloves("0.2..0", `1.4.${(DEFAULT_CONTENT.maxStage + 1).toString(36)}`),
+    "装着の番号が持ち物にない": withGloves("0.2.5.0", "1.4.1"),
+    "上限をこえる": withGloves("0.m..0", Array.from({ length: 21 }, () => "1.4.1").join(",")),
+    "次の番号が持ち物以下": withGloves("0.1..0", "1.4.1"),
+    "形がちがう": withGloves("0.2.", "1.4.1"),
+    "欠片の数が数でない": withGloves("0.2..x!", "1.4.1"),
+    "ロックの印が 1 でない": withGloves("0.2..0", "1.4.1.2"),
   };
   for (const [name, text] of Object.entries(bad)) assert.equal(decodeSave(text).ok, false, name);
   // グローブが既定の形(持ち物なし・判定 0 回)なら、progress.gloves を持たない。
@@ -441,10 +467,10 @@ test("互換の正解データ(compat_save_v7.json):保存の版 7 の署名な�
     const want = await toV8(c.progress);
     assert.deepEqual(decodeSaveCode(c.code), { ok: true, progress: want }, c.name);
     assert.deepEqual(parseSave(c.code), want, `${c.name}:ブラウザの保存としても読める`);
-    assert.match(encodeSaveCode(want), /^TSURI11-/, `${c.name}:書き出しは版 8`);
+    assert.match(encodeSaveCode(want), /^TSURI12-/, `${c.name}:書き出しは版 8`);
     assert.deepEqual(decodeSaveCode(encodeSaveCode(want)), { ok: true, progress: want }, `${c.name}:版 8 で往復`);
     assert.deepEqual(await readSaveCode(c.signed, { keys: [CURRENT_KEY] }), { ok: true, progress: want, signed: true, keyId: "dev", warning: null }, c.name);
-    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-11-/, `${c.name}:署名つきの書き出しは版 8`);
+    assert.match(await signSaveCode(want, CURRENT_KEY), /^TSURI5-dev-12-/, `${c.name}:署名つきの書き出しは版 8`);
     assert.match(c.signed, /^TSURI5-dev-7-/);
   }
   for (const c of fixture.rejected) {
@@ -477,4 +503,13 @@ test("セーブコードの増え:グローブ 20 個(全部レジェンド・�
   assert.ok(grown <= 400, `${grown}`);
   assert.deepEqual(decodeSaveCode(encodeSaveCode(p)), { ok: true, progress: p });
   console.log(`グローブ 20 個でのセーブコードの増え:${grown} 文字`);
+});
+
+test("欠片の表示(D-410):「グローブの欠片 n / 5」。5 個以上・空きあり・ガチャの種ありのときだけ開けられる。いっぱいなら理由", () => {
+  const view = (gloves, seed = SEED) => fragmentView(createGame(1, { progress: progressWith(8, gloves, { gear: { items: [], equipped: {}, draws: 0, seed, nextId: 1 } }) }));
+  assert.deepEqual([view(null).text, view(null).canOpen], ["グローブの欠片 0 / 5", false]);
+  const five = { items: [], equipped: null, nextId: 1, rolls: 0, fragments: 5 };
+  assert.deepEqual([view(five).text, view(five).canOpen, view(five).label], ["グローブの欠片 5 / 5", true, "グローブのクレートを開ける(欠片 5)"]);
+  const full = { items: Array.from({ length: 20 }, (_, i) => ({ id: i + 1, ability: "retry", rarity: "normal", grade: 1 })), equipped: null, nextId: 21, rolls: 0, fragments: 6 };
+  assert.deepEqual([view(full).canOpen, view(full).note], [false, "保管がいっぱいです。分解して空きを作ると開けられます"]);
 });

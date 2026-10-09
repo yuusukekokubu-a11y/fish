@@ -196,7 +196,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   // 餌(D-263):所持数の上限。
   bait: Object.freeze({ max: 99 }),
   // グローブ(D-332〜D-334):保管の上限、釣れるクレートの出現率(弱い魚の投ごと。D-337 で決めた)、仕切り直しのストックが増える魚の数。
-  glove: Object.freeze({ max: 20, crateChance: 0.005, retryEvery: 10, tailwindCapMs: 3000, minNormalBand: 0.2 }),
+  glove: Object.freeze({ max: 20, fragmentsPerCrate: 5, crateChance: 0.005, retryEvery: 10, tailwindCapMs: 3000, minNormalBand: 0.2 }),
   // クレートガチャ(D-140・D-147・D-149・D-253)。
   gacha: Object.freeze({
     targetSeconds: 15, // クレート 1 回分が貯まる目標の時間(シミュレーション上。D-253:120 → 60、D-355:60 → 15)

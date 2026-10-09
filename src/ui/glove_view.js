@@ -6,7 +6,8 @@
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { makeCrates } from "../core/gear.js";
-import { abilityById, coverLimit, equippedGlove, gloveEffectText, gloveName, gloveRarityById, gloveRefund, GLOVE_RARITY_ROWS } from "../core/glove.js";
+import { formatCount } from "./format.js";
+import { abilityById, coverLimit, equippedGlove, gloveEffectText, gloveName, gloveRarityById, GLOVE_RARITY_ROWS } from "../core/glove.js";
 import { gloveBag, retryStockView } from "../core/glove_play.js";
 import { stageLabel } from "./area_view.js";
 
@@ -35,9 +36,9 @@ function bagOf(game) {
 
 /**
  * グローブ 1 個の見せ方。
- * @param {any} game @param {Glove} glove @param {readonly { grade: number, price: number }[]} crates
+ * @param {any} game @param {Glove} glove @param {readonly { grade: number, price: number }[]} [_crates] 使わない(D-410)
  */
-export function gloveView(game, glove, crates) {
+export function gloveView(game, glove, _crates) {
   const ability = abilityById(glove.ability);
   const rarity = gloveRarityById(glove.rarity);
   const bag = bagOf(game);
@@ -55,7 +56,6 @@ export function gloveView(game, glove, crates) {
     cover: coverText(game.content, glove),
     equipped: bag.equipped === glove.id,
     locked: Boolean(glove.locked),
-    refund: gloveRefund(glove, crates),
   };
 }
 
@@ -71,6 +71,24 @@ export function gloveRows(game, crates = makeCrates(game.content, game.config)) 
   return [...bag.items]
     .sort((a, b) => Number(b.id === bag.equipped) - Number(a.id === bag.equipped) || rarityOrder(b.rarity) - rarityOrder(a.rarity) || b.id - a.id)
     .map((g) => gloveView(game, g, crates));
+}
+
+/**
+ * グローブの欠片(D-410):「グローブの欠片 3 / 5」と、欠片のクレートを開けられるか。
+ * @param {any} game
+ */
+export function fragmentView(game) {
+  const bag = bagOf(game);
+  const have = bag.fragments ?? 0;
+  const need = game.config.glove.fragmentsPerCrate;
+  const full = bag.items.length >= game.config.glove.max;
+  const seeded = game.progress.gear?.seed !== null && game.progress.gear?.seed !== undefined;
+  return {
+    text: `グローブの欠片 ${formatCount(have)} / ${need}`,
+    label: `グローブのクレートを開ける(欠片 ${need})`,
+    canOpen: have >= need && !full && seeded,
+    note: have >= need && full ? "保管がいっぱいです。分解して空きを作ると開けられます" : `グローブを分解すると欠片 1 個。${need} 個でグローブのクレートを 1 回開けられます(グレードは今の竿の段階)`,
+  };
 }
 
 /** 持ち物の数(「グローブ 3 / 20」)と、いっぱいか。 @param {any} game */

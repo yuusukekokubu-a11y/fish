@@ -1,0 +1,82 @@
+{
+  "note": "互換の正解データ(D-410)。保存の版 12(グローブの欄の頭に欠片の数:判定の回数.次の個体の番号.装着中の番号.欠片の数)。code は署名なし(TSURI12-本文-印)、signed は仮の鍵(dev。秘密ではない)で署名したセーブコード(TSURI5-dev-12-…)。これからの版でも、このコードが読めて同じ結果になることをテストで守る。消さない・書き換えない。",
+  "version": 12,
+  "cases": [
+    {
+      "name": "初めの状態(欠片 0)",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        }
+      },
+      "code": "TSURI12-0~1.0~~~0..1~~~~0.0.0~~0~0.1..0~~0.......~.~-0be5c43e",
+      "signed": "TSURI5-dev-12-0~1.0~~~0..1~~~~0.0.0~~0~0.1..0~~0.......~.~-wULhhEv5Df0YwQsnNJTdCQ"
+    },
+    {
+      "name": "グローブ 2 個・欠片 3 個",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 8,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": 4242,
+          "nextId": 1
+        },
+        "gloves": {
+          "items": [
+            {
+              "id": 2,
+              "ability": "retry",
+              "rarity": "rare",
+              "grade": 7
+            },
+            {
+              "id": 5,
+              "ability": "insurance",
+              "rarity": "legend",
+              "grade": 8,
+              "locked": true
+            }
+          ],
+          "equipped": 5,
+          "nextId": 6,
+          "rolls": 321,
+          "fragments": 3
+        }
+      },
+      "code": "TSURI12-0~8.0~~~0.39u.1~~~~0.0.0~~0~8x.6.5.3~2.5.7,3.b.8.1~0.......~.~-ccef1e19",
+      "signed": "TSURI5-dev-12-0~8.0~~~0.39u.1~~~~0.0.0~~0~8x.6.5.3~2.5.7,3.b.8.1~0.......~.~-Ym7y0s5rJhA1C4CoZThsHA"
+    }
+  ],
+  "rejected": [
+    {
+      "name": "欠片の数がない(版 11 の形のまま)",
+      "code": "TSURI12-0~8.0~~~0.39u.1~~~~0.0.0~~0~8x.6.5~2.5.7,3.b.8.1~0.......~.~-7110fb4e",
+      "error": "content"
+    },
+    {
+      "name": "欠片の数が数でない",
+      "code": "TSURI12-0~8.0~~~0.39u.1~~~~0.0.0~~0~8x.6.5.x!~2.5.7,3.b.8.1~0.......~.~-4b1ef317",
+      "error": "content"
+    },
+    {
+      "name": "欄が多すぎる",
+      "code": "TSURI12-0~8.0~~~0.39u.1~~~~0.0.0~~0~8x.6.5.3.1~2.5.7,3.b.8.1~0.......~.~-2c282374",
+      "error": "content"
+    }
+  ]
+}
