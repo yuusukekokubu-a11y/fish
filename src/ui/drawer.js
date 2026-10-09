@@ -7,6 +7,7 @@
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { button, el } from "./list_view.js";
+import { iconElement } from "./icons.js";
 import { drawerItems } from "./screens.js";
 
 /**
@@ -28,11 +29,19 @@ export function createDrawer({ app, toggle, hud, screens, onSelect, onOpenChange
   const list = el("ul", "drawer-list");
   for (const item of drawerItems(screens)) {
     const li = el("li");
-    const b = button(item.label, "drawer-item");
+    // 印・名前(と「!」)・一言(D-400)。
+    const b = button("", "drawer-item");
     b.dataset.screen = item.id;
+    const icon = iconElement(item.id);
+    if (icon) b.append(icon);
+    const text = el("span", "drawer-text");
+    const label = el("span", "drawer-label", item.label);
     const badge = el("span", "drawer-badge", "!");
     badge.hidden = true;
-    b.append(badge);
+    label.append(badge);
+    text.append(label);
+    if (item.note) text.append(el("span", "drawer-note", item.note));
+    b.append(text);
     b.addEventListener("click", () => {
       const replace = isDrawerEntry();
       setOpen(false, "select");

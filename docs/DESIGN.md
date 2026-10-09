@@ -28,6 +28,7 @@
 | --- | --- |
 | `index.html` | 画面の入り口。見た目の枠と文字の置き場所(見た目は `src/ui/theme.css`・`main.css`:D-398)。 |
 | `src/ui/theme.css` | 見た目の土台(D-398)。色・1 ドットの太さ・箱の縁(べベル)・木目・コインの印を CSS の変数と小さな部品(`.wall`・`.plank`・`.px-coin`・`.nailed`)で 1 か所に置く。ほかの CSS はこの変数を使う。 |
+| `src/ui/icons.js` | 目次と全画面のバーのドット絵の印(`ICON_ROWS`・`iconUrl`・`iconElement`:D-400)。 |
 | `src/ui/px_draw.js` | 釣りの絵の中の「ドット絵の箱」(`pxBox`・`pxBar`・`pxLabel`・`pxText`)。theme.css と同じ色の値を持つ(canvas からは CSS の変数を読めない)。体力のバー・命中のゲージ・残り時間・札を draw.js がこれで描く(D-399)。 |
 | `src/ui/main.css` | 釣りのメイン画面(上の欄・釣りの絵の上の文とボタン・下の欄・目次)の見た目。index.html の `<style>` から分けた(D-398)。 |
 | `src/core/` | 計算本体(D-028)。画面に触らない。ブラウザなしでテストできる。 |
@@ -277,7 +278,7 @@
 
 ### 目次と全画面の作り、画面を足す手順(D-152〜D-155・D-161〜D-164)
 
-- 画面の表:`src/ui/screens.js` の `SCREENS`。1 行に `{ id, title, mount }`。目次(`drawer.js`)はこの表から項目を作る。
+- 画面の表:`src/ui/screens.js` の `SCREENS`。1 行に `{ id, title, note, mount }`(note は目次に小さく出す一言:D-400)。目次(`drawer.js`)はこの表から項目を作り、印(`icons.js` の `ICON_ROWS`。11 × 11 マスのドット絵を文字の並びで持つ)を付ける。全画面のバーにも同じ印。
 - 画面の切り替えの状態:`{ drawer, screen }`(`initialNav`・`setDrawer`・`showScreen`・`isPaused`)。どちらかが開いていれば、窓口(`session.js`)の `setPaused` で釣りを止める。計算本体は、止まっていることを知らない。
 - 全画面の枠:`screen_shell.js` の `createScreenShell`。上のバー(「←」・タイトル・ウロコイン)と中身。中身は、画面に移るたびと `ctx.rerender()` のたびに作り直す(作り直しではスクロールの位置を保つ)。
 - 目次の履歴(D-173・D-179):開くと `history.pushState({ drawer: true })`。「戻る」で閉じる。✕や外側で閉じたときは `history.back()` で足した履歴を戻す。項目を押したときは、目次の履歴を画面の履歴に置き換える(`navigate(id, { replace: true })`)。
@@ -291,7 +292,7 @@
 1. 中身を作る部品を作る。
    - 一覧の画面:`screen_views.js` に `(ctx) => ({ header, sections: [{ title, rows: [{ label, value, detail }] }] })` を作り、表には `mountList(その関数)` を渡す。画面に触らないので、テストで中身を確かめられる。
    - 自由な中身の画面:`(container, ctx) => { ... }` で要素を作る(`equip_screen.js` と同じ形)。新しいファイルは先頭に `// @ts-check` を書き、JSDoc で型を書いて `tsconfig.json` の `files` に足す。
-2. `SCREENS` に `{ id, title, mount }` を 1 行足す。目次の項目と、URL の `#id` が自動で増える(`tests/screens.test.js` が確かめている)。
+2. `SCREENS` に `{ id, title, note, mount }` を 1 行足す。目次の項目と、URL の `#id` が自動で増える(`tests/screens.test.js` が確かめている)。印は `icons.js` の `ICON_ROWS` に同じ id で 11 行足す(なければ印なし。`tests/screens.test.js` が、表の画面に印があることを確かめる)。
 3. 中身のテストを足す。ブラウザでは、ボタンの大きさ(44px 以上)と横スクロールがないことを確かめる。
 - `ctx` で使えるもの:`game`(ゲームの状態)、`app`(シートや演出を重ねる場所)、`storage.save`・`storage.clear`、`reload()`、`rerender()`、`navigate(id)`、`onGearChanged()`(装備が変わったら呼ぶ)。
 

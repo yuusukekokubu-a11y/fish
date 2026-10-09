@@ -93,3 +93,14 @@
 .nailed::after {
   right: 8px;
 }
+
+/* ドット絵の印(目次・全画面のバー:D-400)。11 マスを 3px で 33px。 */
+.px-icon {
+  display: inline-block;
+  flex: none;
+  width: 33px;
+  height: 33px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}

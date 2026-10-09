@@ -331,15 +331,16 @@ export function mountEquipment(container, ctx) {
     grid.append(cell);
   }
   slots.append(grid);
-  // グローブの枠(特殊枠。6 枠とは見た目を分ける:D-332)。
-  slots.append(
+  // グローブの枠(特殊枠。6 枠とは見た目を分ける:D-332)と、お守りの枠(降臨専用。付け替えは降臨の画面:D-392)を横に並べる(D-400)。
+  const special = el("div", "special-slots");
+  special.append(
     gloveSlot(ctx, crates, () => {
       listMode = "glove";
       ctx.rerender();
     }),
+    charmSlot(game),
   );
-  // お守りの枠(降臨専用。ガチャでは出ない:D-392)。付け替えは降臨の画面で行う。
-  slots.append(charmSlot(game));
+  slots.append(special);
 
   // 持ち物の切り替え(装備 / グローブ)。
   const tabs = el("div", "bag-tabs");
