@@ -4,7 +4,9 @@ import { test } from "node:test";
 
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createGame } from "../src/core/fishing.js";
-import { kourinView, charmEffectText } from "../src/ui/kourin_view.js";
+import { exchangeView, kourinView, charmEffectText } from "../src/ui/kourin_view.js";
+import { needPower, powerToCoins } from "../src/core/kourin.js";
+import { formatCount } from "../src/ui/format.js";
 import { addRaidEffects, raidMessage, raidNight, raidResultView, rewardText } from "../src/ui/kourin_fx.js";
 import { createEffects } from "../src/ui/effects.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
@@ -99,4 +101,14 @@ test("降臨の報酬の一覧(挑戦の終わりのシート):名前と Lv・�
   const win = raidResultView({ char: "ika", level: 3, defeated: true, damage: 90, hpLeft: 0, maxHp: 1000, rewards: [{ step: 10, type: "charm", charm: "toki", level: 3, fresh: false }] }, DEFAULT_CONTENT, 10);
   assert.equal(win.title, "刹那の大イカ Lv3を討伐!");
   assert.deepEqual([win.rows[0].tag, win.rows[0].text], ["お守り", "刻の守り が Lv3 に"]);
+});
+
+test("ウロコインに替える量(D-415):竿と同じレベルの相手 1 回分ずつ。最後の段は残り全部。ウロコパワー 0 なら段なし", () => {
+  const unit = needPower(7, DEFAULT_CONFIG.kourin);
+  const game = createGame(1, { progress: progressAt(7, "crafted", { kourin: { power: unit * 2 + 5, cleared: {}, raid: null } }) });
+  const ex = exchangeView(game, unit * 2 + 5);
+  assert.deepEqual([ex.unit, ex.steps, ex.amountAt(1), ex.amountAt(3)], [unit, 3, unit, unit * 2 + 5]);
+  assert.equal(ex.coinsAt(2), powerToCoins(unit * 2, 7, DEFAULT_CONFIG));
+  assert.equal(ex.label(1), `${formatCount(unit)} → ウロコイン ${formatCount(powerToCoins(unit, 7, DEFAULT_CONFIG))}`);
+  assert.equal(exchangeView(game, 0).steps, 0);
 });

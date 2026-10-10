@@ -174,6 +174,37 @@ export function convertScales(progress, content, c) {
   return { scales, power };
 }
 
+/**
+ * ウロコパワー 1 あたりのウロコイン(D-415)。竿の段階 stage の強い魚 1 匹の「ウロコイン ÷ ウロコパワー」× coinRate。
+ * 同じ時間に貯まる量の比はこれとほぼ同じ(シミュレーションで ±1 割)なので、1 時間ぶんのウロコパワーは約 coinRate 時間ぶんのウロコインになる。
+ * @param {number} stage @param {{ kourin: KourinConfig, formula: any }} config
+ */
+export function powerCoinRate(stage, config) {
+  const c = config.kourin;
+  return (c.coinRate * fishCoins("strong", stage, config.formula)) / catchPower("strong", false, stage, c);
+}
+
+/** amount のウロコパワーを替えたときのウロコイン(切り捨て)。 @param {number} amount @param {number} stage @param {any} config */
+export function powerToCoins(amount, stage, config) {
+  return Math.floor(amount * powerCoinRate(stage, config));
+}
+
+/**
+ * ウロコパワー amount をウロコインに替える(D-415)。解放済み・1 以上・貯金以下の整数で、ウロコインが 1 以上になるときだけ。
+ * @param {any} progress @param {any} content @param {any} config @param {number} amount
+ * @returns {{ power: number, coins: number }} 替えた量(替えられなければ 0 と 0)
+ */
+export function exchangePower(progress, content, config, amount) {
+  const k = kourinOf(progress);
+  if (!kourinUnlocked(progress, content) || !Number.isInteger(amount) || amount < 1 || amount > k.power) return { power: 0, coins: 0 };
+  const coins = powerToCoins(amount, progress.rodStage, config);
+  if (coins < 1) return { power: 0, coins: 0 };
+  const own = ensureKourin(progress);
+  own.power -= amount;
+  progress.coins = addCount(progress.coins, coins);
+  return { power: amount, coins };
+}
+
 /** 相手 id に次に挑むときの値段(次に挑むレベルの needPower:D-411)。 @param {KourinState} k @param {string} id @param {KourinConfig} c */
 export function challengeCost(k, id, c) {
   return needPower(raidLevel(k, id), c);

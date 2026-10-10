@@ -5,7 +5,7 @@
 import { activeCharm, CHARM_ROWS, charmValue } from "../core/charms.js";
 import { canStartRaid, PHASES } from "../core/fishing.js";
 import { percentText } from "../core/gear.js";
-import { KOURIN_ROWS, kourinById, kourinOf, kourinUnlocked, needPower, raidLevel, raidMinigame, scaleOffers } from "../core/kourin.js";
+import { KOURIN_ROWS, kourinById, kourinOf, kourinUnlocked, needPower, powerToCoins, raidLevel, raidMinigame, scaleOffers } from "../core/kourin.js";
 import { formatCount } from "./format.js";
 
 /** くせの短い説明(キャラの行の quirk)。 */
@@ -26,6 +26,29 @@ const CHARM_EFFECT_TEXT = Object.freeze({
 export function charmEffectText(id, value) {
   const f = CHARM_EFFECT_TEXT[/** @type {keyof typeof CHARM_EFFECT_TEXT} */ (id)];
   return f ? f(percentText(value)) : "";
+}
+
+/**
+ * ウロコパワー → ウロコインの交換(D-415)。量は「竿と同じレベルの相手 1 回分」(unit)ずつ選ぶ。最後の 1 段は残り全部。
+ * steps は選べる段の数(0 なら替えられない)。step 段目の量と、そのときのウロコイン。
+ * @param {any} game @param {number} power
+ */
+export function exchangeView(game, power) {
+  const { progress, config } = game;
+  const unit = needPower(progress.rodStage, config.kourin);
+  const steps = power >= 1 ? Math.ceil(power / unit) : 0;
+  /** @param {number} step */
+  const amountAt = (step) => Math.min(power, Math.max(1, step) * unit);
+  /** @param {number} step */
+  const coinsAt = (step) => powerToCoins(amountAt(step), progress.rodStage, config);
+  return {
+    unit,
+    steps,
+    amountAt,
+    coinsAt,
+    /** @param {number} step */
+    label: (step) => `${formatCount(amountAt(step))} → ウロコイン ${formatCount(coinsAt(step))}`,
+  };
 }
 
 /**
@@ -54,6 +77,7 @@ export function kourinView(game) {
       // 鱗をまとめてウロコパワーに替える(D-408)。竿の製作に要る分は残す。
       convertLabel: spare > 0 ? `鱗をウロコパワーに替える(+${formatCount(sparePower)})` : "鱗をウロコパワーに替える",
       canConvert: spare > 0,
+      exchange: exchangeView(game, k.power),
     },
     chars: KOURIN_ROWS.map((row) => {
       const level = raidLevel(k, row.id);
