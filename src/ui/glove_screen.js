@@ -8,7 +8,8 @@
 
 import { dismantleGlove, equipGlove, openFragmentCrate, setGloveLocked, unequipGlove } from "../core/glove.js";
 import { ensureGloveBag } from "../core/glove_play.js";
-import { fragmentView, gloveRows, gloveSpace, gloveSwapText } from "./glove_view.js";
+import { playPull } from "./gacha_fx.js";
+import { fragmentView, glovePullView, gloveRows, gloveSpace, gloveSwapText } from "./glove_view.js";
 import { button, el } from "./list_view.js";
 import { confirmSheet, openSheet } from "./sheet.js";
 
@@ -76,8 +77,11 @@ export function gloveList(ctx, crates) {
     if (!glove) return;
     ctx.onGearChanged();
     ctx.rerender();
+    // 開封の演出(D-414)。釣れるクレートと同じ演出で、結果の下の「詳細を見る」で詳細を開く。
     const v = gloveRows(game, crates).find((r) => r.id === glove.id);
-    if (v) openGloveSheet(ctx, v, crates);
+    const link = v ? { label: "詳細を見る", onClick: () => openGloveSheet(ctx, v, crates) } : null;
+    // glovePullView は演出に要る項目だけを持つ(装備の結果の形の一部)。
+    playPull(ctx.app, /** @type {any} */ (glovePullView(game, glove)),"欠片のクレート", () => ctx.rerender(), link);
   });
   fragBox.append(el("p", "glove-fragment-count", frag.text), open, el("p", "pull-note", frag.note));
   box.append(fragBox);
