@@ -1,0 +1,80 @@
+{
+  "note": "互換の正解データ(D-411)。保存の版 13(降臨の欄:貯めているウロコパワー.倒したレベル.呼んでいるキャラの番号.残りの体力.挑戦の回数.払った区切り。相手ごとの注入はなくした)。code は署名なし(TSURI13-本文-印)、signed は仮の鍵(dev。秘密ではない)で署名したセーブコード(TSURI5-dev-13-…)。これからの版でも、このコードが読めて同じ結果になることをテストで守る。消さない・書き換えない。",
+  "version": 13,
+  "cases": [
+    {
+      "name": "初めの状態",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 1,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        }
+      },
+      "code": "TSURI13-0~1.0~~~0..1~~~~0.0.0~~0~0.1..0~~0.....~.~-04da05e2",
+      "signed": "TSURI5-dev-13-0~1.0~~~0..1~~~~0.0.0~~0~0.1..0~~0.....~.~-N9M6r8BwCLyRaMWydh7vxQ"
+    },
+    {
+      "name": "ウロコパワー 5000・倒したレベル・大ガニを呼んでいる",
+      "progress": {
+        "coins": 0,
+        "scales": {},
+        "rodStage": 13,
+        "rodStep": "none",
+        "seen": [],
+        "gear": {
+          "items": [],
+          "equipped": {},
+          "draws": 0,
+          "seed": null,
+          "nextId": 1
+        },
+        "kourin": {
+          "power": 5000,
+          "cleared": {
+            "ebi": 3,
+            "tako": 1
+          },
+          "raid": {
+            "char": "kani",
+            "hp": 4321,
+            "tries": 2,
+            "paid": 3
+          }
+        },
+        "charms": {
+          "levels": {
+            "yaburi": 3
+          },
+          "equipped": "yaburi"
+        }
+      },
+      "code": "TSURI13-0~d.0~~~0..1~~~~0.0.0~~0~0.1..0~~3uw.3,0,1.1.3c1.2.3~2.0,0,3~-73bbe16a",
+      "signed": "TSURI5-dev-13-0~d.0~~~0..1~~~~0.0.0~~0~0.1..0~~3uw.3,0,1.1.3c1.2.3~2.0,0,3~-aAWW8GR-q2ikbY1pkltaPA"
+    }
+  ],
+  "rejected": [
+    {
+      "name": "注入の欄がある(版 12 の形のまま)",
+      "code": "TSURI13-0~d.0~~~0..1~~~~0.0.0~~0~0.1..0~~3ug.3,0,1...1.3c1.2.3~2.0,0,3~-c7b64a66",
+      "error": "content"
+    },
+    {
+      "name": "表にないキャラを呼んでいる",
+      "code": "TSURI13-0~d.0~~~0..1~~~~0.0.0~~0~0.1..0~~3ug.3,0,1.9.3c1.2.3~2.0,0,3~-3bb9a412",
+      "error": "content"
+    },
+    {
+      "name": "残りの体力 0",
+      "code": "TSURI13-0~d.0~~~0..1~~~~0.0.0~~0~0.1..0~~3ug.3,0,1.1.0.2.3~2.0,0,3~-8454234d",
+      "error": "content"
+    }
+  ]
+}

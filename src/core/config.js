@@ -168,7 +168,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   saveCode: Object.freeze({ acceptUnsigned: false }),
   // 降臨(D-396・D-397)。キャラの表は kourin.js、お守りの表は charms.js。
   kourin: Object.freeze({
-    // ウロコパワー(D-403):釣り上げと鱗で貯め、ねらう相手に注入する。どれも段階(レベル)が 1 上がるごとに growth 倍。
+    // ウロコパワー(D-403・D-411):釣り上げと鱗で貯め、挑むたびに払う。どれも段階(レベル)が 1 上がるごとに growth 倍。
     growth: 2,
     weakPower: 1, // 釣り上げ(弱い魚・餌の強い魚)× growth^(魚の段階 − 1)
     strongPower: 5, // 強い魚・ヌシ × growth^(魚の段階 − 1)

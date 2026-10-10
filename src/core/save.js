@@ -1,5 +1,5 @@
 // @ts-check
-// 保存の形(版 12:D-223・D-232・D-247・D-267・D-280・D-300・D-325・D-335・D-392・D-397・D-403・D-405)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
+// 保存の形(版 13:D-223・D-232・D-247・D-267・D-280・D-300・D-325・D-335・D-392・D-397・D-403・D-405)。ブラウザに保存するのは画面の役目で、ここは形の変換と点検だけを行う。
 // ②-4c 土台で互換性を 1 回だけ切り、版を 1 から数え直した(古い保存データと FISH2〜FISH7 は読まない)。
 //
 // 中身(本文)は、英小文字と数字の 36 進数で書いた数を、記号で区切った 1 行の文字列。「~」で 15 の欄に分ける:
@@ -13,10 +13,9 @@
 //     .グローブの欠片の数(版 12 で足した:D-410)
 //   ~ グローブの持ち物(「,」で。1 個:前の個体の番号との差.能力とレア度の番号.グレード、ロック中は最後に「.1」)
 //     能力とレア度の番号 = 能力の番号 × レア度の数 + レア度の番号(glove.js の表の順)。
-//   ~ 降臨:貯めているウロコパワー.キャラごとの倒したレベル.キャラごとの注入した量.そのうち鱗から入れた分
-//     (キャラごとの 3 つは kourin.js の表の順に「,」。最後の 0 は書かない)
+//   ~ 降臨:貯めているウロコパワー.キャラごとの倒したレベル(kourin.js の表の順に「,」。最後の 0 は書かない)
 //     .呼んでいるキャラの番号.残りの体力.挑戦の回数.払った区切りの数(呼んでいなければ、あとの 4 つは空)
-//     (版 8 で足し、版 9 で 4 キャラのレイドに、版 10 でゲージをウロコパワーと注入に変えた:D-397・D-403)
+//     (版 8 で足し、版 9 で 4 キャラのレイドに、版 10 でゲージをウロコパワーと注入に変え、版 13 で注入をなくした:D-397・D-403・D-411)
 //   ~ お守り:付けている能力の番号(なければ空).能力ごとのレベルを表の順に「,」で(最後の 0 は書かない。charms.js の表の順)
 //   ~ 図鑑(版 11 で足した:D-405):「魚の id:釣った数.最小の倍率.最大の倍率」を魚の表の順に「,」で(記録のある魚だけ。倍率は × 1000)
 // 装備の種類の番号 5(お守り)は、版 8 からは装備の個体を持たない(ガチャで出ない降臨専用の枠:D-392)。
@@ -43,7 +42,7 @@ import { itemLevelRange } from "./skills.js";
 /** @typedef {import("./gear.js").Gear} Gear */
 /** @typedef {import("./gear.js").Item} Item */
 
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 /** 工程の番号(保存に書く順。並べ替えない)。 */
 export const STEP_ORDER = Object.freeze([ROD_STEPS.NONE, ROD_STEPS.CRAFTED, ROD_STEPS.DEFEATED, ROD_STEPS.EVOLVED]);
@@ -220,6 +219,30 @@ export const UPGRADES = Object.freeze({
     parts[11] = `${parts[11]}.0`;
     return parts.join("~");
   },
+  // 版 12 → 13(D-411):相手ごとの注入をなくした。注入した量の合計を、貯めているウロコパワーに戻す(鱗から入れた分の記録は捨てる)。
+  12: (body) => {
+    const parts = body.split("~");
+    if (parts.length !== 16) return null;
+    const p = parts[13].split(".");
+    if (p.length !== 8) return null;
+    const power = readNum(p[0]);
+    const totals = list(p[2]).map(readNum);
+    const fromScales = list(p[3]).map(readNum);
+    const raidIndex = p[4] === "" ? null : readNum(p[4]);
+    // 版 12 の点検で拒否していた形(鱗の分が注入した量より多い・呼んでいるキャラに注入した量がある)は、読み替えずに拒否する。
+    const broken =
+      power === null ||
+      totals.some((n) => n === null) ||
+      fromScales.some((n, i) => n === null || n > (totals[i] ?? 0)) ||
+      (raidIndex !== null && (totals[raidIndex] ?? 0) > 0);
+    if (broken) {
+      parts[13] = "";
+      return parts.join("~");
+    }
+    const back = /** @type {number[]} */ (totals).reduce((sum, n) => sum + n, 0);
+    parts[13] = [num(Math.min(COUNT_MAX, power + back)), p[1], p[4], p[5], p[6], p[7]].join(".");
+    return parts.join("~");
+  },
 });
 
 /**
@@ -316,14 +339,12 @@ function perChar(get) {
   return out.join(",");
 }
 
-/** 降臨の欄(D-397・D-403)。 @param {KourinState} k */
+/** 降臨の欄(D-397・D-403・D-411)。 @param {KourinState} k */
 function encodeKourin(k) {
   const raid = k.raid;
   const tail = raid ? `${num(KOURIN_ROWS.findIndex((r) => r.id === raid.char))}.${num(raid.hp)}.${num(raid.tries)}.${num(raid.paid)}` : "...";
   const cleared = perChar((id) => k.cleared[id] ?? 0);
-  const totals = perChar((id) => k.fills[id]?.total ?? 0);
-  const scales = perChar((id) => k.fills[id]?.scales ?? 0);
-  return `${num(k.power)}.${cleared}.${totals}.${scales}.${tail}`;
+  return `${num(k.power)}.${cleared}.${tail}`;
 }
 
 /** 図鑑の欄(D-405):魚の表の順に「id:数.最小.最大」。 @param {import("./dex.js").Dex} dex @param {SaveContent} content */
@@ -371,35 +392,26 @@ function readPerChar(text) {
 }
 
 /**
- * 降臨の欄を読む。倒したレベル・注入した量は表の数まで、鱗から入れた分は注入した量以下。
- * 呼んでいるキャラは表にあり、残りの体力は 1 以上、払った区切りは区切りの数より少ない。呼んでいるキャラには注入した量がない。壊れていれば null。
+ * 降臨の欄を読む(版 13:D-411)。倒したレベルは表の数まで。
+ * 呼んでいるキャラは表にあり、残りの体力は 1 以上、払った区切りは区切りの数より少ない。壊れていれば null。
  * @param {string} text @param {typeof DEFAULT_CONFIG} config @returns {KourinState | null}
  */
 function decodeKourin(text, config) {
   const p = text.split(".");
-  if (p.length !== 8) return null;
+  if (p.length !== 6) return null;
   const power = readNum(p[0]);
   const levels = readPerChar(p[1]);
-  const totals = readPerChar(p[2]);
-  const scales = readPerChar(p[3]);
-  if (power === null || !levels || !totals || !scales) return null;
+  if (power === null || !levels) return null;
   /** @type {Record<string, number>} */
   const cleared = {};
-  /** @type {Record<string, import("./kourin.js").Fill>} */
-  const fills = {};
   for (let i = 0; i < KOURIN_ROWS.length; i++) {
-    const id = KOURIN_ROWS[i].id;
-    if ((levels[i] ?? 0) > 0) cleared[id] = /** @type {number} */ (levels[i]);
-    const total = totals[i] ?? 0;
-    const fromScales = scales[i] ?? 0;
-    if (fromScales > total) return null;
-    if (total > 0) fills[id] = { total, scales: fromScales };
+    if ((levels[i] ?? 0) > 0) cleared[KOURIN_ROWS[i].id] = /** @type {number} */ (levels[i]);
   }
-  if (p[4] === "" && p[5] === "" && p[6] === "" && p[7] === "") return { power, fills, cleared, raid: null };
-  const [index, hp, tries, paid] = [p[4], p[5], p[6], p[7]].map(readNum);
+  if (p[2] === "" && p[3] === "" && p[4] === "" && p[5] === "") return { power, cleared, raid: null };
+  const [index, hp, tries, paid] = [p[2], p[3], p[4], p[5]].map(readNum);
   const row = index === null ? undefined : KOURIN_ROWS[index];
-  if (!row || hp === null || hp < 1 || tries === null || paid === null || paid >= config.kourin.steps || fills[row.id]) return null;
-  return { power, fills, cleared, raid: { char: row.id, hp, tries, paid } };
+  if (!row || hp === null || hp < 1 || tries === null || paid === null || paid >= config.kourin.steps) return null;
+  return { power, cleared, raid: { char: row.id, hp, tries, paid } };
 }
 
 /**

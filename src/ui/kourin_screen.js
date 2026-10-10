@@ -1,11 +1,11 @@
 // @ts-check
-// 降臨の画面(全画面:D-396・D-397・D-403・D-409)。ウロコパワー・4 キャラ(注入する・挑む。呼んでいる相手は残りの体力も)・お守り(付ける)。
+// 降臨の画面(全画面:D-396・D-397・D-403・D-409・D-411)。ウロコパワー・4 キャラ(挑む。挑むたびに払う。呼んでいる相手は残りの体力も)・お守り(付ける)。
 // 文字は kourin_view.js が作る。変えたら保存して、画面を作り直す。挑むとメイン画面に戻り、夜の戦いが始まる。
 // JSDoc で型を書き、`npm run typecheck` で確かめる(D-144・D-158)。
 
 import { equipCharm } from "../core/charms.js";
 import { refreshCombat, startRaid } from "../core/fishing.js";
-import { convertScales, injectPower } from "../core/kourin.js";
+import { convertScales } from "../core/kourin.js";
 import { kourinView } from "./kourin_view.js";
 import { button, el } from "./list_view.js";
 
@@ -56,7 +56,7 @@ export function mountKourin(container, ctx) {
   power.append(el("h2", "crate-name", view.power.text), el("p", "crate-price", view.power.scaleText), convert, el("p", "pull-note", view.power.note));
   container.append(power);
 
-  // 4 キャラ(注入する・挑む:D-409)。呼んでいる相手は、残りの体力と挑戦の回数。
+  // 4 キャラ(挑む:D-409・D-411)。挑むたびに、その回の値段を貯金から払う。呼んでいる相手は、残りの体力と挑戦の回数。
   const list = el("section", "kourin-chars");
   for (const ch of view.chars) {
     const card = el("div", ch.current ? "crate-card kourin-card kourin-char current" : "crate-card kourin-card kourin-char");
@@ -65,25 +65,15 @@ export function mountKourin(container, ctx) {
     head.append(el("h3", "crate-name", `${ch.name} ${ch.levelText}`), el("span", "kourin-quirk", ch.current ? ch.triesText : ch.quirkText));
     card.append(head, el("p", "crate-price", `${ch.charmText}・${ch.clearedText}`));
     if (ch.current) card.append(bar(ch.hpRatio, "hp"), el("p", "crate-price", `${ch.hpText}・${ch.stepsText}`));
-    else card.append(bar(ch.ratio, "gauge"), el("p", "crate-price", ch.fillText));
-    const row = el("div", "kourin-buttons");
-    if (!ch.current) {
-      const inject = button(ch.injectLabel, "secondary-button kourin-inject");
-      inject.disabled = !ch.canInject;
-      inject.addEventListener("click", () => {
-        if (injectPower(game.progress, game.content, ch.id, game.config.kourin) > 0) done(`${ch.name}にウロコパワーを注入しました`);
-      });
-      row.append(inject);
-    }
-    const go = button("挑む", "primary-button kourin-challenge");
+    card.append(bar(ch.ratio, "gauge"), el("p", "crate-price", ch.costText));
+    const go = button(ch.startLabel, "primary-button kourin-challenge");
     go.disabled = !ch.canStart;
     go.addEventListener("click", () => {
       if (!startRaid(game, ch.id)) return;
       ctx.storage.save(game.progress);
       ctx.backToMain();
     });
-    row.append(go);
-    card.append(row);
+    card.append(go);
     if (ch.startNote) card.append(el("p", "pull-note", ch.startNote));
     list.append(card);
   }

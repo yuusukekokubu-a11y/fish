@@ -1,7 +1,7 @@
 // @ts-check
 // 降臨(レイド風:D-396・D-397)。4 キャラ(疾風の大エビ・鉄壁の大ガニ・不死の大ダコ・刹那の大イカ)に、挑戦ごとのダメージを積み重ねて挑む。
-// - ウロコパワー(D-403・D-408):釣り上げで貯め(魚の段階で増える)、強い魚の鱗の余りも替えて足せる(上限なし)。貯めた分を、ねらう相手に注入する。
-//   相手ごとに、レベルに応じた量が要る。満たした相手を呼び、倒すまで何回でも無料で挑める。竿の段階には依らない。
+// - ウロコパワー(D-403・D-408・D-411):釣り上げで貯め(魚の段階で増える)、強い魚の鱗の余りも替えて足せる(上限なし)。
+//   挑むたびに、相手のレベルに応じた量を貯金から払う。1 度に呼べるのは 1 体で、残りの体力は倒すまで残る。竿の段階には依らない。
 // - キャラごとにレベル 1 から。レベル n の体力 = 段階 n のヌシの体力(キャラのくせの補正つき)× hpRatio。
 // - 削った量の 10% ごとに区切りの報酬、討伐でそのキャラのお守り(レベル n を倒すとレベル n)。
 // - 乱数は、降臨の塩・キャラ・レベル・挑戦の回数から作る別の系統(魚の系統は使わない:D-115 と同じ考え)。
@@ -46,14 +46,9 @@ export const KOURIN_COLOR = "#9b5cff";
  */
 
 /**
- * 相手ごとに注入した量。total は合計、scales はそのうち鱗から入れた分(D-403 の記録。D-408 から鱗はウロコパワーに替えてから注入するので、増えない。保存の形のため残す)。
- * @typedef {{ total: number, scales: number }} Fill
- */
-
-/**
- * 降臨の状態。power は貯めているウロコパワー(まだ注入していない分)。fills は相手ごとに注入した量(0 の相手は持たない)。
+ * 降臨の状態。power は貯めているウロコパワー(挑むたびに、その回の値段を払う:D-411)。
  * cleared はキャラごとの倒したレベル(1 以上だけ)。
- * @typedef {{ power: number, fills: Record<string, Fill>, cleared: Record<string, number>, raid: Raid | null }} KourinState
+ * @typedef {{ power: number, cleared: Record<string, number>, raid: Raid | null }} KourinState
  */
 
 /** @typedef {typeof import("./config.js").DEFAULT_CONFIG.kourin} KourinConfig */
@@ -64,18 +59,17 @@ const KOURIN_GLOVE_SALT = 0x510e527f;
 
 /** 何もしていない降臨の状態。 @returns {KourinState} */
 export function emptyKourin() {
-  return { power: 0, fills: {}, cleared: {}, raid: null };
+  return { power: 0, cleared: {}, raid: null };
 }
 
 /** 既定の形か(保存で欄を持たないため)。 @param {KourinState} k */
 export function isEmptyKourin(k) {
-  return k.power === 0 && Object.keys(k.fills).length === 0 && k.raid === null && Object.values(k.cleared).every((n) => !(n > 0));
+  return k.power === 0 && k.raid === null && Object.values(k.cleared).every((n) => !(n > 0));
 }
 
 /** 複製。 @param {KourinState} k @returns {KourinState} */
 export function copyKourin(k) {
-  const fills = Object.fromEntries(Object.entries(k.fills).map(([id, f]) => [id, { ...f }]));
-  return { power: k.power, fills, cleared: { ...k.cleared }, raid: k.raid ? { ...k.raid } : null };
+  return { power: k.power, cleared: { ...k.cleared }, raid: k.raid ? { ...k.raid } : null };
 }
 
 /** 進み具合の降臨の状態(なければ既定の形。変えない)。 @param {{ kourin?: KourinState }} progress */
@@ -112,14 +106,9 @@ export function raidLevel(k, id) {
   return (k.cleared[id] ?? 0) + 1;
 }
 
-/** レベル level の相手を呼ぶのに要るウロコパワー。 @param {number} level @param {KourinConfig} c */
+/** レベル level の相手に 1 回挑むのに払うウロコパワー(挑むたびに払う:D-411)。 @param {number} level @param {KourinConfig} c */
 export function needPower(level, c) {
   return Math.round(c.need * stageScale(level, c));
-}
-
-/** 相手に注入した量(なければ 0)。 @param {KourinState} k @param {string} id @returns {Fill} */
-export function fillOf(k, id) {
-  return k.fills[id] ?? { total: 0, scales: 0 };
 }
 
 /**
@@ -185,40 +174,21 @@ export function convertScales(progress, content, c) {
   return { scales, power };
 }
 
-/**
- * 相手 id に注入できる量(貯めているウロコパワーから、要る量まで:D-408)。
- * @param {any} progress @param {any} content @param {string} id @param {KourinConfig} c
- */
-export function injectableOf(progress, content, id, c) {
-  const k = kourinOf(progress);
-  if (!kourinUnlocked(progress, content) || !kourinById(id) || k.raid?.char === id) return 0;
-  return Math.min(k.power, Math.max(0, needPower(raidLevel(k, id), c) - fillOf(k, id).total));
-}
-
-/** 相手 id に注入する(injectableOf の量)。注入した量を返す。 @param {any} progress @param {any} content @param {string} id @param {KourinConfig} c */
-export function injectPower(progress, content, id, c) {
-  const add = injectableOf(progress, content, id, c);
-  if (add <= 0) return 0;
-  const k = ensureKourin(progress);
-  const fill = fillOf(k, id);
-  k.fills[id] = { total: fill.total + add, scales: fill.scales };
-  k.power -= add;
-  return add;
-}
-
-/** 相手 id が要る量まで満たされているか。 @param {KourinState} k @param {string} id @param {KourinConfig} c */
-export function isFilled(k, id, c) {
-  return fillOf(k, id).total >= needPower(raidLevel(k, id), c);
+/** 相手 id に次に挑むときの値段(次に挑むレベルの needPower:D-411)。 @param {KourinState} k @param {string} id @param {KourinConfig} c */
+export function challengeCost(k, id, c) {
+  return needPower(raidLevel(k, id), c);
 }
 
 /**
- * 呼べるか(解放済み・呼んでいない・要る量まで注入した)。id を省くと、どれか 1 体でも呼べるか。
+ * 相手 id に挑めるだけのウロコパワーがあるか(解放済み・ほかの相手を呼んでいない・貯金 ≥ 値段:D-411)。
+ * id を省くと、どれか 1 体にでも挑めるか(呼んでいる相手がいれば、その相手だけを見る)。
  * @param {any} progress @param {any} content @param {KourinConfig} c @param {string} [id]
  */
-export function canSummon(progress, content, c, id = undefined) {
+export function canAffordRaid(progress, content, c, id = undefined) {
   const k = kourinOf(progress);
-  if (!kourinUnlocked(progress, content) || k.raid !== null) return false;
-  return id === undefined ? KOURIN_ROWS.some((r) => isFilled(k, r.id, c)) : Boolean(kourinById(id)) && isFilled(k, id, c);
+  if (!kourinUnlocked(progress, content)) return false;
+  const ok = (/** @type {string} */ x) => Boolean(kourinById(x)) && (k.raid === null || k.raid.char === x) && k.power >= challengeCost(k, x, c);
+  return id === undefined ? KOURIN_ROWS.some((r) => ok(r.id)) : ok(id);
 }
 
 /**
@@ -234,13 +204,24 @@ export function raidMinigame(row, level, config) {
   return { ...mg, defense, hp: round2(mg.hp * ratio) };
 }
 
-/** 呼ぶ(その相手に注入した分を使い切る)。呼べたら true。 @param {any} progress @param {string} id @param {any} content @param {any} config */
+/**
+ * 呼ぶ(体力は満タンから。払うのは挑むとき:D-411)。解放済みで誰も呼んでいないときだけ。呼べたら true。
+ * @param {any} progress @param {string} id @param {any} content @param {any} config
+ */
 export function summonRaid(progress, id, content, config) {
   const row = kourinById(id);
-  if (!row || !canSummon(progress, content, config.kourin, id)) return false;
+  if (!row || !kourinUnlocked(progress, content) || kourinOf(progress).raid !== null) return false;
   const k = ensureKourin(progress);
   k.raid = { char: row.id, hp: raidMinigame(row, raidLevel(k, row.id), config).hp, tries: 0, paid: 0 };
-  delete k.fills[row.id];
+  return true;
+}
+
+/** 挑む値段を払う(D-411)。足りなければ払わず false。 @param {any} progress @param {string} id @param {KourinConfig} c */
+export function payChallenge(progress, id, c) {
+  const k = ensureKourin(progress);
+  const cost = challengeCost(k, id, c);
+  if (k.power < cost) return false;
+  k.power -= cost;
   return true;
 }
 
