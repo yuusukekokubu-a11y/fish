@@ -51,12 +51,12 @@ test("装備の画面:ガチャの 5 枠(お守りは別:D-392)、持ち物の�
   const game = gameWith(3, 0, items);
   equipItem(game.progress.gear, 1);
   const crates = makeCrates(game.content, game.config);
-  assert.deepEqual(slotRows(game, crates).map((s) => [s.kindName, s.item?.name ?? null]), [
-    ["糸", null],
-    ["リール", "クロダイのリール"],
-    ["ルアー", null],
-    ["おもり", null],
-    ["浮き", null],
+  assert.deepEqual(slotRows(game, crates).map((s) => [s.kindName, s.item?.name ?? null, s.item?.gradeName ?? null]), [
+    ["糸", null, null],
+    ["リール", "クロダイのリール", "クロダイ"],
+    ["ルアー", null, null],
+    ["おもり", null, null],
+    ["浮き", null, null],
   ]);
   const byRarity = inventoryRows(game, crates, "rarity");
   assert.deepEqual(byRarity.map((v) => v.id), [2, 3, 1, 4]);

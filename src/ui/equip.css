@@ -41,8 +41,14 @@
   color: var(--faint);
 }
 .slot-kind {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   font-size: 14px;
   color: var(--muted);
+}
+.slot-kind > span {
+  white-space: nowrap;
 }
 .slot-cell.empty .slot-kind {
   color: var(--faint);
