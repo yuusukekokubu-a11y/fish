@@ -60,7 +60,7 @@ test("成長型の最大は竿の段階で伸びる(段階 5 で 7)", () => {
 
 test("装備のカード:スキルの名前とレベル(最大 3 行。例:会心率 Lv2)", () => {
   const lines = itemSkillLines(item(1, "reel", [{ id: "crit-power", level: 1 }, { id: "recovery", level: 2 }]));
-  assert.deepEqual(lines.map((l) => l.text), ["会心威力 Lv1", "回復の軽減 Lv2"]);
+  assert.deepEqual(lines.map((l) => l.text), ["痛恨 Lv1", "封じ Lv2"]);
 });
 
 test("付け替えたときのスキルレベルの変化(例:会心率 Lv2 → Lv3)。外すときは下がる", () => {
@@ -72,10 +72,10 @@ test("付け替えたときのスキルレベルの変化(例:会心率 Lv2 → 
   const game = gameWith(1, items, { reel: 1 });
   assert.deepEqual(skillLevelChanges(game, items[1]).map((c) => [c.text, c.up]), [
     ["強打 Lv0 → Lv1", true],
-    ["会心率 Lv2 → Lv3", true],
+    ["会心 Lv2 → Lv3", true],
   ]);
-  assert.deepEqual(skillLevelChanges(game, items[0]).map((c) => c.text), ["会心率 Lv2 → Lv0"]);
-  assert.deepEqual(skillLevelChanges(game, items[2]).map((c) => c.text), ["会心率 Lv2 → Lv3"], "足し合わせ");
+  assert.deepEqual(skillLevelChanges(game, items[0]).map((c) => c.text), ["会心 Lv2 → Lv0"]);
+  assert.deepEqual(skillLevelChanges(game, items[2]).map((c) => c.text), ["会心 Lv2 → Lv3"], "足し合わせ");
   // 最大(段階 1 は Lv3)に届いていると、足してもレベルは変わらない(出さない)。
   const full = gameWith(1, [item(4, "reel", [{ id: "crit-rate", level: 3 }]), item(5, "line", [{ id: "crit-rate", level: 1 }])], { reel: 4 });
   assert.deepEqual(skillLevelChanges(full, full.progress.gear.items[1]), [], "レベルが変わらないものは出さない");

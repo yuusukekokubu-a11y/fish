@@ -115,7 +115,7 @@ test("スキルの欄は最大 3 行(名前とレベル)。スキルなしは空
   const game = gameWith(1, 0, [{ ...item(1, "reel", "legend", 1, 2), skills }, item(2, "reel", "normal", 1, 1)]);
   const crates = makeCrates(game.content, game.config);
   const views = inventoryRows(game, crates, "new");
-  assert.deepEqual(views.find((v) => v.id === 1).skills.map((s) => s.text), ["強打 Lv1", "会心率 Lv2", "見極め Lv1"]);
+  assert.deepEqual(views.find((v) => v.id === 1).skills.map((s) => s.text), ["強打 Lv1", "会心 Lv2", "見切り Lv1"]);
   assert.deepEqual(views.find((v) => v.id === 2).skills, []);
 });
 

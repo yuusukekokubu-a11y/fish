@@ -57,7 +57,7 @@ function effectiveAmount(skill, level) {
 }
 
 /**
- * 次のレベルでの増分の文(例:「Lv5→6:会心率 +15%」。逓減が始まっていれば「(増え方が少し緩やかです)」を付ける:D-255)。
+ * 次のレベルでの増分の文(例:「Lv5→6:会心率 +15%」。逓減のあとの増分:D-255。補足の文は付けない:D-412)。
  * 最大なら null。
  * @param {SkillRow} skill @param {number} level @param {number} max
  */
@@ -65,8 +65,7 @@ export function nextLevelText(skill, level, max) {
   if (level >= max) return null;
   const inc = effectiveAmount(skill, level + 1) - effectiveAmount(skill, level);
   const n = Math.round((inc / skill.display.scale) * 100) / 100;
-  const slow = taperedAmount(skill, level + 1)?.tapered ? "(増え方が少し緩やかです)" : "";
-  return `Lv${level}→${level + 1}:${skill.display.label} ${skill.display.sign}${n}${skill.display.unit}${slow}`;
+  return `Lv${level}→${level + 1}:${skill.display.label} ${skill.display.sign}${n}${skill.display.unit}`;
 }
 
 /**

@@ -148,7 +148,7 @@ export function critLabel(stages) {
 /** 命中した帯の短い名前と色(芯・縁のスキルが効いたときだけ:D-209)。 */
 export function bandLabel(hit) {
   if (hit.band === "core" && (hit.triggers ?? []).includes("core")) return { text: "芯", color: "#52d68a" };
-  if (hit.band === "edge" && (hit.triggers ?? []).includes("edge")) return { text: "縁", color: "#e9c46a" };
+  if (hit.band === "edge" && (hit.triggers ?? []).includes("edge")) return { text: "際", color: "#e9c46a" };
   return null;
 }
 

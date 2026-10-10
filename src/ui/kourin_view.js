@@ -47,14 +47,13 @@ export function kourinView(game) {
   const sparePower = offers.reduce((n, o) => n + o.count * o.each, 0);
   return {
     unlocked,
-    lockedText: "港を越えると(磯に入ると)、降臨を呼べるようになります",
+    lockedText: "磯に入ると解放",
     power: {
       text: `ウロコパワー ${formatCount(k.power)}`,
       scaleText: spare > 0 ? `替えられる鱗 ${formatCount(spare)} 枚(+${formatCount(sparePower)})` : "替えられる鱗はありません",
       // 鱗をまとめてウロコパワーに替える(D-408)。竿の製作に要る分は残す。
       convertLabel: spare > 0 ? `鱗をウロコパワーに替える(+${formatCount(sparePower)})` : "鱗をウロコパワーに替える",
       canConvert: spare > 0,
-      note: `釣り上げで貯まる(弱い魚 ${c.weakPower}・強い魚とヌシ ${c.strongPower}。魚の段階が 1 上がるごとに ${c.growth} 倍)。強い魚の鱗の余りも替えて足せます(1 枚 ${c.scalePower}・段階ごとに ${c.growth} 倍。竿の製作に要る分は残す)。挑むたびに、相手のレベルに応じた量を払います`,
     },
     chars: KOURIN_ROWS.map((row) => {
       const level = raidLevel(k, row.id);
@@ -63,11 +62,9 @@ export function kourinView(game) {
       const current = raid?.char === row.id;
       const maxHp = raidMinigame(row, level, config).hp;
       const canStart = canStartRaid(game, row.id);
-      // 挑めるか・挑めないときの理由(D-409・D-411:挑むたびに払う)。
+      // 挑めないときの理由だけを出す(D-409・D-411。挑めるときの説明は出さない:D-412)。
       const startNote = canStart
-        ? current
-          ? "残りの体力から挑みます。待っていた魚は、戦いのあとに続きから"
-          : "挑むと呼び出して、そのまま戦います(倒すまで、ほかの相手には挑めません)"
+        ? ""
         : raid && !current
           ? `${raidRow?.name ?? ""}を倒すまで、ほかの相手には挑めません`
           : k.power < need

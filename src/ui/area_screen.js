@@ -42,5 +42,5 @@ export function mountAreas(container, ctx) {
     item.append(b);
     list.append(item);
   }
-  container.append(el("div", "screen-header", "いまいる釣り場の魚が釣れます。製作・ヌシ戦・餌は、いちばん新しい釣り場で"), list);
+  container.append(list);
 }

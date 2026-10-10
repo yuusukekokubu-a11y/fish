@@ -191,8 +191,8 @@ test("ステータスの画面:条件発動型は「条件つき」の節に出�
   const view = statusView({ game });
   const cond = view.sections.find((s) => s.title === "条件つき");
   assert.deepEqual(cond.rows.map((r) => [r.label, r.value, r.detail]), [
-    ["連撃・攻", "Lv2", [["条件つき", "連続命中 1 段ごとにダメージ +2(最大 10 段)"]]],
-    ["先制", "Lv1", [["条件つき", "戦いの最初の命中で会心率 +10%"]]],
+    ["連撃", "Lv2", [["条件つき", "連続命中 1 段ごとにダメージ +2(最大 10 段)"]]],
+    ["不意打ち", "Lv1", [["条件つき", "戦いの最初の命中で会心率 +10%"]]],
   ]);
   const byLabel = Object.fromEntries(rowsOf(view).map((r) => [r.label, r]));
   assert.equal(byLabel["通常ダメージ"].value, "25", "条件つきは今の値に含めない");

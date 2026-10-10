@@ -58,7 +58,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "crit-rate",
-    name: "会心率",
+    name: "会心",
     type: "growth",
     target: { kind: "combat", stat: "critChance", op: "add" },
     perLevel: 0.15,
@@ -67,7 +67,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "crit-power",
-    name: "会心威力",
+    name: "痛恨",
     type: "growth",
     target: { kind: "combat", stat: "critMultiplier", op: "add" },
     perLevel: 0.05,
@@ -94,7 +94,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "agility",
-    name: "俊敏",
+    name: "早掛け",
     type: "capped",
     target: { kind: "wait" },
     perLevel: 0.1,
@@ -103,7 +103,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "insight",
-    name: "見極め",
+    name: "見切り",
     type: "capped",
     target: { kind: "hook", band: "successMs" },
     perLevel: 100,
@@ -112,7 +112,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "mastery",
-    name: "名人技",
+    name: "名人",
     type: "capped",
     target: { kind: "hook", band: "justMs" },
     perLevel: 40,
@@ -121,7 +121,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "recovery",
-    name: "回復の軽減",
+    name: "封じ",
     type: "capped",
     target: { kind: "combat", stat: "missHeal", op: "scale" },
     perLevel: 1 / 3,
@@ -131,7 +131,7 @@ export const SKILL_ROWS = Object.freeze([
   // ここから条件発動型(D-184)。番号はセーブコードに使うので、表の末尾に足す(D-188)。
   {
     id: "combo-power",
-    name: "連撃・攻",
+    name: "連撃",
     type: "growth",
     target: { kind: "trigger", when: "combo", effect: "damage" },
     perLevel: 1,
@@ -140,7 +140,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "combo-crit",
-    name: "連撃・心",
+    name: "連撃・会心",
     type: "growth",
     target: { kind: "trigger", when: "combo", effect: "critChance" },
     perLevel: 0.03,
@@ -158,7 +158,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "just-boost",
-    name: "ジャスト・ブースト",
+    name: "一閃",
     type: "growth",
     target: { kind: "trigger", when: "just", effect: "justMultiplier" },
     perLevel: 0.08,
@@ -185,7 +185,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "first-strike",
-    name: "先制",
+    name: "不意打ち",
     type: "growth",
     target: { kind: "trigger", when: "fullHp", effect: "critChance" },
     perLevel: 0.1,
@@ -195,7 +195,7 @@ export const SKILL_ROWS = Object.freeze([
   // ここからゲージ系(D-197)。命中した位置が、命中範囲の芯(真ん中)か縁(端のぎりぎり)かで効く。表の末尾に足す。
   {
     id: "core",
-    name: "芯",
+    name: "芯打ち",
     type: "growth",
     target: { kind: "trigger", when: "core", effect: "critChance" },
     perLevel: 0.1,
@@ -204,11 +204,11 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "edge",
-    name: "縁",
+    name: "際打ち",
     type: "growth",
     target: { kind: "trigger", when: "edge", effect: "damagePct" },
     perLevel: 0.2,
-    display: { label: "ダメージ", scale: 0.01, unit: "%", sign: "+", when: "縁で命中すると" },
+    display: { label: "ダメージ", scale: 0.01, unit: "%", sign: "+", when: "際で命中すると" },
     description: "命中範囲の端のぎりぎりで命中すると、ダメージが大きい。",
   },
   // ここから ②-4c 防御で足したもの(D-236)。番号はセーブコードに使うので、表の末尾に足す。
@@ -223,7 +223,7 @@ export const SKILL_ROWS = Object.freeze([
   },
   {
     id: "combo-pen",
-    name: "連撃・貫",
+    name: "連撃・貫通",
     type: "growth",
     target: { kind: "trigger", when: "combo", effect: "penetration" },
     perLevel: 0.01,
