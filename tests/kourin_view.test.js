@@ -10,30 +10,30 @@ import { createEffects } from "../src/ui/effects.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { progressAt } from "./helpers.js";
 
-test("港では「港を越えると」。磯からはウロコパワー・替えられる鱗・4 キャラ(Lv・くせ・お守り・注入した量・注入する・挑む。D-408・D-409)", () => {
+test("港では「港を越えると」。磯からはウロコパワー・替えられる鱗・4 キャラ(Lv・くせ・お守り・1 回の値段・挑む。D-408・D-409・D-411)", () => {
   assert.equal(kourinView(createGame(1, { progress: progressAt(3) })).unlocked, false);
   const stage = DEFAULT_CONTENT.stageByNumber.get(7);
-  const kourin = { power: 500, fills: { kani: { total: 300, scales: 100 }, ika: { total: 240, scales: 0 } }, cleared: { kani: 2 }, raid: null };
+  const kourin = { power: 500, cleared: { kani: 2 }, raid: null };
   const game = createGame(1, { progress: progressAt(7, "crafted", { scales: { [stage.craft.scale]: 3 }, kourin }) });
   const v = kourinView(game);
   assert.equal(v.unlocked, true);
   assert.deepEqual([v.power.text, v.power.scaleText, v.power.convertLabel, v.power.canConvert], ["ウロコパワー 500", "替えられる鱗 3 枚(+1920)", "鱗をウロコパワーに替える(+1920)", true]);
   assert.deepEqual(
-    v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.fillText, c.injectLabel, c.canInject, c.canStart]),
+    v.chars.map((c) => [c.name, c.levelText, c.quirkText, c.charmText, c.clearedText, c.costText, c.startLabel, c.canStart, c.startNote]),
     [
-      ["疾風の大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", "ウロコパワー 0 / 240", "注入する(+240)", true, false],
-      ["鉄壁の大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", "ウロコパワー 300 / 960", "注入する(+500)", true, false],
-      ["不死の大ダコ", "Lv1", "自動回復", "倒すと 和らぎの守り", "まだ討伐していない", "ウロコパワー 0 / 240", "注入する(+240)", true, false],
-      ["刹那の大イカ", "Lv1", "制限時間が短い", "倒すと 刻の守り", "まだ討伐していない", "ウロコパワー 240 / 240", "注入できるウロコパワーはありません", false, true],
+      ["疾風の大エビ", "Lv1", "印が速い", "倒すと 静めの守り", "まだ討伐していない", "1 回 ウロコパワー 240", "挑む(−240)", true, "挑むと呼び出して、そのまま戦います(倒すまで、ほかの相手には挑めません)"],
+      ["鉄壁の大ガニ", "Lv3", "防御の壁", "倒すと 破りの守り", "Lv2 まで討伐", "1 回 ウロコパワー 960", "挑む(−960)", false, "ウロコパワーがあと 460 足りません"],
+      ["不死の大ダコ", "Lv1", "自動回復", "倒すと 和らぎの守り", "まだ討伐していない", "1 回 ウロコパワー 240", "挑む(−240)", true, "挑むと呼び出して、そのまま戦います(倒すまで、ほかの相手には挑めません)"],
+      ["刹那の大イカ", "Lv1", "制限時間が短い", "倒すと 刻の守り", "まだ討伐していない", "1 回 ウロコパワー 240", "挑む(−240)", true, "挑むと呼び出して、そのまま戦います(倒すまで、ほかの相手には挑めません)"],
     ],
   );
-  assert.equal(v.chars[1].ratio, 300 / 960);
+  assert.deepEqual([v.chars[0].ratio, v.chars[1].ratio], [1, 500 / 960], "貯金が 1 回の値段に届いている割合");
 });
 
-test("呼んでいるキャラ(残りの体力・報酬の区切り・挑戦の回数。挑むのボタンは同じカードに:D-409)と、お守り(レベル・効果・付けているか)", () => {
+test("呼んでいるキャラ(残りの体力・報酬の区切り・挑戦の回数。挑むのボタンは同じカードに:D-409。挑むたびに払う:D-411)と、お守り(レベル・効果・付けているか)", () => {
   const game = createGame(1, {
     progress: progressAt(13, "none", {
-      kourin: { power: 0, fills: {}, cleared: { tako: 4 }, raid: { char: "tako", hp: 1234, tries: 2, paid: 3 } },
+      kourin: { power: 5000, cleared: { tako: 4 }, raid: { char: "tako", hp: 1234, tries: 2, paid: 3 } },
       charms: { levels: { shizume: 15, toki: 5 }, equipped: "toki" },
     }),
   });

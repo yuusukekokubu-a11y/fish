@@ -5,7 +5,7 @@
 import { activeCharm, CHARM_ROWS, charmValue } from "../core/charms.js";
 import { canStartRaid, PHASES } from "../core/fishing.js";
 import { percentText } from "../core/gear.js";
-import { fillOf, injectableOf, KOURIN_ROWS, kourinById, kourinOf, kourinUnlocked, needPower, raidLevel, raidMinigame, scaleOffers } from "../core/kourin.js";
+import { KOURIN_ROWS, kourinById, kourinOf, kourinUnlocked, needPower, raidLevel, raidMinigame, scaleOffers } from "../core/kourin.js";
 import { formatCount } from "./format.js";
 
 /** くせの短い説明(キャラの行の quirk)。 */
@@ -54,26 +54,24 @@ export function kourinView(game) {
       // 鱗をまとめてウロコパワーに替える(D-408)。竿の製作に要る分は残す。
       convertLabel: spare > 0 ? `鱗をウロコパワーに替える(+${formatCount(sparePower)})` : "鱗をウロコパワーに替える",
       canConvert: spare > 0,
-      note: `釣り上げで貯まる(弱い魚 ${c.weakPower}・強い魚とヌシ ${c.strongPower}。魚の段階が 1 上がるごとに ${c.growth} 倍)。強い魚の鱗の余りも替えて足せます(1 枚 ${c.scalePower}・段階ごとに ${c.growth} 倍。竿の製作に要る分は残す)。ねらう相手に注入し、要る量まで貯めると挑めます`,
+      note: `釣り上げで貯まる(弱い魚 ${c.weakPower}・強い魚とヌシ ${c.strongPower}。魚の段階が 1 上がるごとに ${c.growth} 倍)。強い魚の鱗の余りも替えて足せます(1 枚 ${c.scalePower}・段階ごとに ${c.growth} 倍。竿の製作に要る分は残す)。挑むたびに、相手のレベルに応じた量を払います`,
     },
     chars: KOURIN_ROWS.map((row) => {
       const level = raidLevel(k, row.id);
       const charm = CHARM_ROWS.find((x) => x.id === row.charm);
       const need = needPower(level, c);
-      const fill = fillOf(k, row.id);
-      const add = injectableOf(progress, content, row.id, c);
       const current = raid?.char === row.id;
       const maxHp = raidMinigame(row, level, config).hp;
       const canStart = canStartRaid(game, row.id);
-      // 挑めないときの理由(D-409)。
+      // 挑めるか・挑めないときの理由(D-409・D-411:挑むたびに払う)。
       const startNote = canStart
         ? current
-          ? "何回でも無料で挑めます。待っていた魚は、戦いのあとに続きから"
-          : "挑むと呼び出して、そのまま戦います(倒すまで何回でも無料で挑めます)"
+          ? "残りの体力から挑みます。待っていた魚は、戦いのあとに続きから"
+          : "挑むと呼び出して、そのまま戦います(倒すまで、ほかの相手には挑めません)"
         : raid && !current
           ? `${raidRow?.name ?? ""}を倒すまで、ほかの相手には挑めません`
-          : !current && fill.total < need
-            ? "要る量までウロコパワーを注入すると挑めます"
+          : k.power < need
+            ? `ウロコパワーがあと ${formatCount(need - k.power)} 足りません`
             : castingOk
               ? ""
               : "投げる・待つの間だけ挑めます";
@@ -85,10 +83,10 @@ export function kourinView(game) {
         charmText: `倒すと ${charm?.name ?? row.charm}`,
         clearedText: (k.cleared[row.id] ?? 0) > 0 ? `Lv${k.cleared[row.id]} まで討伐` : "まだ討伐していない",
         current,
-        ratio: current ? 0 : Math.min(1, fill.total / need),
-        fillText: `ウロコパワー ${formatCount(current ? 0 : fill.total)} / ${formatCount(need)}`,
-        injectLabel: add > 0 ? `注入する(+${formatCount(add)})` : "注入できるウロコパワーはありません",
-        canInject: !current && add > 0,
+        // 1 回の挑戦の値段と、貯金がそれに届いている割合(D-411)。
+        ratio: Math.min(1, k.power / need),
+        costText: `1 回 ウロコパワー ${formatCount(need)}`,
+        startLabel: `挑む(−${formatCount(need)})`,
         // 呼んでいる相手は、残りの体力・報酬の区切り・挑戦の回数(D-409:挑むのボタンと同じカードに)。
         hpRatio: current && raid ? raid.hp / maxHp : 1,
         hpText: current && raid ? `残り ${formatCount(raid.hp)} / ${formatCount(maxHp)}` : "",

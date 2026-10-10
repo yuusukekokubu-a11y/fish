@@ -266,13 +266,13 @@ export function mountDebug(container, ctx) {
     presets.append(b);
   }
 
-  // 降臨(D-397・D-403):全員に要る量まで注入・残りの体力・お守りのレベル。
+  // 降臨(D-397・D-411):ウロコパワーを足す・残りの体力・お守りのレベル。
   const kourinBox = section("降臨");
-  const fill = button("全員に要る量まで注入する", "secondary-button debug-kourin-fill");
+  const fill = button("ウロコパワーを 10 回分足す", "secondary-button debug-kourin-fill");
   fill.addEventListener("click", () => {
     debugFillGauge(game.progress, game.config);
     ctx.storage.save(game.progress);
-    say("全員に要る量まで注入しました");
+    say("ウロコパワーを 10 回分足しました");
   });
   const hp = input("1", "number");
   const setHp = button("残りの体力を決める", "secondary-button debug-kourin-hp");

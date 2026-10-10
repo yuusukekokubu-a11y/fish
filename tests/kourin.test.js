@@ -1,4 +1,4 @@
-// 降臨(レイド風:D-396・D-397・D-403・D-408)の計算本体のテスト。
+// 降臨(レイド風:D-396・D-397・D-403・D-408・D-411)の計算本体のテスト。
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -9,11 +9,10 @@ import { canStartRaid, challengeBoss, challengeRaid, createGame, currentMarker, 
 import { fishMinigame, round2, typicalPenetration } from "../src/core/formula.js";
 import {
   addCatchPower,
-  canSummon,
+  canAffordRaid,
+  challengeCost,
   catchPower,
   convertScales,
-  injectableOf,
-  injectPower,
   KOURIN_ROWS,
   kourinUnlocked,
   makeRaidCast,
@@ -28,10 +27,9 @@ import { makeAimCenter, progressAt } from "./helpers.js";
 const C = DEFAULT_CONFIG.kourin;
 const aim = makeAimCenter(currentMarker);
 
-/** 段階 g の、4 キャラとも Lv1 に要る量まで注入した進み具合。 */
+/** 段階 g の、Lv1 の相手に 4 回挑めるだけのウロコパワーを持った進み具合(D-411)。 */
 function fullAt(g, extra = {}) {
-  const fills = Object.fromEntries(KOURIN_ROWS.map((r) => [r.id, { total: needPower(1, C), scales: 0 }]));
-  return progressAt(g, "none", { kourin: { power: 0, fills, cleared: {}, raid: null }, ...extra });
+  return progressAt(g, "none", { kourin: { power: needPower(1, C) * 4, cleared: {}, raid: null }, ...extra });
 }
 
 /** 戦いが終わるまで進める(aimHit なら命中範囲の真ん中で押す。そうでなければ押さない)。 */
@@ -122,35 +120,27 @@ test("鱗をまとめてウロコパワーに替える(上限なし。竿の製�
   assert.equal(harbor.kourin, undefined);
 });
 
-test("注入する:貯めたウロコパワーから、要る量まで(鱗の分の上限はない:D-408)。呼んでいる相手には注入しない", () => {
-  const p = progressAt(8, "none", { kourin: { power: 1000, fills: {}, cleared: {}, raid: null } });
-  // Lv1 の相手(要る 240)には 240 だけ。
-  assert.equal(injectableOf(p, DEFAULT_CONTENT, "ebi", C), 240);
-  assert.equal(injectPower(p, DEFAULT_CONTENT, "ebi", C), 240);
-  assert.deepEqual([p.kourin.fills.ebi, p.kourin.power], [{ total: 240, scales: 0 }, 760]);
-  assert.equal(injectPower(p, DEFAULT_CONTENT, "ebi", C), 0, "満たした相手には入らない");
-  assert.equal(canSummon(p, DEFAULT_CONTENT, C, "ebi"), true);
-  // Lv8 の相手(要る 30720)には、ある分を全部。前の決まりで鱗から入れた分(scales)は、記録としてそのまま残る。
-  p.kourin.cleared.kani = 7;
-  p.kourin.fills.kani = { total: 15360, scales: 15360 };
-  assert.equal(injectPower(p, DEFAULT_CONTENT, "kani", C), 760);
-  assert.deepEqual([p.kourin.fills.kani, p.kourin.power], [{ total: 16120, scales: 15360 }, 0]);
-  assert.equal(canSummon(p, DEFAULT_CONTENT, C, "kani"), false, "要る量に届くまで呼べない");
-  // 呼んでいる相手・表にない相手・港(未解放)には注入しない。
-  const q = progressAt(8, "none", { kourin: { power: 500, fills: {}, cleared: {}, raid: { char: "tako", hp: 10, tries: 0, paid: 0 } } });
-  assert.deepEqual([injectableOf(q, DEFAULT_CONTENT, "tako", C), injectableOf(q, DEFAULT_CONTENT, "nope", C)], [0, 0]);
-  assert.equal(injectableOf(progressAt(3, "none", { kourin: { power: 500, fills: {}, cleared: {}, raid: null } }), DEFAULT_CONTENT, "ebi", C), 0);
+test("挑む値段(D-411):次に挑むレベルの 240 × 2^(L − 1) を、挑むたびに払う。貯金が足りない・ほかの相手を呼んでいる・港では挑めない", () => {
+  const p = progressAt(8, "none", { kourin: { power: 1000, cleared: { kani: 2 }, raid: null } });
+  assert.deepEqual([challengeCost(p.kourin, "ebi", C), challengeCost(p.kourin, "kani", C)], [240, 960]);
+  assert.equal(canAffordRaid(p, DEFAULT_CONTENT, C, "ebi"), true);
+  assert.equal(canAffordRaid(p, DEFAULT_CONTENT, C, "kani"), true, "1000 ≥ 960");
+  p.kourin.power = 900;
+  assert.equal(canAffordRaid(p, DEFAULT_CONTENT, C, "kani"), false, "貯金が足りない");
+  assert.equal(canAffordRaid(p, DEFAULT_CONTENT, C), true, "どれか 1 体には挑める");
+  const q = progressAt(8, "none", { kourin: { power: 5000, cleared: {}, raid: { char: "tako", hp: 10, tries: 0, paid: 0 } } });
+  assert.deepEqual([canAffordRaid(q, DEFAULT_CONTENT, C, "tako"), canAffordRaid(q, DEFAULT_CONTENT, C, "ebi"), canAffordRaid(q, DEFAULT_CONTENT, C, "nope")], [true, false, false]);
+  assert.equal(canAffordRaid(progressAt(3, "none", { kourin: { power: 5000, cleared: {}, raid: null } }), DEFAULT_CONTENT, C), false, "港では挑めない");
 });
 
-test("呼ぶ:要る量まで注入した・呼んでいない・解放済みのとき。注入した分は使い切り、体力は段階のヌシ(キャラのくせの補正つき)× 6", () => {
+test("呼ぶ:解放済み・呼んでいないとき。体力は段階のヌシ(キャラのくせの補正つき)× 6。呼ぶだけでは払わない(D-411)", () => {
   const p = fullAt(13);
-  assert.equal(canSummon(p, DEFAULT_CONTENT, C), true);
   assert.equal(summonRaid(p, "nope", DEFAULT_CONTENT, DEFAULT_CONFIG), false);
   assert.equal(summonRaid(p, "tako", DEFAULT_CONTENT, DEFAULT_CONFIG), true);
   const hp = raidMinigame(KOURIN_ROWS[2], 1, DEFAULT_CONFIG).hp;
-  assert.equal(p.kourin.fills.tako, undefined, "呼んだ相手の注入した分は使い切る");
+  assert.equal(p.kourin.power, needPower(1, C) * 4, "呼ぶだけでは払わない");
   assert.deepEqual(p.kourin.raid, { char: "tako", hp, tries: 0, paid: 0 });
-  assert.equal(canSummon(p, DEFAULT_CONTENT, C), false, "呼んでいる間は呼べない");
+  assert.equal(summonRaid(p, "ebi", DEFAULT_CONTENT, DEFAULT_CONFIG), false, "呼んでいる間は呼べない");
   // 体力:段階 n のヌシ(くせの補正つき)× 6 を上から 2 けた。くせはキャラのもの。
   const mg = fishMinigame("boss", 10, DEFAULT_CONFIG.formula, ["regen"]);
   assert.equal(raidMinigame(KOURIN_ROWS[2], 10, DEFAULT_CONFIG).hp, Math.round((mg.hp * 6) / 100) * 100);
@@ -161,23 +151,31 @@ test("呼ぶ:要る量まで注入した・呼んでいない・解放済みの�
   // 防御の壁は「ふつうの貫通 + margin」(下限なし:D-397)。
   assert.equal(raidMinigame(KOURIN_ROWS[1], 3, DEFAULT_CONFIG).defense, Math.round((typicalPenetration(3) + 0.2) * 1000) / 1000);
   assert.equal(raidMinigame(KOURIN_ROWS[1], 20, DEFAULT_CONFIG).defense, Math.round((typicalPenetration(20) + 0.2) * 1000) / 1000);
-  assert.equal(canSummon(fullAt(5), DEFAULT_CONTENT, C), false, "港では呼べない");
+  assert.equal(summonRaid(fullAt(5), "ebi", DEFAULT_CONTENT, DEFAULT_CONFIG), false, "港では呼べない");
 });
 
-test("挑む(D-409:呼ぶと挑むを 1 つに):要る量まで注入した相手は、呼んでそのまま戦う。呼んでいる間は、ほかの相手には挑めない", () => {
+test("挑む(D-409・D-411):挑むたびに値段を払う。呼んでいなければ呼んでそのまま戦う。呼んでいる間は、ほかの相手には挑めない", () => {
+  const cost = needPower(1, C);
   const game = createGame(7, { progress: fullAt(13) });
   const waiting = game.cast;
   assert.equal(canStartRaid(game, "ika"), true);
   assert.equal(startRaid(game, "ika"), true);
   assert.deepEqual([game.phase, game.pendingCast, game.progress.kourin.raid.char, game.progress.kourin.raid.tries], [PHASES.MINIGAME, waiting, "ika", 1]);
-  assert.equal(game.progress.kourin.fills.ika, undefined, "注入した分は使い切る");
+  assert.equal(game.progress.kourin.power, cost * 3, "1 回目の値段を払った");
   assert.equal(canStartRaid(game, "ika"), false, "戦いの間は挑めない");
   finishFight(game, false);
   update(game, DEFAULT_CONFIG.resultMs);
-  assert.equal(canStartRaid(game, "ika"), true, "呼んでいる相手には、また挑める");
-  assert.equal(canStartRaid(game, "tako"), false, "ほかの相手には挑めない(注入は済んでいても)");
+  assert.equal(canStartRaid(game, "tako"), false, "ほかの相手には挑めない");
   assert.equal(startRaid(game, "tako"), false);
-  // 注入が足りない相手には挑めない。
+  assert.equal(startRaid(game, "ika"), true, "呼んでいる相手には、また挑める");
+  assert.deepEqual([game.progress.kourin.power, game.progress.kourin.raid.tries], [cost * 2, 2], "2 回目も払う");
+  finishFight(game, false);
+  update(game, DEFAULT_CONFIG.resultMs);
+  game.progress.kourin.power = cost - 1;
+  assert.equal(canStartRaid(game, "ika"), false, "貯金が足りなければ挑めない");
+  assert.equal(startRaid(game, "ika"), false);
+  assert.equal(game.progress.kourin.power, cost - 1, "挑めなければ払わない");
+  // ウロコパワーがなければ挑めない。
   assert.equal(canStartRaid(createGame(7, { progress: progressAt(13) }), "ebi"), false);
 });
 

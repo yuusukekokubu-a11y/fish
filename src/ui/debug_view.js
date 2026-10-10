@@ -323,13 +323,14 @@ export function startQuickFight(game, fishId, grade) {
 }
 
 /**
- * 降臨のデバッグ(D-397・D-403):呼んでいないキャラ全員に、要る量まで注入する(鱗の分は 0)。
+ * 降臨のデバッグ(D-397・D-411):ウロコパワーを、いちばん高い相手に 10 回挑めるぶん足す。
  * @param {any} progress @param {any} config
  */
 export function debugFillGauge(progress, config) {
   const c = config.kourin;
-  const k = progress.kourin ?? { power: 0, fills: {}, cleared: {}, raid: null };
-  for (const row of KOURIN_ROWS) if (k.raid?.char !== row.id) k.fills[row.id] = { total: needPower(raidLevel(k, row.id), c), scales: 0 };
+  const k = progress.kourin ?? { power: 0, cleared: {}, raid: null };
+  const top = Math.max(...KOURIN_ROWS.map((row) => needPower(raidLevel(k, row.id), c)));
+  k.power += top * 10;
   progress.kourin = k;
 }
 

@@ -12,7 +12,7 @@ import { mountCrates } from "./crate_screen.js";
 import { mountDebug } from "./debug_screen.js";
 import { mountEquipment } from "./equip_screen.js";
 import { mountKourin } from "./kourin_screen.js";
-import { canSummon } from "../core/kourin.js";
+import { canAffordRaid } from "../core/kourin.js";
 import { inventoryWarning } from "./gear_view.js";
 import { mountList } from "./list_view.js";
 import { materialsView, statusView } from "./screen_views.js";
@@ -37,7 +37,7 @@ export const SCREENS = Object.freeze([
   // 魚の図鑑(D-405):釣った数・大きさ・冠。
   { id: "dex", title: "図鑑", note: "釣った魚と大きさの記録", mount: mountList(dexView) },
   // 降臨(D-396):満タンで呼べるときに「!」。
-  { id: "kourin", title: "降臨", note: "ウロコパワーを注入して挑む", mount: mountKourin, badge: (game) => (canSummon(game.progress, game.content, game.config.kourin) ? "warn" : null) },
+  { id: "kourin", title: "降臨", note: "ウロコパワーを払って挑む", mount: mountKourin, badge: (game) => (canAffordRaid(game.progress, game.content, game.config.kourin) ? "warn" : null) },
   { id: "equipment", title: "装備", note: "付け替え・分解・ロック", mount: mountEquipment, badge: (game) => inventoryWarning(game).level },
   { id: "skills", title: "スキル", note: "装備で育つ力の一覧", mount: mountSkills },
   { id: "crates", title: "クレート", note: "ウロコインで装備を引く", mount: mountCrates },

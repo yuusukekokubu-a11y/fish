@@ -190,7 +190,19 @@ export function toV10(progress) {
   const ids = ["ebi", "kani", "tako", "ika"];
   const low = Math.min(...ids.map((id) => (k.cleared[id] ?? 0) + 1));
   const power = Math.round(Math.min(1, k.gauge / (300 * 64)) * 240 * 2 ** (low - 1));
-  p.kourin = { power, fills: {}, cleared: k.cleared, raid: k.raid };
+  p.kourin = { power, cleared: k.cleared, raid: k.raid };
   if (power === 0 && k.raid === null && Object.keys(k.cleared).length === 0) delete p.kourin;
+  return p;
+}
+
+/**
+ * 版 10〜12 の進み具合を、版 13 で読んだ形にする(D-411):注入した量の合計を、貯めているウロコパワーに戻す(注入の欄はなくなる)。
+ */
+export function toV13(progress) {
+  const p = structuredClone(progress);
+  const k = p.kourin;
+  if (!k || !k.fills) return p;
+  const back = Object.values(k.fills).reduce((sum, f) => sum + f.total, 0);
+  p.kourin = { power: k.power + back, cleared: k.cleared, raid: k.raid };
   return p;
 }

@@ -185,10 +185,9 @@ test("保存とセーブコード:魚 300 種類の鱗を全部・全部釣っ�
     seen: BIG.fish.map((f) => f.id),
     gear: { items, equipped: { line: 1, reel: 2, lure: 3 }, draws: SAFE, seed: 4294967295, nextId: items.length + 1 },
     gloves: fullGloves(G_MAX),
-    // 降臨(版 10:D-403):ウロコパワー・注入した量・倒したレベル・体力・回数は最大(呼んでいないキャラに注入)。
+    // 降臨(版 13:D-411):ウロコパワー・倒したレベル・体力・回数は最大。
     kourin: {
       power: SAFE,
-      fills: Object.fromEntries(KOURIN_ROWS.slice(0, -1).map((r) => [r.id, { total: SAFE, scales: SAFE }])),
       cleared: Object.fromEntries(KOURIN_ROWS.map((r) => [r.id, SAFE])),
       raid: { char: KOURIN_ROWS.at(-1).id, hp: SAFE, tries: SAFE, paid: DEFAULT_CONFIG.kourin.steps - 1 },
     },
