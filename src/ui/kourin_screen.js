@@ -5,12 +5,15 @@
 
 import { equipCharm } from "../core/charms.js";
 import { refreshCombat, startRaid } from "../core/fishing.js";
-import { convertScales } from "../core/kourin.js";
+import { convertScales, exchangePower } from "../core/kourin.js";
+import { formatCount } from "./format.js";
 import { kourinView } from "./kourin_view.js";
 import { button, el } from "./list_view.js";
 
 /** 最後の知らせ(作り直しても残す)。 */
 let lastMessage = "";
+/** ウロコインに替える量の段(作り直しても残す:D-415)。 */
+let exchangeStep = 1;
 
 /** 横長のバー(割合 0〜1)。 @param {number} ratio @param {string} className */
 function bar(ratio, className) {
@@ -54,6 +57,35 @@ export function mountKourin(container, ctx) {
     if (r.power > 0) done(`鱗 ${r.scales} 枚をウロコパワーに替えました`);
   });
   power.append(el("h2", "crate-name", view.power.text), el("p", "crate-price", view.power.scaleText), convert);
+  // ウロコインに替える(D-415):「−」「+」で量を選ぶ(竿と同じレベルの相手 1 回分ずつ)。
+  const ex = view.power.exchange;
+  exchangeStep = Math.max(1, Math.min(exchangeStep, ex.steps));
+  const amount = el("p", "crate-price kourin-exchange-amount", ex.steps > 0 ? ex.label(exchangeStep) : "替えられるウロコパワーはありません");
+  const minus = button("−", "chip kourin-exchange-step");
+  const plus = button("+", "chip kourin-exchange-step");
+  const swap = button("ウロコインに替える", "secondary-button kourin-exchange");
+  const refresh = () => {
+    amount.textContent = ex.steps > 0 ? ex.label(exchangeStep) : "替えられるウロコパワーはありません";
+    minus.disabled = exchangeStep <= 1;
+    plus.disabled = exchangeStep >= ex.steps;
+    swap.disabled = ex.steps === 0 || ex.coinsAt(exchangeStep) < 1;
+  };
+  minus.addEventListener("click", () => {
+    exchangeStep -= 1;
+    refresh();
+  });
+  plus.addEventListener("click", () => {
+    exchangeStep += 1;
+    refresh();
+  });
+  swap.addEventListener("click", () => {
+    const r = exchangePower(game.progress, game.content, game.config, ex.amountAt(exchangeStep));
+    if (r.coins > 0) done(`ウロコパワー ${formatCount(r.power)} をウロコイン ${formatCount(r.coins)} に替えました`);
+  });
+  refresh();
+  const row = el("div", "kourin-exchange-row");
+  row.append(minus, amount, plus);
+  power.append(row, swap);
   container.append(power);
 
   // 4 キャラ(挑む:D-409・D-411)。挑むたびに、その回の値段を貯金から払う。呼んでいる相手は、残りの体力と挑戦の回数。

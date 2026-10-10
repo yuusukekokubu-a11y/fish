@@ -157,3 +157,25 @@
 .kourin-inject {
   min-height: 44px;
 }
+
+/* ウロコインに替える(D-415):「−」量「+」を 1 行に。押せる場所は 44px 以上(D-154)。 */
+.kourin-exchange-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.kourin-exchange-row .kourin-exchange-amount {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+}
+.kourin-exchange-step {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.2em;
+}
+.kourin-exchange {
+  width: 100%;
+  margin-top: 8px;
+}

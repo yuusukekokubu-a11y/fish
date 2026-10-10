@@ -11,7 +11,7 @@ import { DEFAULT_CONFIG } from "../../src/core/config.js";
 import { DEFAULT_CONTENT, makeContent } from "../../src/core/fish.js";
 import { challengeRaid, createGame, currentMarker, fightSweepMs, PHASES, tap, update } from "../../src/core/fishing.js";
 import { fishMinigame, fishSweepMs, fishZoneWidth } from "../../src/core/formula.js";
-import { convertScales, KOURIN_ROWS, needPower, raidMinigame } from "../../src/core/kourin.js";
+import { convertScales, KOURIN_ROWS, needPower, powerToCoins, raidMinigame } from "../../src/core/kourin.js";
 import { grownItems, hitChance, MIN_TAP_GAP_MS, playRng, progressWith, STANDARD_PLAY, unlimitedContent } from "./builds.js";
 
 const CONTENT = DEFAULT_CONTENT;
@@ -82,6 +82,7 @@ test("降臨:4 キャラとも、目安の装備とふつうの遊び方で 2〜
 
 test("ウロコパワー(D-403・D-408):上手に釣り続けると、シミュレーションの 1 時間で、竿と同じレベルの相手に要る量の 1.5〜3.5 倍。鱗を替えた分も足すと 2.5〜5 倍(実際の遊びで約 1 時間に 1〜2 回挑める:D-411)", () => {
   const lines = [];
+  const swaps = [];
   for (const g of [6, 8, 10, 13]) {
     const game = createGame(11, { progress: progressWith(g, []), content: CONTENT });
     const hourMs = 3600 * 1000;
@@ -95,6 +96,10 @@ test("ウロコパワー(D-403・D-408):上手に釣り続けると、シミュ�
     }
     const need = needPower(g, DEFAULT_CONFIG.kourin);
     const ratio = (game.progress.kourin?.power ?? 0) / need;
+    // ウロコインに替えると(D-415):釣りで貯まった 1 時間ぶんが、1 時間のウロコインの約 25%(15 分ぶん)。
+    const swap = powerToCoins(game.progress.kourin?.power ?? 0, g, DEFAULT_CONFIG) / game.progress.coins;
+    swaps.push(`g=${g}:${(swap * 100).toFixed(1)}%`);
+    assert.ok(swap >= 0.2 && swap <= 0.35, `g=${g}:交換 ${swap}`);
     const converted = convertScales(game.progress, CONTENT, DEFAULT_CONFIG.kourin);
     const total = (game.progress.kourin?.power ?? 0) / need;
     lines.push(`g=${g}:釣り ${ratio.toFixed(2)} 回分・鱗 ${converted.scales} 枚を替えて 合計 ${total.toFixed(2)} 回分(弱い魚 ${game.counts.weak}・強い魚 ${game.counts.strong}・逃げた ${game.counts.escaped})`);
@@ -102,4 +107,5 @@ test("ウロコパワー(D-403・D-408):上手に釣り続けると、シミュ�
     assert.ok(total >= 2.5 && total <= 5, `g=${g}:合計 ${total}`);
   }
   console.log(`1 時間(シミュレーション)で貯まるウロコパワー(竿と同じレベルの相手に要る量の何回分か):\n${lines.join("\n")}`);
+  console.log(`釣りで貯まった 1 時間ぶんのウロコパワーをウロコインに替えた量(1 時間のウロコインに対する割合:D-415):${swaps.join("・")}`);
 });

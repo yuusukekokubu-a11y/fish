@@ -6,17 +6,20 @@ import { charmValue, CHARM_ROWS } from "../src/core/charms.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { DEFAULT_CONTENT } from "../src/core/fish.js";
 import { canStartRaid, challengeBoss, challengeRaid, createGame, currentMarker, fightSweepMs, PHASES, startRaid, tap, update } from "../src/core/fishing.js";
-import { fishMinigame, round2, typicalPenetration } from "../src/core/formula.js";
+import { fishCoins, fishMinigame, round2, typicalPenetration } from "../src/core/formula.js";
 import {
   addCatchPower,
   canAffordRaid,
   challengeCost,
   catchPower,
   convertScales,
+  exchangePower,
   KOURIN_ROWS,
   kourinUnlocked,
   makeRaidCast,
   needPower,
+  powerCoinRate,
+  powerToCoins,
   raidMinigame,
   scaleOffers,
   summonRaid,
@@ -308,4 +311,27 @@ test("お守りの効果(D-397):静めは印を遅く(どの戦いにも)、刻�
   challengeBoss(off);
   assert.equal(off.fight.timeLimitMs, base.fight.timeLimitMs);
   assert.equal(fightSweepMs(slow) > 0, true);
+});
+
+test("ウロコパワー → ウロコイン(D-415):1 あたり = 竿の段階の強い魚の「ウロコイン ÷ ウロコパワー」× coinRate。切り捨て", () => {
+  const g = 7;
+  const rate = powerCoinRate(g, DEFAULT_CONFIG);
+  assert.ok(Math.abs(rate - (C.coinRate * fishCoins("strong", g, DEFAULT_CONFIG.formula)) / catchPower("strong", false, g, C)) < 1e-12);
+  assert.equal(powerToCoins(1000, g, DEFAULT_CONFIG), Math.floor(1000 * rate));
+});
+
+test("ウロコパワー → ウロコイン:貯金から引いてウロコインを足す。量は 1 以上・貯金以下の整数。港(解放前)は替えられない", () => {
+  const p = fullAt(7, { coins: 10 });
+  const before = p.kourin.power;
+  const coins = powerToCoins(300, 7, DEFAULT_CONFIG);
+  assert.ok(coins >= 1);
+  assert.deepEqual(exchangePower(p, DEFAULT_CONTENT, DEFAULT_CONFIG, 300), { power: 300, coins });
+  assert.deepEqual([p.kourin.power, p.coins], [before - 300, 10 + coins]);
+  for (const bad of [0, -1, 1.5, p.kourin.power + 1]) {
+    assert.deepEqual(exchangePower(p, DEFAULT_CONTENT, DEFAULT_CONFIG, bad), { power: 0, coins: 0 }, `量 ${bad}`);
+  }
+  assert.deepEqual(exchangePower(p, DEFAULT_CONTENT, DEFAULT_CONFIG, p.kourin.power).power, before - 300, "全部替えられる");
+  assert.equal(p.kourin.power, 0);
+  const harbor = progressAt(3, "none", { kourin: { power: 1000, cleared: {}, raid: null } });
+  assert.deepEqual(exchangePower(harbor, DEFAULT_CONTENT, DEFAULT_CONFIG, 100), { power: 0, coins: 0 });
 });

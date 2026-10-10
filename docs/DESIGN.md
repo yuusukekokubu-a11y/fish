@@ -57,7 +57,7 @@
 | `src/core/fishing.js` | 釣りの 1 サイクルの場面の進み方(合わせ・体力制・休み)と、報酬。お守りの効果(静め・刻・破り)のフック。 |
 | `src/core/challenge.js` | 竿の工程(製作・進化)と、ヌシ・降臨に挑む(`challengeBoss`・`challengeRaid`)。fishing.js を 800 行以内にするため分けた。fishing.js がまとめて書き出す(D-397)。 |
 | `src/core/dex.js` | 魚の図鑑と大きさ(D-405)。倍率 `sizeRatio`(0〜1 の数から区分けの直線)・冠 `crownOf`・`entryCrowns`・釣れた個体の記録 `recordCatch`(乱数はシードとその魚を釣った数から:魚の系統は使わない)。数は `config.dex`。画面は `src/ui/dex_view.js`(`mountList` で描く)。 |
-| `src/core/kourin.js` | 降臨(D-396・D-397・D-403)。キャラの表(`KOURIN_ROWS`。行は並べ替えない)、ウロコパワー(`catchPower`・`addCatchPower`・`needPower`・`scaleOffers`・`convertScales`:D-408)、挑む値段(`challengeCost`・`canAffordRaid`・`payChallenge`:D-411)、呼ぶ(`summonRaid`)、降臨の投(`makeRaidCast`・`raidMinigame`・`raidSeed`)、挑戦の終わりと区切りの報酬(`settleRaid`)。数は `config.kourin`。 |
+| `src/core/kourin.js` | 降臨(D-396・D-397・D-403)。キャラの表(`KOURIN_ROWS`。行は並べ替えない)、ウロコパワー(`catchPower`・`addCatchPower`・`needPower`・`scaleOffers`・`convertScales`:D-408)、挑む値段(`challengeCost`・`canAffordRaid`・`payChallenge`:D-411)、ウロコインに替える(`powerCoinRate`・`powerToCoins`・`exchangePower`:D-415)、呼ぶ(`summonRaid`)、降臨の投(`makeRaidCast`・`raidMinigame`・`raidSeed`)、挑戦の終わりと区切りの報酬(`settleRaid`)。数は `config.kourin`。 |
 | `src/core/charms.js` | お守り(D-394・D-396)。表(`CHARM_ROWS`:上限 `cap` と効く戦い `scope`。行は並べ替えない)、効果(`charmValue`・`activeCharm`・`charmEffect`)、付け替え(`equipCharm`)。 |
 | `src/core/rod.js` | 竿の工程(製作・ヌシ撃破・進化)、竿の名前、次に要る鱗、数の上限(D-114・D-116)。 |
 | `src/core/save.js` | 保存の形式(版 11)の本文の書き出し(`encodeSave`)と点検つきの読み込み(`decodeSave`)、古い版の本文の読み替え(`UPGRADES`・`upgradeSave`)(D-223・D-232・D-247)。ブラウザへの読み書きは UI が行う。 |
