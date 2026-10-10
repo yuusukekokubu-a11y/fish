@@ -11,9 +11,6 @@
 import { button, el } from "./list_view.js";
 import { activeSkillRows, NO_SKILLS, skillGroups } from "./skill_view.js";
 
-/** 成長型の最大レベルが伸びることの一言。 */
-export const GROWTH_NOTE = "成長型のスキルは、竿の段階が上がると最大レベルが伸びます。";
-
 // ?debug の「全スキルを見る」(画面を作り直しても保つ)。
 let showAll = false;
 
@@ -88,9 +85,8 @@ function mountSkillList(rows) {
     const lines = [["今の効果", row.effect], ["説明", row.description]];
     if (row.breakdown.length === 0) lines.push(["内訳", "装着中の装備にこのスキルはありません"]);
     for (const b of row.breakdown) lines.push(["内訳", `${b.name} Lv${b.level}`]);
-    if (row.over > 0) lines.push(["余り", `Lv${row.over}(最大をこえた分は無駄になります)`]);
+    if (row.over > 0) lines.push(["余り", `Lv${row.over}`]);
     for (const l of row.levels) lines.push([`Lv${l.level}`, l.effect]);
-    if (row.growth) lines.push(["最大", GROWTH_NOTE]);
     for (const [k, v] of lines) detail.append(el("dt", "", k), el("dd", "", v));
     head.setAttribute("aria-expanded", "false");
     head.addEventListener("click", () => {

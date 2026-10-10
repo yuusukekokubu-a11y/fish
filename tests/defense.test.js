@@ -124,7 +124,7 @@ test("画面:防御の表示(貫通があれば実効防御、100% 以上は目�
   for (const pen of [0, 0.3, 0.5]) assert.doesNotMatch(defenseBadge({ ...base, cast: { minigame: { defense: 1.2 } }, combat: { penetration: pen } }).text, /貫通|連撃/);
   // 次のレベルでの増分。会心率 Lv5→6 は +15%、Lv7→8 から逓減(増え方が少し緩やか)。
   assert.equal(nextLevelText(byId("crit-rate"), 5, 7), "Lv5→6:会心率 +15%");
-  assert.equal(nextLevelText(byId("crit-rate"), 7, 9), "Lv7→8:会心率 +13.12%(増え方が少し緩やかです)");
+  assert.equal(nextLevelText(byId("crit-rate"), 7, 9), "Lv7→8:会心率 +13.12%");
   assert.equal(nextLevelText(byId("power"), 3, 7), "Lv3→4:通常ダメージ +2");
   assert.equal(nextLevelText(byId("crit-rate"), 7, 7), null, "最大なら出さない");
   assert.equal(maxLevel(byId("penetration"), 5, DEFAULT_CONFIG.skills), 7, "貫通の最大は 2 + 段階");

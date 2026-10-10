@@ -231,7 +231,7 @@ export const DEBUG_PRESETS = Object.freeze([
     skills: ["power", "crit-rate", "crit-power", "tenacity", "fortune", "agility", "insight", "mastery", "recovery"],
     note: "数値型のスキル 9 個を最大で(貫通は除く)",
   },
-  { id: "pen", name: "貫通", skills: ["penetration", "combo-pen", "power", "crit-rate", "crit-power", "core"], note: "貫通・連撃・貫・強打・会心率・会心威力・芯(D-236)" },
+  { id: "pen", name: "貫通", skills: ["penetration", "combo-pen", "power", "crit-rate", "crit-power", "core"], note: "貫通・連撃・貫・強打・会心率・会心威力・芯" },
 ]);
 
 /**
