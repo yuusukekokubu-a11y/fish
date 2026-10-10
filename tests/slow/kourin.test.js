@@ -57,7 +57,7 @@ test("降臨:4 キャラとも、目安の装備とふつうの遊び方で 2〜
       const tries = [];
       for (const seed of [1, 2, 3]) {
         const p = progressWith(g, items);
-        p.kourin = { power: 0, fills: {}, cleared: g > 1 ? { [ch.id]: g - 1 } : {}, raid: { char: ch.id, hp: raidMinigame(ch, g, DEFAULT_CONFIG).hp, tries: 0, paid: 0 } };
+        p.kourin = { power: 0, cleared: g > 1 ? { [ch.id]: g - 1 } : {}, raid: { char: ch.id, hp: raidMinigame(ch, g, DEFAULT_CONFIG).hp, tries: 0, paid: 0 } };
         const game = createGame(seed, { progress: p, content: CONTENT });
         const rand = playRng(seed * 31 + g);
         let n = 0;
