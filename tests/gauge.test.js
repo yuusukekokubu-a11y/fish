@@ -134,20 +134,20 @@ test("画面:ゲージの帯は芯・縁のスキルを付けたときだけ。�
   assert.deepEqual(gaugeBands(bossFight({ core: 1 })), { core: 0.3, edge: null });
   assert.deepEqual(gaugeBands(bossFight({ core: 1, edge: 2 })), { core: 0.3, edge: 0.75 });
   assert.deepEqual(bandLabel({ band: "core", triggers: ["core"] }), { text: "芯", color: "#52d68a" });
-  assert.deepEqual(bandLabel({ band: "edge", triggers: ["edge"] }), { text: "縁", color: "#e9c46a" });
+  assert.deepEqual(bandLabel({ band: "edge", triggers: ["edge"] }), { text: "際", color: "#e9c46a" });
   assert.equal(bandLabel({ band: "core", triggers: [] }), null, "スキルがなければ出さない");
   assert.equal(bandLabel({ band: "normal", triggers: [] }), null);
   const game = bossFight({ core: 2, edge: 1 });
   const cond = statusView({ game }).sections.find((s) => s.title === "条件つき");
   const byLabel = Object.fromEntries(cond.rows.map((r) => [r.label, r]));
-  assert.deepEqual(byLabel["芯"].detail, [
+  assert.deepEqual(byLabel["芯打ち"].detail, [
     ["条件つき", "芯で命中すると会心率 +20%"],
     ["芯の帯", "命中範囲の真ん中 30%"],
     ["芯の帯(クロダイ)", "ゲージの 6.6%"],
   ]);
-  assert.deepEqual(byLabel["縁"].detail, [
-    ["条件つき", "縁で命中するとダメージ +20%"],
-    ["縁の帯", "命中範囲の両端 25%"],
-    ["縁の帯(クロダイ)", "ゲージの 5.5%"],
+  assert.deepEqual(byLabel["際打ち"].detail, [
+    ["条件つき", "際で命中するとダメージ +20%"],
+    ["際の帯", "命中範囲の両端 25%"],
+    ["際の帯(クロダイ)", "ゲージの 5.5%"],
   ]);
 });

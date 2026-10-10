@@ -172,7 +172,7 @@ test("装備を作る:種類・レア度・グレード・値・スキル(最大
 const isCapped = (id) => SKILL_ROWS.find((x) => x.id === id)?.type === "capped";
 
 test("プリセット:表の行ごとに 3 個作って装着。追加クリティカルは会心率が 100% をこえ、最強の装備は成長型が全部最大(頭打ち型は Lv1)", () => {
-  assert.deepEqual(DEBUG_PRESETS.map((p) => p.name), ["連撃", "先手とジャスト", "芯と縁", "追加クリティカル", "最強の装備", "貫通"]);
+  assert.deepEqual(DEBUG_PRESETS.map((p) => p.name), ["連撃", "先手とジャスト", "芯打ちと際打ち", "追加クリティカル", "最強の装備", "貫通"]);
   for (const p of DEBUG_PRESETS) {
     const game = freshGame(5);
     assert.equal(applyPreset(game, p.id).ok, true, p.id);

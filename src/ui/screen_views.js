@@ -191,7 +191,7 @@ function zoneWidthRows(c, game) {
 function bandRows(when, config, game) {
   if (when !== "core" && when !== "edge") return [];
   const ratio = when === "core" ? config.coreRatio : 1 - config.edgeRatio;
-  const name = when === "core" ? "芯の帯" : "縁の帯";
+  const name = when === "core" ? "芯の帯" : "際の帯";
   const where = when === "core" ? "真ん中" : "両端";
   const rows = [[name, `命中範囲の${where} ${widthText(ratio)}`]];
   const content = game.content ?? DEFAULT_CONTENT;

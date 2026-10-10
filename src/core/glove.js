@@ -130,7 +130,7 @@ export const GLOVE_ABILITY_ROWS = Object.freeze([
   {
     id: "core-master",
     name: "芯の達人",
-    text: "芯の帯が広がる(芯のスキルを付けているときだけ効く)",
+    text: "芯の帯が広がる(芯打ちのスキルを付けているときだけ効く)",
     target: "fight",
     values: Object.freeze({ normal: 0.05, rare: 0.08, epic: 0.12, legend: 0.18 }),
     weight: 1,
@@ -138,12 +138,12 @@ export const GLOVE_ABILITY_ROWS = Object.freeze([
   },
   {
     id: "edge-master",
-    name: "縁の達人",
-    text: "縁の帯が広がる(縁のスキルを付けているときだけ効く)",
+    name: "際の達人",
+    text: "際の帯が広がる(際打ちのスキルを付けているときだけ効く)",
     target: "fight",
     values: Object.freeze({ normal: 0.04, rare: 0.06, epic: 0.09, legend: 0.14 }),
     weight: 1,
-    format: (v) => `縁の帯 +${Math.round(v * 100)} ポイント`,
+    format: (v) => `際の帯 +${Math.round(v * 100)} ポイント`,
   },
   {
     id: "tailwind",

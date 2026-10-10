@@ -223,7 +223,7 @@ export function addDebugItem(game, spec) {
 export const DEBUG_PRESETS = Object.freeze([
   { id: "combo", name: "連撃", skills: ["combo-power", "combo-crit", "finisher"], note: "連撃・攻・連撃・心・とどめ" },
   { id: "first", name: "先手とジャスト", skills: ["first-hit", "just-boost", "momentum", "first-strike"], note: "先手・ジャスト・ブースト・勢い・先制" },
-  { id: "gauge", name: "芯と縁", skills: ["core", "edge"], note: "芯・縁" },
+  { id: "gauge", name: "芯打ちと際打ち", skills: ["core", "edge"], note: "芯打ち・際打ち" },
   { id: "extra-crit", name: "追加クリティカル", skills: ["crit-rate", "crit-power"], stage: "max", note: "会心率が 100% をこえる(竿を最後の段階にする)" },
   {
     id: "best",
@@ -231,7 +231,7 @@ export const DEBUG_PRESETS = Object.freeze([
     skills: ["power", "crit-rate", "crit-power", "tenacity", "fortune", "agility", "insight", "mastery", "recovery"],
     note: "数値型のスキル 9 個を最大で(貫通は除く)",
   },
-  { id: "pen", name: "貫通", skills: ["penetration", "combo-pen", "power", "crit-rate", "crit-power", "core"], note: "貫通・連撃・貫・強打・会心率・会心威力・芯" },
+  { id: "pen", name: "貫通", skills: ["penetration", "combo-pen", "power", "crit-rate", "crit-power", "core"], note: "貫通・連撃・貫通・強打・会心・痛恨・芯打ち" },
 ]);
 
 /**
