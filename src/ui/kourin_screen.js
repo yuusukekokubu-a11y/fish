@@ -53,7 +53,7 @@ export function mountKourin(container, ctx) {
     const r = convertScales(game.progress, game.content, game.config.kourin);
     if (r.power > 0) done(`鱗 ${r.scales} 枚をウロコパワーに替えました`);
   });
-  power.append(el("h2", "crate-name", view.power.text), el("p", "crate-price", view.power.scaleText), convert, el("p", "pull-note", view.power.note));
+  power.append(el("h2", "crate-name", view.power.text), el("p", "crate-price", view.power.scaleText), convert);
   container.append(power);
 
   // 4 キャラ(挑む:D-409・D-411)。挑むたびに、その回の値段を貯金から払う。呼んでいる相手は、残りの体力と挑戦の回数。
@@ -82,7 +82,7 @@ export function mountKourin(container, ctx) {
   // お守り(付ける・外す)。効くのは付けている 1 つだけ。
   if (view.charms.length > 0) {
     const box = el("section", "crate-card kourin-card kourin-charms");
-    box.append(el("h2", "crate-name", "お守り(付けている 1 つだけ効く)"));
+    box.append(el("h2", "crate-name", "お守り"));
     const ul = el("ul", "menu-list");
     for (const ch of view.charms) {
       const li = el("li", "kourin-charm");
