@@ -9,6 +9,7 @@ import {
   equippedItem,
   gachaKinds,
   isEquipped,
+  gradeFishName,
   itemName,
   kindById,
   kindEffect,
@@ -193,6 +194,8 @@ export function itemView(game, item, crates) {
   return {
     id: item.id,
     name: itemName(item, content),
+    // グレード(段階)の魚の名前(装着中の枠に出す:D-416)。
+    gradeName: gradeFishName(item.grade, content),
     kindName: kind ? kind.name : item.kind,
     rarityId: item.rarity,
     rarity: rarity ? rarity.name : item.rarity,

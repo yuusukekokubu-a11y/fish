@@ -313,7 +313,11 @@ export function mountEquipment(container, ctx) {
   for (const slot of slotRows(game, crates)) {
     const cell = button("", slot.item ? "slot-cell" : "slot-cell empty");
     cell.dataset.slot = slot.kind;
-    cell.append(el("span", "slot-kind", slot.kindName));
+    // 付けている装備は、種類の横に段階の魚の名前(例「糸・カンパチ」:D-416)。入らなければ「・」の前で折り返す。
+    const kindLine = el("span", "slot-kind");
+    kindLine.append(el("span", "", slot.kindName));
+    if (slot.item) kindLine.append(el("span", "slot-grade", `・${slot.item.gradeName}`));
+    cell.append(kindLine);
     if (slot.item) {
       const item = slot.item;
       cell.style.setProperty("--rarity", item.color);

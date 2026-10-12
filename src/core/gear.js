@@ -558,10 +558,15 @@ export function applyGear(base, gear, kinds) {
 
 /** 装備の名前(例:クロダイの糸)。グレードの段階の強い魚の名前 + 種類。 @param {Item} item @param {ContentLike} content */
 export function itemName(item, content) {
-  const stage = content.stages.find((s) => s.stage === item.grade);
-  const fish = stage ? content.byId.get(stage.craft.scale) : undefined;
   const kind = kindById(item.kind, content.equipKinds);
-  return `${fish ? fish.name : `段階 ${item.grade}`}の${kind ? kind.name : item.kind}`;
+  return `${gradeFishName(item.grade, content)}の${kind ? kind.name : item.kind}`;
+}
+
+/** グレード(段階)の魚の名前(例「カンパチ」。なければ「段階 n」:D-416)。 @param {number} grade @param {any} content */
+export function gradeFishName(grade, content) {
+  const stage = content.stages.find((/** @type {any} */ s) => s.stage === grade);
+  const fish = stage ? content.byId.get(stage.craft.scale) : undefined;
+  return fish ? fish.name : `段階 ${grade}`;
 }
 
 /** 基本効果の見せ方(例:「制限時間 +1.3 秒」)。 @param {EquipKind} kind @param {number} value */
