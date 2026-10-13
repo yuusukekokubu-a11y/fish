@@ -168,26 +168,36 @@
   touch-action: none;
   -webkit-touch-callout: none;
 }
-.timing-ring {
+/* 測るときのバー(D-417):戦いのゲージと同じ、へこんだ溝・真ん中の金の線・黒い縁の白い印。 */
+.timing-bar {
   position: absolute;
-  left: 50%;
+  left: 16px;
+  right: 16px;
   top: 50%;
-  width: 180px;
-  height: 180px;
-  margin: -90px 0 0 -90px;
-  border: 4px solid #fff;
-  border-radius: 50%;
-  box-sizing: border-box;
+  height: 28px;
+  margin-top: -14px;
+  border: var(--px) solid var(--ink);
+  background: var(--panel);
+  box-shadow: var(--bevel-sunk);
 }
-.timing-dot {
+.timing-line {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: 27px;
-  height: 27px;
-  margin: -13.5px 0 0 -13.5px;
-  border-radius: 50%;
+  top: -6px;
+  bottom: -6px;
+  width: 4px;
+  margin-left: -2px;
   background: var(--gold);
+}
+.timing-marker {
+  position: absolute;
+  left: 0;
+  top: -8px;
+  bottom: -8px;
+  width: 8px;
+  margin-left: -4px;
+  border: 2px solid var(--ink);
+  background: #fff;
 }
 .timing-status {
   font-size: 14px;
