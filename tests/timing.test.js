@@ -9,6 +9,7 @@ import {
   createRecent,
   DEBUG_TIMING_KEY,
   loadTiming,
+  measureDeviation,
   perfText,
   recentStats,
   saveTiming,
@@ -77,4 +78,15 @@ test("確かめ用の表示:直近の数だけを持ち、平均と最大を出�
   assert.deepEqual(recentStats(r.values), { avg: 30, max: 40, n: 3 });
   assert.deepEqual(recentStats([]), { avg: 0, max: 0, n: 0 });
   assert.equal(perfText([4, 8], [16.7, 33.3]), "入力の遅れ 平均 6 / 最大 8 ms(2 回)\nフレーム 平均 25 / 最大 33.3 ms(2)");
+});
+
+test("測る(D-417):印が真ん中を通る瞬間(往きも帰りも)とのずれ。+ は遅く押した。一番近い瞬間を選ぶ", () => {
+  const start = 1000;
+  const sweep = 1000;
+  assert.equal(measureDeviation(start + 500, start, sweep), 0, "往きの真ん中");
+  assert.equal(measureDeviation(start + 1500, start, sweep), 0, "帰りの真ん中");
+  assert.equal(measureDeviation(start + 550, start, sweep), 50);
+  assert.equal(measureDeviation(start + 1460, start, sweep), -40);
+  assert.equal(measureDeviation(start + 900, start, sweep), 400, "500 と 1500 のうち近いほう(500)から");
+  assert.equal(measureDeviation(start + 1100, start, sweep), -400, "1500 から");
 });

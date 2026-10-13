@@ -114,3 +114,13 @@ export function perfText(delays, frames) {
   const f = recentStats(frames);
   return `入力の遅れ 平均 ${d.avg} / 最大 ${d.max} ms(${d.n} 回)\nフレーム 平均 ${f.avg} / 最大 ${f.max} ms(${f.n})`;
 }
+
+/**
+ * 押した時刻と、一番近い「印が真ん中を通る瞬間」とのずれ(ミリ秒。+ は遅く押した:D-417)。
+ * 印は startMs から往復し、真ん中を通るのは startMs + sweepMs / 2 + k × sweepMs(往きも帰りも)。
+ * @param {number} tapMs @param {number} startMs @param {number} sweepMs
+ */
+export function measureDeviation(tapMs, startMs, sweepMs) {
+  const k = Math.round((tapMs - startMs - sweepMs / 2) / sweepMs);
+  return tapMs - (startMs + sweepMs / 2 + k * sweepMs);
+}
